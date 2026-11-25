@@ -790,6 +790,7 @@ int loopOptions(
 
                 devModeCounter = 0;
                 redraw = true;
+                continue;
             }
         }
 
@@ -824,44 +825,59 @@ int loopOptions(
         } else
 #endif
         {
-            if (PrevPress || check(UpPress)) {
+            bool upTriggered = check(UpPress);
+            if (upTriggered || PrevPress) {
                 devModeCounter = 0;
-#ifdef HAS_KEYBOARD
+#if defined(HAS_KEYBOARD) || defined(NO_TOUCH_FOOTER)
                 check(PrevPress);
                 int prevEnabled = findNextEnabled(index, -1);
                 if (prevEnabled >= 0) index = prevEnabled;
                 redraw = true;
 #else
-                long _tmp = millis();
-#ifndef HAS_ENCODER // T-Embed doesn't need it
-                LongPress = true;
-                while (PrevPress && menuType != MENU_TYPE_MAIN) {
-                    if (millis() - _tmp > 200)
-                        tft.drawArc(
-                            tftWidth / 2,
-                            tftHeight / 2,
-                            25,
-                            15,
-                            0,
-                            360 * (millis() - (_tmp + 200)) / 500,
-                            getColorVariation(bruceConfig.priColor),
-                            bruceConfig.bgColor
-                        );
-                    vTaskDelay(10 / portTICK_RATE_MS);
-                }
-                tft.drawArc(
-                    tftWidth / 2, tftHeight / 2, 25, 15, 0, 360, bruceConfig.bgColor, bruceConfig.bgColor
-                );
-                LongPress = false;
-#endif
-                if (millis() - _tmp > 700) { // longpress detected to exit
-                    index = -1;
-                    break;
-                } else {
+                if (upTriggered) {
                     check(PrevPress);
                     int prevEnabled = findNextEnabled(index, -1);
                     if (prevEnabled >= 0) index = prevEnabled;
                     redraw = true;
+                } else {
+                    long _tmp = millis();
+                    bool arcDrawn = false;
+#ifndef HAS_ENCODER // T-Embed doesn't need it
+                    LongPress = true;
+                    while (PrevPress && menuType != MENU_TYPE_MAIN) {
+                        if (millis() - _tmp > 200) {
+                            arcDrawn = true;
+                            tft.drawArc(
+                                tftWidth / 2,
+                                tftHeight / 2,
+                                25,
+                                15,
+                                0,
+                                360 * (millis() - (_tmp + 200)) / 500,
+                                getColorVariation(bruceConfig.priColor),
+                                bruceConfig.bgColor
+                            );
+                        }
+                        vTaskDelay(10 / portTICK_RATE_MS);
+                    }
+                    if (arcDrawn) {
+                        tft.drawArc(
+                            tftWidth / 2, tftHeight / 2, 25, 15, 0, 360, bruceConfig.bgColor, bruceConfig.bgColor
+                        );
+                        s_submenuForceFull = true;
+                        firstRender = true;
+                    }
+                    LongPress = false;
+#endif
+                    if (millis() - _tmp > 700) { // longpress detected to exit
+                        index = -1;
+                        break;
+                    } else {
+                        check(PrevPress);
+                        int prevEnabled = findNextEnabled(index, -1);
+                        if (prevEnabled >= 0) index = prevEnabled;
+                        redraw = true;
+                    }
                 }
 #endif
             }

@@ -207,12 +207,12 @@ void setBrightnessMenu() {
         }
 #endif
 
-        if (check(NextPress)) {
+        if (check(NextPress) || check(UpPress)) {
             val += 5;
             if (val > 100) val = 100;
             redraw = true;
         }
-        if (check(PrevPress)) {
+        if (check(PrevPress) || check(DownPress)) {
             val -= 5;
             if (val < 0) val = 0;
             redraw = true;
