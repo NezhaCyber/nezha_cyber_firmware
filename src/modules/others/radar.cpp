@@ -35,6 +35,7 @@ static inline bool radioSafeBleInit(const std::string &name, bool = true) {
 #include "core/utils.h"
 #include "core/wifi/wifi_common.h"
 #include "modules/ble/ble_common.h"
+#include "modules/others/audio.h"
 #include <NimBLEDevice.h>
 #include <TinyGPS++.h>
 #include <WiFi.h>
@@ -47,52 +48,104 @@ static inline bool radioSafeBleInit(const std::string &name, bool = true) {
 namespace {
 
 constexpr size_t RADAR_MAX_TARGETS = 48;
-constexpr uint32_t RADAR_STALE_MS = 28000;
-constexpr uint32_t RADAR_BLE_SCAN_MS = 2200;
+constexpr size_t RADAR_HIST_LEN = 56;
+constexpr uint32_t RADAR_STALE_MS = 30000;
+constexpr uint32_t RADAR_BLE_SCAN_MS = 2100;
 constexpr float RADAR_PI = 3.14159265f;
 constexpr float RADAR_MAX_DIST_M = 30.0f;
 constexpr float RADAR_TRIANGULATE_STEP_M = 2.0f;
 
-// Bright legible RGB565 colors on dark backgrounds
+// Tactical RGB565 palette
+constexpr uint16_t COL_GRID_DIM = 0x0220;    // Deep phosphor green
+constexpr uint16_t COL_GRID_MID = 0x0440;    // Mid phosphor green
+constexpr uint16_t COL_SWEEP_T2 = 0x02E0;    // Sweep trail far
+constexpr uint16_t COL_SWEEP_T1 = 0x0520;    // Sweep trail near
 constexpr uint16_t COL_BLE_SAMSUNG = 0x4C5F; // Sky blue
-constexpr uint16_t COL_BLE_MS = 0x5EBF;      // Light teal
+constexpr uint16_t COL_BLE_MS = 0x5EBF;      // Teal
+constexpr uint16_t COL_ROW_SEL = 0x1A26;     // Dark tactical highlight
 
-enum class RadarMode : uint8_t { BOTH = 0, WIFI_ONLY = 1, BLE_ONLY = 2 };
+// Pentest threat/alert bitmask
+constexpr uint8_t RFLAG_TRACKER = 0x01;   // AirTag / SmartTag / Tile / iBeacon / Eddystone
+constexpr uint8_t RFLAG_EVIL_TWIN = 0x02; // Duplicate SSID across distinct BSSIDs
+constexpr uint8_t RFLAG_HACK_DEV = 0x04;  // Flipper Zero / Pwnagotchi / Espressif dev
+constexpr uint8_t RFLAG_WEAK_SEC = 0x08;  // Open / WEP Wi-Fi
 
+enum class RadarMode : uint8_t { BOTH = 0, WIFI_ONLY = 1, BLE_ONLY = 2, ALERTS_ONLY = 3, OPEN_WIFI = 4 };
+enum class RadarView : uint8_t { SCOPE = 0, TABLE = 1, FOX_SPEC = 2 };
 enum class RadarTargetType : uint8_t { WIFI = 0, BLE = 1 };
 
 enum class RadarCategory : uint8_t {
     WIFI_OPEN = 0,
     WIFI_SECURED = 1,
     WIFI_HIDDEN = 2,
-    BLE_TRACKER = 3,
-    BLE_APPLE = 4,
-    BLE_SAMSUNG = 5,
-    BLE_GOOGLE = 6,
-    BLE_MICROSOFT = 7,
-    BLE_AUDIO_HID = 8,
-    BLE_GENERIC = 9,
+    WIFI_WEP = 3,
+    BLE_TRACKER = 4,
+    BLE_HACK = 5, // Flipper Zero / Pwnagotchi
+    BLE_APPLE = 6,
+    BLE_SAMSUNG = 7,
+    BLE_GOOGLE = 8,
+    BLE_MICROSOFT = 9,
+    BLE_AUDIO_HID = 10,
+    BLE_GENERIC = 11,
 };
+
+struct OuiEntry {
+    uint8_t b0, b1, b2;
+    const char *vendor;
+};
+
+// Compact pentest-focused OUI vendor table in flash
+static const OuiEntry kOuiTable[] PROGMEM = {
+    {0x24, 0x0A, 0xC4, "Espressif"}, {0x30, 0xAE, 0xA4, "Espressif"}, {0xA4, 0xCF, 0x12, "Espressif"},
+    {0xDC, 0xA6, 0x32, "RaspPi"   }, {0xB8, 0x27, 0xEB, "RaspPi"   }, {0xE4, 0x5F, 0x01, "RaspPi"   },
+    {0xD8, 0x3A, 0xDD, "RaspPi"   }, {0x74, 0x83, 0xC2, "Ubiquiti" }, {0x80, 0x2A, 0xA8, "Ubiquiti" },
+    {0xF0, 0x9F, 0xC2, "Ubiquiti" }, {0x00, 0x1A, 0x2B, "Cisco"    }, {0x00, 0x1B, 0xD5, "Cisco"    },
+    {0x50, 0xC7, 0xBF, "TP-Link"  }, {0x98, 0xDA, 0xC4, "TP-Link"  }, {0xC0, 0x25, 0xE9, "TP-Link"  },
+    {0xD4, 0xCA, 0x6D, "MikroTik" }, {0x4C, 0x5E, 0x0C, "MikroTik" }, {0x04, 0xD4, 0xC4, "Asus"     },
+    {0x2C, 0xFD, 0xA1, "Asus"     }, {0x28, 0x6C, 0x07, "Xiaomi"   }, {0x64, 0x09, 0x80, "Xiaomi"   },
+    {0x00, 0xE0, 0xFC, "Huawei"   }, {0x48, 0x46, 0xFB, "Huawei"   }, {0x3C, 0x22, 0xFB, "Apple"    },
+    {0xAC, 0xBC, 0x32, "Apple"    }, {0xF0, 0x18, 0x98, "Apple"    }, {0x00, 0x12, 0xFB, "Samsung"  },
+    {0x5C, 0x0A, 0x5B, "Samsung"  }, {0xF4, 0xF5, 0xD8, "Google"   }, {0x3C, 0x5A, 0xB4, "Google"   },
+    {0x20, 0xF8, 0x5E, "Netgear"  }, {0xA0, 0x40, 0xA0, "Netgear"  }, {0x60, 0x60, 0x1F, "DJI"      },
+    {0x34, 0xD2, 0x62, "DJI"      }, {0x44, 0x19, 0xB6, "Hikvisn"  }, {0xBC, 0xAD, 0x28, "Hikvisn"  },
+    {0x80, 0xE1, 0x26, "Flipper"  }, {0xDE, 0xAD, 0xBE, "Pwnagtch" }, {0x4C, 0xFC, 0xAA, "Tesla"    },
+    {0x90, 0x84, 0x0D, "Apple"    }, {0x00, 0x17, 0x88, "Hue"      }, {0x38, 0xF7, 0x3D, "Amazon"   },
+};
+
+static const char *lookupOuiVendor(const uint8_t mac[6]) {
+    for (size_t i = 0; i < sizeof(kOuiTable) / sizeof(kOuiTable[0]); ++i) {
+        if (pgm_read_byte(&kOuiTable[i].b0) == mac[0] && pgm_read_byte(&kOuiTable[i].b1) == mac[1] &&
+            pgm_read_byte(&kOuiTable[i].b2) == mac[2]) {
+            return (const char *)pgm_read_ptr(&kOuiTable[i].vendor);
+        }
+    }
+    return nullptr;
+}
 
 struct RadarTarget {
     bool active = false;
     RadarTargetType type = RadarTargetType::WIFI;
     RadarCategory category = RadarCategory::BLE_GENERIC;
+    uint8_t flags = 0;
     uint8_t mac[6] = {0};
     char name[22] = {0};
     char subtype[14] = {0};
     int8_t rssi = -100;
-    int8_t refRssi1m = -59; // Calibrated 1m RSSI reference for distance estimation
+    int8_t prevRssi = -100;
+    int8_t peakRssi = -100;
+    int8_t refRssi1m = -59;
     uint8_t channel = 0;
     uint8_t authMode = 0;
+    uint16_t seenCount = 0;
     float angleRad = 0.0f;
     float distM = 10.0f;
     bool hasTriangulated = false;
-    float relX = 0.0f; // Relative meters (+East)
-    float relY = 0.0f; // Relative meters (+North)
+    float relX = 0.0f;
+    float relY = 0.0f;
     bool hasGps = false;
     double lat = 0.0;
     double lon = 0.0;
+    uint32_t firstSeenMs = 0;
     uint32_t lastSeenMs = 0;
 };
 
@@ -103,8 +156,17 @@ struct RadarContext {
     uint8_t lockedMac[6] = {0};
     RadarTargetType lockedType = RadarTargetType::WIFI;
     bool showLabels = true;
+    bool geigerAudio = false;
+    int tableCursor = 0;
+    int tableScroll = 0;
 
-    // Optional live GPS state (non-blocking)
+    // Rolling RSSI sparkline history for Fox-Hunt mode
+    int8_t foxHist[RADAR_HIST_LEN] = {0};
+    size_t foxHistCount = 0;
+    int8_t foxPeakRssi = -100;
+    uint32_t lastGeigerMs = 0;
+
+    // Optional live GPS state
     bool gpsStarted = false;
     bool gpsFix = false;
     double gpsLat = 0.0;
@@ -130,7 +192,6 @@ static String formatMac(const uint8_t mac[6]) {
 }
 
 static float estimateDistanceM(int8_t rssi, int8_t ref1m) {
-    // Log-distance path loss: d = 10 ^ ((RSSI_1m - RSSI) / (10 * n)), n = 2.5
     float exponent = (float)(ref1m - rssi) / 25.0f;
     float d = powf(10.0f, exponent);
     if (d < 0.2f) d = 0.2f;
@@ -145,6 +206,14 @@ static String formatDistShort(float d) {
     return String(buf);
 }
 
+static String formatDwell(uint32_t firstMs, uint32_t nowMs) {
+    uint32_t sec = (nowMs >= firstMs) ? (nowMs - firstMs) / 1000u : 0;
+    char buf[10];
+    if (sec < 60) snprintf(buf, sizeof(buf), "%lus", (unsigned long)sec);
+    else snprintf(buf, sizeof(buf), "%lum", (unsigned long)(sec / 60));
+    return String(buf);
+}
+
 static const char *bearingToCardinal(float deg) {
     static const char *dirs[8] = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
     int idx = (int)floorf((deg + 22.5f) / 45.0f) & 7;
@@ -152,18 +221,20 @@ static const char *bearingToCardinal(float deg) {
 }
 
 static float vectorToBearingDeg(float dx, float dy) {
-    // 0 deg = North (+Y), 90 deg = East (+X)
     float deg = atan2f(dx, dy) * (180.0f / RADAR_PI);
     if (deg < 0.0f) deg += 360.0f;
     return deg;
 }
 
-static uint16_t categoryColor(RadarCategory cat) {
+static uint16_t categoryColor(RadarCategory cat, uint8_t flags = 0) {
+    if (flags & RFLAG_EVIL_TWIN) return TFT_RED;
     switch (cat) {
         case RadarCategory::WIFI_OPEN: return TFT_GREEN;
+        case RadarCategory::WIFI_WEP: return TFT_RED;
         case RadarCategory::WIFI_SECURED: return TFT_CYAN;
         case RadarCategory::WIFI_HIDDEN: return TFT_YELLOW;
         case RadarCategory::BLE_TRACKER: return TFT_RED;
+        case RadarCategory::BLE_HACK: return TFT_ORANGE;
         case RadarCategory::BLE_APPLE: return TFT_WHITE;
         case RadarCategory::BLE_SAMSUNG: return COL_BLE_SAMSUNG;
         case RadarCategory::BLE_GOOGLE: return TFT_ORANGE;
@@ -176,9 +247,11 @@ static uint16_t categoryColor(RadarCategory cat) {
 static const char *categoryName(RadarCategory cat) {
     switch (cat) {
         case RadarCategory::WIFI_OPEN: return "Open WiFi";
+        case RadarCategory::WIFI_WEP: return "WEP WiFi";
         case RadarCategory::WIFI_SECURED: return "Secured WiFi";
         case RadarCategory::WIFI_HIDDEN: return "Hidden AP";
         case RadarCategory::BLE_TRACKER: return "Tracker/Beacon";
+        case RadarCategory::BLE_HACK: return "RF Tool / Hack";
         case RadarCategory::BLE_APPLE: return "Apple BLE";
         case RadarCategory::BLE_SAMSUNG: return "Samsung BLE";
         case RadarCategory::BLE_GOOGLE: return "Google BLE";
@@ -205,12 +278,33 @@ static const char *wifiAuthShort(uint8_t auth) {
 static String targetDisplayName(const RadarTarget &t) {
     if (t.name[0] != '\0') return String(t.name);
     if (t.subtype[0] != '\0') return String(t.subtype);
+    const char *oui = lookupOuiVendor(t.mac);
+    if (oui) return String(oui);
     return formatMac(t.mac).substring(9);
 }
 
-static void drawCategoryGlyph(int x, int y, RadarCategory cat, uint16_t col) {
+static String targetShortTag(const RadarTarget &t) {
+    if (t.flags & RFLAG_EVIL_TWIN) return "TWIN";
+    if (t.flags & RFLAG_HACK_DEV) return "HACK";
+    if (t.type == RadarTargetType::WIFI) {
+        char buf[10];
+        snprintf(buf, sizeof(buf), "C%u %s", (unsigned)t.channel, wifiAuthShort(t.authMode));
+        return String(buf);
+    }
+    if (t.subtype[0]) return String(t.subtype);
+    const char *oui = lookupOuiVendor(t.mac);
+    return oui ? String(oui) : String("BLE");
+}
+
+static void drawCategoryGlyph(int x, int y, RadarCategory cat, uint16_t col, uint8_t flags = 0) {
+    if (flags & RFLAG_EVIL_TWIN) {
+        tft.drawRect(x - 4, y - 4, 9, 9, TFT_RED);
+        tft.fillRect(x - 2, y - 2, 5, 5, TFT_YELLOW);
+        return;
+    }
     switch (cat) {
         case RadarCategory::WIFI_OPEN:
+        case RadarCategory::WIFI_WEP:
         case RadarCategory::WIFI_SECURED:
             tft.fillRect(x - 2, y - 2, 5, 5, col);
             break;
@@ -218,13 +312,12 @@ static void drawCategoryGlyph(int x, int y, RadarCategory cat, uint16_t col) {
             tft.fillTriangle(x, y - 3, x - 3, y + 2, x + 3, y + 2, col);
             break;
         case RadarCategory::BLE_TRACKER:
-            // Highlighted diamond + outer alert halo for AirTag/SmartTag/Tile/iBeacon
-            tft.drawCircle(x, y, 4, TFT_ORANGE);
+        case RadarCategory::BLE_HACK:
+            tft.drawCircle(x, y, 4, (cat == RadarCategory::BLE_HACK) ? TFT_YELLOW : TFT_ORANGE);
             tft.fillTriangle(x, y - 3, x - 3, y, x + 3, y, col);
             tft.fillTriangle(x, y + 3, x - 3, y, x + 3, y, col);
             break;
         case RadarCategory::BLE_APPLE:
-            // White diamond for Apple Continuity devices
             tft.fillTriangle(x, y - 3, x - 3, y, x + 3, y, col);
             tft.fillTriangle(x, y + 3, x - 3, y, x + 3, y, col);
             break;
@@ -235,19 +328,46 @@ static void drawCategoryGlyph(int x, int y, RadarCategory cat, uint16_t col) {
 }
 
 static void classifyBleDevice(
-    const NimBLEAdvertisedDevice *dev, RadarCategory &cat, char *subtypeBuf, size_t subtypeSz, int8_t &ref1m
+    const NimBLEAdvertisedDevice *dev, const uint8_t mac[6], const std::string &nm, RadarCategory &cat,
+    uint8_t &flags, char *subtypeBuf, size_t subtypeSz, int8_t &ref1m
 ) {
     cat = RadarCategory::BLE_GENERIC;
+    flags = 0;
     subtypeBuf[0] = '\0';
     ref1m = -59;
 
-    // 1) Advertised TX Power (0m TX power -> approximate 1m RSSI by subtracting ~41 dB)
     if (dev->haveTXPower()) {
         int8_t tx = dev->getTXPower();
         if (tx >= -20 && tx <= 20) ref1m = (int8_t)constrain((int)tx - 41, -78, -35);
     }
 
-    // 2) Manufacturer data (Company ID + Apple Continuity / iBeacon decoding)
+    // Check known RF/pentest hardware by name or OUI (Flipper Zero, Pwnagotchi, Espressif)
+    if (!nm.empty()) {
+        if (nm.find("Flipper") != std::string::npos) {
+            cat = RadarCategory::BLE_HACK;
+            flags |= RFLAG_HACK_DEV;
+            strncpy(subtypeBuf, "Flipper", subtypeSz - 1);
+        } else if (nm.find("pwn") != std::string::npos || nm.find("Pwn") != std::string::npos) {
+            cat = RadarCategory::BLE_HACK;
+            flags |= RFLAG_HACK_DEV;
+            strncpy(subtypeBuf, "Pwnagotchi", subtypeSz - 1);
+        }
+    }
+    const char *oui = lookupOuiVendor(mac);
+    if (oui) {
+        if (strcmp(oui, "Flipper") == 0) {
+            cat = RadarCategory::BLE_HACK;
+            flags |= RFLAG_HACK_DEV;
+            strncpy(subtypeBuf, "Flipper", subtypeSz - 1);
+        } else if (strcmp(oui, "Pwnagtch") == 0) {
+            cat = RadarCategory::BLE_HACK;
+            flags |= RFLAG_HACK_DEV;
+            strncpy(subtypeBuf, "Pwnagotchi", subtypeSz - 1);
+        } else if (!subtypeBuf[0]) {
+            strncpy(subtypeBuf, oui, subtypeSz - 1);
+        }
+    }
+
     if (dev->haveManufacturerData()) {
         std::string mfg = dev->getManufacturerData();
         if (mfg.size() >= 2) {
@@ -259,11 +379,13 @@ static void classifyBleDevice(
                     uint8_t appleType = (uint8_t)mfg[2];
                     if (appleType == 0x02 && mfg.size() >= 25 && (uint8_t)mfg[3] == 0x15) {
                         cat = RadarCategory::BLE_TRACKER;
+                        flags |= RFLAG_TRACKER;
                         strncpy(subtypeBuf, "iBeacon", subtypeSz - 1);
                         int8_t cal = (int8_t)mfg[24];
                         if (cal >= -90 && cal <= -30) ref1m = cal;
                     } else if (appleType == 0x12) {
                         cat = RadarCategory::BLE_TRACKER;
+                        flags |= RFLAG_TRACKER;
                         strncpy(subtypeBuf, "AirTag", subtypeSz - 1);
                     } else if (appleType == 0x07) {
                         cat = RadarCategory::BLE_AUDIO_HID;
@@ -300,23 +422,33 @@ static void classifyBleDevice(
         }
     }
 
-    // 3) Known BLE service UUIDs & service-data UUIDs (SmartTag, Tile, Eddystone, FastPair, HID)
     auto checkUuid = [&](const NimBLEUUID &u) {
         if (u.bitSize() != 16) return;
-        std::string s = u.toString(); // e.g. "0xfd5a" or "fd5a"
+        std::string s = u.toString();
         unsigned int val = 0;
         if (sscanf(s.c_str(), "0x%x", &val) != 1 && sscanf(s.c_str(), "%x", &val) != 1) return;
         switch (val) {
+            case 0x3080:
+            case 0x3081:
+            case 0x3082:
+            case 0x3083:
+                cat = RadarCategory::BLE_HACK;
+                flags |= RFLAG_HACK_DEV;
+                strncpy(subtypeBuf, "Flipper", subtypeSz - 1);
+                break;
             case 0xFD5A:
                 cat = RadarCategory::BLE_TRACKER;
+                flags |= RFLAG_TRACKER;
                 strncpy(subtypeBuf, "SmartTag", subtypeSz - 1);
                 break;
             case 0xFEED:
                 cat = RadarCategory::BLE_TRACKER;
+                flags |= RFLAG_TRACKER;
                 strncpy(subtypeBuf, "Tile", subtypeSz - 1);
                 break;
             case 0xFEAA:
                 cat = RadarCategory::BLE_TRACKER;
+                flags |= RFLAG_TRACKER;
                 strncpy(subtypeBuf, "Eddystone", subtypeSz - 1);
                 break;
             case 0xFE2C:
@@ -346,7 +478,6 @@ static void classifyBleDevice(
     uint8_t sdCnt = dev->getServiceDataCount();
     for (uint8_t i = 0; i < sdCnt && i < 4; ++i) checkUuid(dev->getServiceDataUUID(i));
 
-    // 4) Appearance fallback if still generic
     if (cat == RadarCategory::BLE_GENERIC && dev->haveAppearance()) {
         uint16_t group = dev->getAppearance() >> 6;
         if (group == 15) {
@@ -365,8 +496,8 @@ static void classifyBleDevice(
 }
 
 static void radarUpsertTarget(
-    RadarContext *ctx, RadarTargetType type, RadarCategory cat, const uint8_t mac[6], const char *name,
-    const char *subtype, int8_t rssi, int8_t ref1m, uint8_t channel, uint8_t authMode
+    RadarContext *ctx, RadarTargetType type, RadarCategory cat, uint8_t flags, const uint8_t mac[6],
+    const char *name, const char *subtype, int8_t rssi, int8_t ref1m, uint8_t channel, uint8_t authMode
 ) {
     if (!ctx || !ctx->targets) return;
     uint32_t now = millis();
@@ -396,7 +527,11 @@ static void radarUpsertTarget(
     int idx = (matchIdx >= 0) ? matchIdx : ((freeIdx >= 0) ? freeIdx : oldestIdx);
     RadarTarget &slot = ctx->targets[idx];
     if (matchIdx >= 0) {
+        slot.prevRssi = slot.rssi;
         slot.rssi = (int8_t)((slot.rssi * 3 + rssi * 5) / 8);
+        if (rssi > slot.peakRssi) slot.peakRssi = rssi;
+        if (slot.seenCount < 65535) ++slot.seenCount;
+        slot.flags |= flags;
         if (cat != RadarCategory::BLE_GENERIC || slot.category == RadarCategory::BLE_GENERIC) {
             slot.category = cat;
         }
@@ -405,16 +540,28 @@ static void radarUpsertTarget(
         slot.active = true;
         slot.type = type;
         slot.category = cat;
+        slot.flags = flags;
         memcpy(slot.mac, mac, 6);
         slot.rssi = rssi;
-        slot.angleRad = macToAngleRad(mac);
+        slot.prevRssi = rssi;
+        slot.peakRssi = rssi;
+        slot.seenCount = 1;
+        slot.firstSeenMs = now;
+        // Map Wi-Fi targets loosely by channel sector so channel clusters stand out on scope
+        if (type == RadarTargetType::WIFI && channel >= 1 && channel <= 14) {
+            float chBase = ((float)(channel - 1) / 14.0f) * 2.0f * RADAR_PI;
+            float jitter = fmodf(macToAngleRad(mac), (2.0f * RADAR_PI / 14.0f));
+            slot.angleRad = chBase + jitter;
+        } else {
+            slot.angleRad = macToAngleRad(mac);
+        }
     }
 
     slot.refRssi1m = ref1m;
     slot.distM = estimateDistanceM(slot.rssi, slot.refRssi1m);
     if (!slot.hasTriangulated) {
         slot.relX = slot.distM * cosf(slot.angleRad);
-        slot.relY = -slot.distM * sinf(slot.angleRad); // Screen -Y = North (+Y)
+        slot.relY = -slot.distM * sinf(slot.angleRad);
     }
 
     if (name && name[0] != '\0') {
@@ -438,25 +585,52 @@ static void radarUpsertTarget(
     portEXIT_CRITICAL(&ctx->mux);
 }
 
+// Flag Wi-Fi Evil-Twin / duplicate SSID anomalies (same SSID with mismatched encryption!)
+static void detectEvilTwins(RadarContext &ctx) {
+    portENTER_CRITICAL(&ctx.mux);
+    for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
+        ctx.targets[i].flags &= ~RFLAG_EVIL_TWIN;
+    }
+    for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
+        RadarTarget &a = ctx.targets[i];
+        if (!a.active || a.type != RadarTargetType::WIFI || a.name[0] == '\0') continue;
+        for (size_t j = i + 1; j < RADAR_MAX_TARGETS; ++j) {
+            RadarTarget &b = ctx.targets[j];
+            if (!b.active || b.type != RadarTargetType::WIFI || b.name[0] == '\0') continue;
+            if (strcmp(a.name, b.name) == 0 && memcmp(a.mac, b.mac, 6) != 0) {
+                // Flag when one is OPEN while the other is encrypted (classic Evil Twin / Karma signature)
+                bool authMismatch =
+                    (a.authMode == WIFI_AUTH_OPEN) != (b.authMode == WIFI_AUTH_OPEN);
+                if (authMismatch) {
+                    a.flags |= RFLAG_EVIL_TWIN;
+                    b.flags |= RFLAG_EVIL_TWIN;
+                }
+            }
+        }
+    }
+    portEXIT_CRITICAL(&ctx.mux);
+}
+
 class RadarBleCallbacks : public NimBLEScanCallbacks {
     void onResult(const NimBLEAdvertisedDevice *dev) override {
         if (!dev || !s_radarCtx) return;
         const NimBLEAddress addr = dev->getAddress();
         const uint8_t *raw = addr.getVal();
         uint8_t mac[6];
-        // NimBLE stores address bytes in little-endian order
         for (int i = 0; i < 6; ++i) mac[i] = raw[5 - i];
 
+        std::string nm = dev->getName();
         RadarCategory cat = RadarCategory::BLE_GENERIC;
+        uint8_t flags = 0;
         char subtype[14] = {0};
         int8_t ref1m = -59;
-        classifyBleDevice(dev, cat, subtype, sizeof(subtype), ref1m);
+        classifyBleDevice(dev, mac, nm, cat, flags, subtype, sizeof(subtype), ref1m);
 
-        std::string nm = dev->getName();
         radarUpsertTarget(
             s_radarCtx,
             RadarTargetType::BLE,
             cat,
+            flags,
             mac,
             nm.empty() ? "" : nm.c_str(),
             subtype,
@@ -471,7 +645,6 @@ class RadarBleCallbacks : public NimBLEScanCallbacks {
 static RadarBleCallbacks s_radarBleCb;
 
 static int distToRadius(float distM, int maxR) {
-    // Log-compressed distance scale so 0.5m..8m gets generous visual clarity
     float norm = log10f(1.0f + constrain(distM, 0.2f, RADAR_MAX_DIST_M)) / log10f(1.0f + RADAR_MAX_DIST_M);
     int r = (int)(norm * (float)(maxR - 6)) + 4;
     return constrain(r, 4, maxR - 3);
@@ -481,6 +654,8 @@ static const char *modeLabel(RadarMode mode) {
     switch (mode) {
         case RadarMode::WIFI_ONLY: return "Filter: WiFi";
         case RadarMode::BLE_ONLY: return "Filter: BLE";
+        case RadarMode::ALERTS_ONLY: return "Filter: Alerts";
+        case RadarMode::OPEN_WIFI: return "Filter: Open/WEP";
         default: return "Filter: Both";
     }
 }
@@ -489,7 +664,17 @@ static const char *modeShort(RadarMode mode) {
     switch (mode) {
         case RadarMode::WIFI_ONLY: return "WIFI";
         case RadarMode::BLE_ONLY: return "BLE";
+        case RadarMode::ALERTS_ONLY: return "ALRT";
+        case RadarMode::OPEN_WIFI: return "OPEN";
         default: return "W+B";
+    }
+}
+
+static const char *viewName(RadarView v, bool hasLocked) {
+    switch (v) {
+        case RadarView::TABLE: return "Intel Table";
+        case RadarView::FOX_SPEC: return hasLocked ? "Fox-Hunt" : "2.4G Spectrum";
+        default: return "Tactical Radar";
     }
 }
 
@@ -508,14 +693,22 @@ static void pruneStaleTargets(RadarContext &ctx) {
     portEXIT_CRITICAL(&ctx.mux);
 }
 
-static std::vector<RadarTarget> snapshotVisibleTargets(RadarContext &ctx, RadarMode mode) {
+static std::vector<RadarTarget> snapshotTargets(RadarContext &ctx, RadarMode mode, bool ignoreFilter = false) {
     std::vector<RadarTarget> list;
     portENTER_CRITICAL(&ctx.mux);
     for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
         const RadarTarget &t = ctx.targets[i];
         if (!t.active) continue;
-        if (mode == RadarMode::WIFI_ONLY && t.type != RadarTargetType::WIFI) continue;
-        if (mode == RadarMode::BLE_ONLY && t.type != RadarTargetType::BLE) continue;
+        if (!ignoreFilter) {
+            if (mode == RadarMode::WIFI_ONLY && t.type != RadarTargetType::WIFI) continue;
+            if (mode == RadarMode::BLE_ONLY && t.type != RadarTargetType::BLE) continue;
+            if (mode == RadarMode::ALERTS_ONLY && (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) == 0)
+                continue;
+            if (mode == RadarMode::OPEN_WIFI &&
+                !(t.type == RadarTargetType::WIFI &&
+                  (t.category == RadarCategory::WIFI_OPEN || t.category == RadarCategory::WIFI_WEP)))
+                continue;
+        }
         list.push_back(t);
     }
     portEXIT_CRITICAL(&ctx.mux);
@@ -525,40 +718,56 @@ static std::vector<RadarTarget> snapshotVisibleTargets(RadarContext &ctx, RadarM
     return list;
 }
 
+static void lockOnTarget(RadarContext &ctx, const RadarTarget &t) {
+    ctx.hasLocked = true;
+    ctx.lockedType = t.type;
+    memcpy(ctx.lockedMac, t.mac, 6);
+    ctx.foxHistCount = 0;
+    ctx.foxPeakRssi = t.rssi;
+}
+
+// =====================================================================
+// VIEW 0: TACTICAL PPI RADAR SCOPE + SIDE INTEL HUD
+// =====================================================================
 static void drawRadarScope(
     int cx, int cy, int r, float sweepRad, const std::vector<RadarTarget> &list, const RadarContext &ctx
 ) {
-    const uint16_t ringCol = TFT_DARKGREEN;
     const uint16_t bg = bruceConfig.bgColor;
+    tft.fillCircle(cx, cy, r + 2, bg);
 
-    // Clear scope disc cleanly
-    tft.fillCircle(cx, cy, r + 1, bg);
-
-    // Distance-calibrated concentric rings (2m, 8m, 30m) + crosshairs
+    // Distance-calibrated range rings (2m, 8m, 30m) + 30-degree compass bezel ticks
     int r2 = distToRadius(2.0f, r);
     int r8 = distToRadius(8.0f, r);
-    tft.drawCircle(cx, cy, r, ringCol);
-    tft.drawCircle(cx, cy, r8, ringCol);
-    tft.drawCircle(cx, cy, r2, ringCol);
-    tft.drawFastHLine(cx - r, cy, 2 * r + 1, ringCol);
-    tft.drawFastVLine(cx, cy - r, 2 * r + 1, ringCol);
+    tft.drawCircle(cx, cy, r, COL_GRID_MID);
+    tft.drawCircle(cx, cy, r8, COL_GRID_DIM);
+    tft.drawCircle(cx, cy, r2, COL_GRID_DIM);
+    tft.drawFastHLine(cx - r, cy, 2 * r + 1, COL_GRID_DIM);
+    tft.drawFastVLine(cx, cy - r, 2 * r + 1, COL_GRID_DIM);
 
-    // Subtle distance ring labels on larger scopes
-    if (r >= 52) {
+    for (int deg = 0; deg < 360; deg += 30) {
+        float a = (float)deg * (RADAR_PI / 180.0f);
+        int tickLen = (deg % 90 == 0) ? 5 : 3;
+        int x1 = cx + (int)(cosf(a) * r);
+        int y1 = cy + (int)(sinf(a) * r);
+        int x2 = cx + (int)(cosf(a) * (r - tickLen));
+        int y2 = cy + (int)(sinf(a) * (r - tickLen));
+        tft.drawLine(x1, y1, x2, y2, (deg % 90 == 0) ? TFT_DARKGREEN : COL_GRID_MID);
+    }
+
+    if (r >= 48) {
         tft.setTextSize(1);
         tft.setTextColor(TFT_DARKGREEN, bg);
+        tft.drawString("N", cx - 2, cy - r + 6, 1);
         tft.drawString("2m", cx + 2, cy - r2 + 1, 1);
         tft.drawString("8m", cx + 2, cy - r8 + 1, 1);
     }
 
-    // Rotating sweep beam
-    float trailRad = sweepRad - 0.14f;
-    tft.drawLine(
-        cx, cy, cx + (int)(cosf(trailRad) * (r - 2)), cy + (int)(sinf(trailRad) * (r - 2)), TFT_DARKGREEN
-    );
-    tft.drawLine(
-        cx, cy, cx + (int)(cosf(sweepRad) * (r - 1)), cy + (int)(sinf(sweepRad) * (r - 1)), TFT_GREEN
-    );
+    // Phosphor-fade 3-ray sweep wedge
+    float t2 = sweepRad - 0.24f;
+    float t1 = sweepRad - 0.11f;
+    tft.drawLine(cx, cy, cx + (int)(cosf(t2) * (r - 2)), cy + (int)(sinf(t2) * (r - 2)), COL_SWEEP_T2);
+    tft.drawLine(cx, cy, cx + (int)(cosf(t1) * (r - 2)), cy + (int)(sinf(t1) * (r - 2)), COL_SWEEP_T1);
+    tft.drawLine(cx, cy, cx + (int)(cosf(sweepRad) * (r - 1)), cy + (int)(sinf(sweepRad) * (r - 1)), TFT_GREEN);
 
     struct LabelRect {
         int x, y, w, h;
@@ -590,7 +799,6 @@ static void drawRadarScope(
         tft.drawString(tag, lx, ly, 1);
     };
 
-    // Plot blips (farthest first so closest & locked stay on top)
     for (int i = (int)list.size() - 1; i >= 0; --i) {
         const RadarTarget &t = list[i];
         int distPx = distToRadius(t.distM, r);
@@ -599,19 +807,21 @@ static void drawRadarScope(
         int by = cy + (int)(sinf(drawAngle) * distPx);
 
         bool locked = ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0;
-        uint16_t col = categoryColor(t.category);
+        uint16_t col = categoryColor(t.category, t.flags);
         if (locked) {
             tft.drawLine(cx, cy, bx, by, TFT_YELLOW);
-            tft.drawCircle(bx, by, 5, TFT_RED);
-            tft.fillCircle(bx, by, 2, TFT_YELLOW);
+            tft.drawCircle(bx, by, 6, TFT_RED);
+            tft.drawCircle(bx, by, 4, TFT_YELLOW);
+            tft.fillCircle(bx, by, 2, TFT_WHITE);
             tryDrawCallout(bx, by, t, TFT_YELLOW, true);
         } else {
-            drawCategoryGlyph(bx, by, t.category, col);
-            if (i < 4) tryDrawCallout(bx, by, t, col, false);
+            drawCategoryGlyph(bx, by, t.category, col, t.flags);
+            if (i < 4 || (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV))) {
+                tryDrawCallout(bx, by, t, col, (t.flags & (RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) != 0);
+            }
         }
     }
 
-    // Center scanner origin
     tft.fillCircle(cx, cy, 2, TFT_WHITE);
 }
 
@@ -626,17 +836,15 @@ static void drawRadarHud(
     const int lineStep = (FP == 1 && bruce_i18n::isChinese()) ? 13 : (LH + 2);
     const int maxChars = max(6, hudW / LW);
 
-    int wifiCnt = 0, bleCnt = 0, trackerCnt = 0;
+    int wifiCnt = 0, bleCnt = 0, alertCnt = 0;
     const RadarTarget *lockedTarget = nullptr;
     float anchorSumX = 0.0f, anchorSumY = 0.0f;
     int anchorCnt = 0;
 
     for (const auto &t : list) {
-        if (t.type == RadarTargetType::WIFI) {
-            ++wifiCnt;
-        } else {
+        if (t.type == RadarTargetType::WIFI) ++wifiCnt;
+        else {
             ++bleCnt;
-            if (t.category == RadarCategory::BLE_TRACKER) ++trackerCnt;
             if (anchorCnt < 6) {
                 float w = 1.0f / max(0.5f, t.distM);
                 anchorSumX += t.relX * w;
@@ -644,20 +852,25 @@ static void drawRadarHud(
                 ++anchorCnt;
             }
         }
+        if (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) ++alertCnt;
         if (ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0) {
             lockedTarget = &t;
         }
     }
 
     int y = hudY;
-    // Header: Mode + active radio + COEX/TS indicator
+    // Header: Mode + active radio + CX/TS + Alert badge
     tft.setTextColor(bruceConfig.priColor, bg);
     String radioBadge = scanningWifi ? "[W*]" : (scanningBle ? "[B*]" : "[..]");
     String hdr = String(modeShort(mode)) + " " + radioBadge + (timeSliced ? " TS" : " CX");
     tft.drawString(hdr, hudX, y, 1);
+    if (alertCnt > 0) {
+        tft.setTextColor(TFT_RED, bg);
+        tft.drawRightString("!" + String(alertCnt), hudX + hudW - 1, y, 1);
+    }
     y += LH + 2;
 
-    // Live GPS or BLE-Anchor location status line
+    // Live GPS or BLE-anchor fix line
     tft.setTextColor(ctx.gpsFix ? TFT_GREEN : TFT_LIGHTGREY, bg);
     char locLine[32];
     if (ctx.gpsFix) {
@@ -666,7 +879,7 @@ static void drawRadarHud(
         snprintf(
             locLine,
             sizeof(locLine),
-            "BLE:%d (%.1f,%.1f)m",
+            "REF:%d (%.1f,%.1f)m",
             anchorCnt,
             anchorSumX / anchorCnt,
             anchorSumY / anchorCnt
@@ -674,12 +887,10 @@ static void drawRadarHud(
     } else {
         snprintf(locLine, sizeof(locLine), "Loc: scanning...");
     }
-    String locStr(locLine);
-    if ((int)locStr.length() > maxChars) locStr = locStr.substring(0, maxChars);
-    tft.drawString(locStr, hudX, y, 1);
+    tft.drawString(String(locLine).substring(0, maxChars), hudX, y, 1);
     y += LH + 2;
 
-    // Compact legend + live counts
+    // Live radio counts bar
     tft.fillRect(hudX, y + 1, 5, 5, TFT_CYAN);
     tft.setTextColor(TFT_CYAN, bg);
     tft.drawString("W:" + String(wifiCnt), hudX + 7, y, 1);
@@ -689,12 +900,12 @@ static void drawRadarHud(
     tft.setTextColor(TFT_MAGENTA, bg);
     tft.drawString("B:" + String(bleCnt), col2 + 7, y, 1);
 
-    if (hudW >= 120) {
+    if (hudW >= 116) {
         int col3 = hudX + (hudW * 2) / 3 + 2;
         tft.fillTriangle(col3 + 2, y, col3, y + 3, col3 + 4, y + 3, TFT_RED);
         tft.fillTriangle(col3 + 2, y + 6, col3, y + 3, col3 + 4, y + 3, TFT_RED);
-        tft.setTextColor(TFT_RED, bg);
-        tft.drawString("T:" + String(trackerCnt), col3 + 7, y, 1);
+        tft.setTextColor(alertCnt > 0 ? TFT_RED : TFT_DARKGREY, bg);
+        tft.drawString("A:" + String(alertCnt), col3 + 7, y, 1);
     }
     y += LH + 3;
 
@@ -707,8 +918,8 @@ static void drawRadarHud(
         y += lineStep;
 
         if (lockedTarget) {
-            uint16_t catCol = categoryColor(lockedTarget->category);
-            drawCategoryGlyph(hudX + 3, y + 3, lockedTarget->category, catCol);
+            uint16_t catCol = categoryColor(lockedTarget->category, lockedTarget->flags);
+            drawCategoryGlyph(hudX + 3, y + 3, lockedTarget->category, catCol, lockedTarget->flags);
             tft.setTextColor(catCol, bg);
             String catTag = bruce_i18n::tr(categoryName(lockedTarget->category));
             catTag = bruce_i18n::utf8TruncateToWidth(catTag, hudW - 10, FP);
@@ -716,24 +927,25 @@ static void drawRadarHud(
             y += lineStep;
 
             String label = targetDisplayName(*lockedTarget);
-            if ((int)label.length() > maxChars) label = label.substring(0, maxChars);
             tft.setTextColor(TFT_WHITE, bg);
-            tft.drawString(label, hudX, y, 1);
+            tft.drawString(label.substring(0, maxChars), hudX, y, 1);
             y += LH + 2;
 
-            // Distance + RSSI
+            // Distance + RSSI + trend arrow
             int pct = constrain((lockedTarget->rssi + 95) * 100 / 60, 0, 100);
             uint16_t barCol = (pct > 66) ? TFT_GREEN : ((pct > 33) ? TFT_YELLOW : TFT_RED);
+            char trend = (lockedTarget->rssi > lockedTarget->prevRssi + 1)
+                             ? '+'
+                             : ((lockedTarget->rssi < lockedTarget->prevRssi - 1) ? '-' : '=');
             tft.setTextColor(barCol, bg);
             tft.drawString(
-                formatDistShort(lockedTarget->distM) + "  " + String(lockedTarget->rssi) + "dBm",
+                formatDistShort(lockedTarget->distM) + " " + String(lockedTarget->rssi) + "dB " + trend,
                 hudX,
                 y,
                 1
             );
             y += LH + 2;
 
-            // Relative (X, Y) coordinates + bearing if triangulated
             char coordBuf[32];
             if (lockedTarget->hasTriangulated) {
                 float brg = vectorToBearingDeg(lockedTarget->relX, lockedTarget->relY);
@@ -746,13 +958,18 @@ static void drawRadarHud(
                     bearingToCardinal(brg)
                 );
             } else {
-                snprintf(coordBuf, sizeof(coordBuf), "X%+.1f Y%+.1fm", lockedTarget->relX, lockedTarget->relY);
+                snprintf(
+                    coordBuf,
+                    sizeof(coordBuf),
+                    "PK:%d %s",
+                    (int)lockedTarget->peakRssi,
+                    formatDwell(lockedTarget->firstSeenMs, millis()).c_str()
+                );
             }
             tft.setTextColor(TFT_LIGHTGREY, bg);
             tft.drawString(String(coordBuf).substring(0, maxChars), hudX, y, 1);
             y += LH + 3;
 
-            // Proximity bar
             if (y + 10 <= hudY + hudH) {
                 tft.drawRect(hudX, y, hudW - 2, 9, bruceConfig.secColor);
                 int fillW = ((hudW - 4) * pct) / 100;
@@ -765,15 +982,17 @@ static void drawRadarHud(
         return;
     }
 
-    // Closest devices list with category glyph, name/type, and distance in meters
+    // Closest targets with category glyph, trend, and meters
     int rowH = LH + 2;
     int maxRows = max(1, (hudY + hudH - y - 2) / rowH);
     for (int i = 0; i < (int)list.size() && i < maxRows; ++i) {
         const RadarTarget &t = list[i];
-        uint16_t col = categoryColor(t.category);
-        drawCategoryGlyph(hudX + 3, y + 3, t.category, col);
+        uint16_t col = categoryColor(t.category, t.flags);
+        drawCategoryGlyph(hudX + 3, y + 3, t.category, col, t.flags);
 
         String distStr = formatDistShort(t.distM);
+        char trend = (t.rssi > t.prevRssi + 2) ? '+' : ((t.rssi < t.prevRssi - 2) ? '-' : ' ');
+        if (trend != ' ') distStr = String(trend) + distStr;
         int nameBudget = max(3, maxChars - (int)distStr.length() - 3);
         String nm = targetDisplayName(t);
         if ((int)nm.length() > nameBudget) nm = nm.substring(0, nameBudget);
@@ -786,15 +1005,304 @@ static void drawRadarHud(
     }
 }
 
-static void showDeviceInspector(RadarContext &ctx, const RadarTarget &t, bool &wantTriangulate) {
+// =====================================================================
+// VIEW 1: LIVE TARGET INTELLIGENCE TABLE (AIRODUMP / KISMET STYLE)
+// =====================================================================
+static void drawIntelTable(
+    int x, int y, int w, int h, RadarMode mode, bool timeSliced, bool scanningWifi, bool scanningBle,
+    const std::vector<RadarTarget> &list, RadarContext &ctx
+) {
+    const uint16_t bg = bruceConfig.bgColor;
+    tft.fillRect(x, y, w, h, bg);
+    tft.setTextSize(1);
+
+    int total = (int)list.size();
+    if (total == 0) {
+        ctx.tableCursor = 0;
+        ctx.tableScroll = 0;
+    } else {
+        ctx.tableCursor = constrain(ctx.tableCursor, 0, total - 1);
+    }
+
+    // Top summary bar
+    int wifiCnt = 0, bleCnt = 0, alertCnt = 0;
+    for (const auto &t : list) {
+        if (t.type == RadarTargetType::WIFI) ++wifiCnt;
+        else ++bleCnt;
+        if (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) ++alertCnt;
+    }
+
+    tft.setTextColor(bruceConfig.priColor, bg);
+    String topInfo = String(modeShort(mode)) + (scanningWifi ? " [W*]" : (scanningBle ? " [B*]" : " [..]")) +
+                     (timeSliced ? " TS" : " CX") + "  W:" + String(wifiCnt) + " B:" + String(bleCnt);
+    tft.drawString(topInfo, x + 2, y, 1);
+    if (alertCnt > 0) {
+        tft.setTextColor(TFT_RED, bg);
+        tft.drawRightString("ALRT:" + String(alertCnt), x + w - 2, y, 1);
+    }
+    int curY = y + LH + 2;
+
+    // Column headers
+    tft.fillRect(x, curY, w, LH + 2, COL_GRID_DIM);
+    tft.setTextColor(TFT_GREEN, COL_GRID_DIM);
+    int colName = x + 10;
+    int colTag = x + (w * 48) / 100;
+    int colRssi = x + (w * 73) / 100;
+    int colDist = x + w - 2;
+    tft.drawString("TARGET", colName, curY + 1, 1);
+    if (w >= 210) tft.drawString("TAG/CH", colTag, curY + 1, 1);
+    tft.drawString("dBm", colRssi, curY + 1, 1);
+    tft.drawRightString("DIST", colDist, curY + 1, 1);
+    curY += LH + 3;
+
+    if (total == 0) {
+        tft.setTextColor(TFT_DARKGREY, bg);
+        tft.drawCentreString(bruce_i18n::tr("Scanning nearby BLE & WiFi..."), x + w / 2, curY + 20, 1);
+        return;
+    }
+
+    const int rowH = LH + 4;
+    const int visRows = max(1, (y + h - curY) / rowH);
+    if (ctx.tableCursor < ctx.tableScroll) ctx.tableScroll = ctx.tableCursor;
+    if (ctx.tableCursor >= ctx.tableScroll + visRows) ctx.tableScroll = ctx.tableCursor - visRows + 1;
+
+    uint32_t now = millis();
+    int nameChars = max(6, ((w >= 210 ? colTag : colRssi) - colName - 4) / LW);
+    int tagChars = max(4, (colRssi - colTag - 4) / LW);
+
+    for (int r = 0; r < visRows && (ctx.tableScroll + r) < total; ++r) {
+        int idx = ctx.tableScroll + r;
+        const RadarTarget &t = list[idx];
+        bool sel = (idx == ctx.tableCursor);
+        bool locked = ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0;
+        uint16_t rowBg = sel ? COL_ROW_SEL : bg;
+        if (sel) tft.fillRect(x, curY, w, rowH - 1, rowBg);
+
+        uint16_t col = categoryColor(t.category, t.flags);
+        drawCategoryGlyph(x + 4, curY + 4, t.category, col, t.flags);
+
+        String nm = (locked ? "*" : "") + targetDisplayName(t);
+        if ((int)nm.length() > nameChars) nm = nm.substring(0, nameChars);
+        tft.setTextColor(locked ? TFT_YELLOW : col, rowBg);
+        tft.drawString(nm, colName, curY + 1, 1);
+
+        if (w >= 210) {
+            String tg = targetShortTag(t);
+            if ((int)tg.length() > tagChars) tg = tg.substring(0, tagChars);
+            tft.setTextColor((t.flags & (RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) ? TFT_RED : TFT_LIGHTGREY, rowBg);
+            tft.drawString(tg, colTag, curY + 1, 1);
+        }
+
+        int pct = constrain((t.rssi + 95) * 100 / 60, 0, 100);
+        uint16_t rssiCol = (pct > 66) ? TFT_GREEN : ((pct > 33) ? TFT_YELLOW : TFT_RED);
+        tft.setTextColor(rssiCol, rowBg);
+        tft.drawString(String(t.rssi), colRssi, curY + 1, 1);
+
+        tft.setTextColor(TFT_WHITE, rowBg);
+        String distCell = formatDistShort(t.distM);
+        if (w >= 280) distCell += " " + formatDwell(t.firstSeenMs, now);
+        tft.drawRightString(distCell, colDist, curY + 1, 1);
+
+        curY += rowH;
+    }
+}
+
+// =====================================================================
+// VIEW 2: RF FOX-HUNT / GEIGER TRACKER (LOCKED) OR 2.4G SPECTRUM (UNLOCKED)
+// =====================================================================
+static void drawFoxHuntOrSpectrum(
+    int x, int y, int w, int h, const std::vector<RadarTarget> &allList, RadarContext &ctx
+) {
+    const uint16_t bg = bruceConfig.bgColor;
+    tft.fillRect(x, y, w, h, bg);
+
+    if (ctx.hasLocked) {
+        // ---- RF FOX-HUNT / GEIGER MODE ----
+        const RadarTarget *lt = nullptr;
+        for (const auto &t : allList) {
+            if (t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0) {
+                lt = &t;
+                break;
+            }
+        }
+
+        tft.setTextSize(1);
+        tft.setTextColor(TFT_YELLOW, bg);
+        String title = lt ? (targetDisplayName(*lt) + " [" + targetShortTag(*lt) + "]")
+                          : (formatMac(ctx.lockedMac) + " (LOST)");
+        tft.drawString(title.substring(0, max(10, w / LW)), x + 2, y, 1);
+
+        tft.setTextColor(ctx.geigerAudio ? TFT_GREEN : TFT_DARKGREY, bg);
+        tft.drawRightString(ctx.geigerAudio ? "BEEP:ON" : "BEEP:OFF", x + w - 2, y, 1);
+
+        int curY = y + LH + 3;
+        if (lt) {
+            int pct = constrain((lt->rssi + 95) * 100 / 60, 0, 100);
+            uint16_t sigCol = (pct > 66) ? TFT_GREEN : ((pct > 33) ? TFT_YELLOW : TFT_RED);
+
+            // Big RSSI & Distance readout
+            tft.setTextSize(FM);
+            tft.setTextColor(sigCol, bg);
+            tft.drawString(String(lt->rssi) + " dBm", x + 2, curY, 1);
+            tft.setTextColor(TFT_WHITE, bg);
+            tft.drawRightString(formatDistShort(lt->distM), x + w - 2, curY, 1);
+            curY += FM * LH + 3;
+
+            // Peak / Dwell / Packets telemetry line
+            tft.setTextSize(1);
+            char meta[56];
+            snprintf(
+                meta,
+                sizeof(meta),
+                "PEAK:%ddBm  PKTS:%u  DWELL:%s",
+                (int)ctx.foxPeakRssi,
+                (unsigned)lt->seenCount,
+                formatDwell(lt->firstSeenMs, millis()).c_str()
+            );
+            tft.setTextColor(TFT_CYAN, bg);
+            tft.drawString(String(meta).substring(0, max(10, w / LW)), x + 2, curY, 1);
+            curY += LH + 3;
+
+            // Horizontal proximity meter bar
+            int barH = 10;
+            tft.drawRect(x + 2, curY, w - 4, barH, bruceConfig.secColor);
+            int fillW = ((w - 6) * pct) / 100;
+            if (fillW > 0) tft.fillRect(x + 3, curY + 1, fillW, barH - 2, sigCol);
+            curY += barH + 5;
+        } else {
+            tft.setTextSize(FM);
+            tft.setTextColor(TFT_RED, bg);
+            tft.drawCentreString(bruce_i18n::tr("Lost signal..."), x + w / 2, curY + 6, 1);
+            curY += FM * LH + 18;
+        }
+
+        // Rolling RSSI Sparkline Graph (sweep body/antenna 360 deg to find peak!)
+        int gx = x + 2;
+        int gy = curY;
+        int gw = w - 4;
+        int gh = (y + h) - gy - 2;
+        if (gh >= 24) {
+            tft.drawRect(gx, gy, gw, gh, COL_GRID_MID);
+            // Reference lines at -50, -70, -90 dBm
+            tft.drawFastHLine(gx + 1, gy + gh / 3, gw - 2, COL_GRID_DIM);
+            tft.drawFastHLine(gx + 1, gy + (gh * 2) / 3, gw - 2, COL_GRID_DIM);
+
+            if (ctx.foxHistCount >= 2) {
+                int prevPx = -1, prevPy = -1;
+                for (size_t i = 0; i < ctx.foxHistCount; ++i) {
+                    int px = gx + 2 + (int)((i * (gw - 4)) / (RADAR_HIST_LEN - 1));
+                    int clamped = constrain((int)ctx.foxHist[i], -98, -32);
+                    int py = gy + gh - 2 - ((clamped + 98) * (gh - 4)) / 66;
+                    uint16_t ptCol = (clamped > -58) ? TFT_GREEN : ((clamped > -75) ? TFT_YELLOW : TFT_RED);
+                    if (prevPx >= 0) tft.drawLine(prevPx, prevPy, px, py, ptCol);
+                    prevPx = px;
+                    prevPy = py;
+                }
+            }
+            tft.setTextSize(1);
+            tft.setTextColor(TFT_DARKGREY, bg);
+            tft.drawString("-35", gx + 2, gy + 2, 1);
+            tft.drawString("-95", gx + 2, gy + gh - LH - 1, 1);
+        }
+        return;
+    }
+
+    // ---- 2.4 GHz CHANNEL CONGESTION & THREAT MONITOR ----
+    int chCount[14] = {0};
+    int chPeak[14];
+    for (int c = 0; c < 14; ++c) chPeak[c] = -100;
+
+    int openCnt = 0, wepCnt = 0, hiddenCnt = 0, twinCnt = 0, trackerCnt = 0, hackCnt = 0;
+    for (const auto &t : allList) {
+        if (t.type == RadarTargetType::WIFI) {
+            if (t.channel >= 1 && t.channel <= 13) {
+                chCount[t.channel]++;
+                if (t.rssi > chPeak[t.channel]) chPeak[t.channel] = t.rssi;
+            }
+            if (t.category == RadarCategory::WIFI_OPEN) ++openCnt;
+            if (t.category == RadarCategory::WIFI_WEP) ++wepCnt;
+            if (t.category == RadarCategory::WIFI_HIDDEN) ++hiddenCnt;
+            if (t.flags & RFLAG_EVIL_TWIN) ++twinCnt;
+        } else {
+            if (t.flags & RFLAG_TRACKER) ++trackerCnt;
+            if (t.flags & RFLAG_HACK_DEV) ++hackCnt;
+        }
+    }
+
+    int bestCh = 1, busyCh = 1;
+    for (int c = 1; c <= 13; ++c) {
+        if (chCount[c] < chCount[bestCh]) bestCh = c;
+        if (chCount[c] > chCount[busyCh]) busyCh = c;
+    }
+
+    tft.setTextSize(1);
+    tft.setTextColor(TFT_GREEN, bg);
+    char hdr[48];
+    snprintf(hdr, sizeof(hdr), "2.4G CH1-13  CLEAN:C%d  BUSY:C%d(%d)", bestCh, busyCh, chCount[busyCh]);
+    tft.drawString(String(hdr).substring(0, max(10, w / LW)), x + 2, y, 1);
+
+    // Threat summary strip
+    int curY = y + LH + 3;
+    char threat[56];
+    snprintf(
+        threat,
+        sizeof(threat),
+        "OPN:%d WEP:%d HID:%d TWIN:%d TRK:%d RF:%d",
+        openCnt,
+        wepCnt,
+        hiddenCnt,
+        twinCnt,
+        trackerCnt,
+        hackCnt
+    );
+    tft.setTextColor((twinCnt > 0 || wepCnt > 0 || hackCnt > 0 || trackerCnt > 0) ? TFT_ORANGE : TFT_CYAN, bg);
+    tft.drawString(String(threat).substring(0, max(10, w / LW)), x + 2, curY, 1);
+    curY += LH + 4;
+
+    // Channel bar chart (1..13)
+    int chartTop = curY;
+    int chartBot = y + h - LH - 4;
+    int chartH = max(20, chartBot - chartTop);
+    tft.drawFastHLine(x + 2, chartBot, w - 4, COL_GRID_MID);
+
+    int maxCount = 1;
+    for (int c = 1; c <= 13; ++c) {
+        if (chCount[c] > maxCount) maxCount = chCount[c];
+    }
+
+    int slotW = (w - 8) / 13;
+    int barW = max(4, slotW - 3);
+    for (int c = 1; c <= 13; ++c) {
+        int bx = x + 4 + (c - 1) * slotW;
+        if (chCount[c] > 0) {
+            int bh = max(4, (chCount[c] * (chartH - 10)) / maxCount);
+            uint16_t bCol = (chCount[c] >= 4 || chPeak[c] > -55)
+                                ? TFT_RED
+                                : ((chCount[c] >= 2) ? TFT_YELLOW : TFT_GREEN);
+            tft.fillRect(bx, chartBot - bh, barW, bh, bCol);
+            tft.setTextColor(TFT_WHITE, bg);
+            tft.drawCentreString(String(chCount[c]), bx + barW / 2, chartBot - bh - LH - 1, 1);
+        }
+        // Highlight non-overlapping standard channels 1, 6, 11
+        tft.setTextColor((c == 1 || c == 6 || c == 11) ? TFT_CYAN : TFT_LIGHTGREY, bg);
+        tft.drawCentreString(String(c), bx + barW / 2, chartBot + 2, 1);
+    }
+}
+
+// =====================================================================
+// DEVICE INSPECTOR DETAIL CARD
+// =====================================================================
+static void showDeviceInspector(
+    RadarContext &ctx, const RadarTarget &t, bool &wantTriangulate, bool &wantFoxHunt
+) {
     drawMainBorderWithTitle("Device Info");
     const int x = BORDER_PAD_X + 6;
-    int y = BORDER_PAD_Y + FM * LH + 6;
-    const int rowH = (FP == 1 && bruce_i18n::isChinese()) ? 14 : (LH + 4);
+    int y = BORDER_PAD_Y + FM * LH + 5;
+    const int rowH = (FP == 1 && bruce_i18n::isChinese()) ? 13 : (LH + 3);
 
     tft.setTextSize(FP);
-    uint16_t col = categoryColor(t.category);
-    drawCategoryGlyph(x + 3, y + 4, t.category, col);
+    uint16_t col = categoryColor(t.category, t.flags);
+    drawCategoryGlyph(x + 3, y + 4, t.category, col, t.flags);
     tft.setTextColor(col, bruceConfig.bgColor);
     String typeLine = String(t.type == RadarTargetType::WIFI ? "WiFi: " : "BLE: ") +
                       bruce_i18n::tr(categoryName(t.category));
@@ -803,7 +1311,7 @@ static void showDeviceInspector(RadarContext &ctx, const RadarTarget &t, bool &w
     y += rowH;
 
     auto drawKV = [&](const char *k, const String &v, uint16_t vCol = TFT_WHITE) {
-        if (y + rowH > tftHeight - BORDER_PAD_X - LH - 4) return;
+        if (y + rowH > tftHeight - BORDER_PAD_X - LH - 3) return;
         tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
         String ks = String(bruce_i18n::tr(k)) + ": ";
         tft.drawString(ks, x, y, 1);
@@ -813,16 +1321,25 @@ static void showDeviceInspector(RadarContext &ctx, const RadarTarget &t, bool &w
         y += rowH;
     };
 
-    drawKV("Name", t.name[0] ? String(t.name) : String("<unnamed>"));
+    const char *oui = lookupOuiVendor(t.mac);
+    String nameVal = t.name[0] ? String(t.name) : String("<unnamed>");
+    if (oui) nameVal += " [" + String(oui) + "]";
+    drawKV("Name", nameVal);
     drawKV("MAC", formatMac(t.mac), TFT_LIGHTGREY);
 
-    String radioVal = String(t.rssi) + " dBm  (~" + formatDistShort(t.distM) + ")";
+    String radioVal = String(t.rssi) + "dBm (pk:" + String(t.peakRssi) + ") ~" + formatDistShort(t.distM);
     if (t.type == RadarTargetType::WIFI) {
-        radioVal += " CH" + String(t.channel) + " " + wifiAuthShort(t.authMode);
+        radioVal += " C" + String(t.channel) + " " + wifiAuthShort(t.authMode);
     } else {
         radioVal += " TX:" + String(t.refRssi1m);
     }
     drawKV("Signal", radioVal, TFT_GREEN);
+
+    String seenVal = String(t.seenCount) + " pkts  " + formatDwell(t.firstSeenMs, millis());
+    if (t.flags & RFLAG_EVIL_TWIN) seenVal += "  [EVIL-TWIN!]";
+    else if (t.flags & RFLAG_HACK_DEV) seenVal += "  [RF-TOOL!]";
+    else if (t.flags & RFLAG_TRACKER) seenVal += "  [TRACKER!]";
+    drawKV("Intel", seenVal, (t.flags ? TFT_RED : TFT_CYAN));
 
     char coordBuf[40];
     if (t.hasTriangulated) {
@@ -849,7 +1366,7 @@ static void showDeviceInspector(RadarContext &ctx, const RadarTarget &t, bool &w
 
     tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
     tft.drawCentreString(
-        bruce_i18n::tr("SEL=Triangulate  UP=Lock  ESC=Back"),
+        bruce_i18n::tr("SEL=Fox-Hunt  UP=Triangulate  ESC=Back"),
         tftWidth / 2,
         tftHeight - BORDER_PAD_X - LH,
         1
@@ -863,17 +1380,13 @@ static void showDeviceInspector(RadarContext &ctx, const RadarTarget &t, bool &w
     while (!returnToMenu) {
         if (check(EscPress)) break;
         if (check(UpPress) || check(PrevPress)) {
-            ctx.hasLocked = true;
-            ctx.lockedType = t.type;
-            memcpy(ctx.lockedMac, t.mac, 6);
-            displaySuccess("Target Locked", true);
+            lockOnTarget(ctx, t);
+            wantTriangulate = true;
             break;
         }
         if (check(SelPress)) {
-            ctx.hasLocked = true;
-            ctx.lockedType = t.type;
-            memcpy(ctx.lockedMac, t.mac, 6);
-            wantTriangulate = true;
+            lockOnTarget(ctx, t);
+            wantFoxHunt = true;
             break;
         }
         vTaskDelay(pdMS_TO_TICKS(20));
@@ -892,9 +1405,9 @@ static bool pickTarget(
     size_t limit = min<size_t>(list.size(), 30);
     for (size_t i = 0; i < limit; ++i) {
         const RadarTarget t = list[i];
-        String prefix = (t.type == RadarTargetType::WIFI)
-                            ? "[W] "
-                            : ((t.category == RadarCategory::BLE_TRACKER) ? "[!] " : "[B] ");
+        String prefix = (t.flags & (RFLAG_EVIL_TWIN | RFLAG_TRACKER | RFLAG_HACK_DEV))
+                            ? "[!] "
+                            : (t.type == RadarTargetType::WIFI ? "[W] " : "[B] ");
         String label = prefix + targetDisplayName(t) + " " + formatDistShort(t.distM);
         options.push_back({label, [&outTarget, &picked, t]() {
             outTarget = t;
@@ -920,21 +1433,29 @@ static void exportRadarCsv(const std::vector<RadarTarget> &list) {
         displayError("Cannot write file", true);
         return;
     }
-    f.println("ms,radio,category,subtype,name,mac,rssi,dist_m,rel_x_m,rel_y_m,ch,lat,lon");
+    f.println("ms,radio,category,subtype,vendor,name,mac,auth,ch,rssi,peak_rssi,dist_m,pkts,dwell_s,flags,rel_x,rel_y,lat,lon");
+    uint32_t now = millis();
     for (const auto &t : list) {
+        const char *oui = lookupOuiVendor(t.mac);
         f.printf(
-            "%lu,%s,%s,%s,\"%s\",%s,%d,%.2f,%.2f,%.2f,%u,%.6f,%.6f\n",
+            "%lu,%s,%s,%s,%s,\"%s\",%s,%s,%u,%d,%d,%.2f,%u,%lu,0x%02X,%.2f,%.2f,%.6f,%.6f\n",
             (unsigned long)t.lastSeenMs,
             t.type == RadarTargetType::WIFI ? "WIFI" : "BLE",
             categoryName(t.category),
             t.subtype,
+            oui ? oui : "",
             t.name,
             formatMac(t.mac).c_str(),
+            t.type == RadarTargetType::WIFI ? wifiAuthShort(t.authMode) : "BLE",
+            (unsigned)t.channel,
             (int)t.rssi,
+            (int)t.peakRssi,
             t.distM,
+            (unsigned)t.seenCount,
+            (unsigned long)((now >= t.firstSeenMs) ? (now - t.firstSeenMs) / 1000u : 0),
+            (unsigned)t.flags,
             t.relX,
             t.relY,
-            (unsigned)t.channel,
             t.hasGps ? t.lat : 0.0,
             t.hasGps ? t.lon : 0.0
         );
@@ -943,12 +1464,10 @@ static void exportRadarCsv(const std::vector<RadarTarget> &list) {
     displaySuccess(String("Saved ") + String(list.size()) + " -> /radar_log.csv", true);
 }
 
-// Measure average RSSI of a specific target at the current physical point
 static bool sampleTargetDistance(
     RadarContext &ctx, const RadarTarget &target, bool timeSliced, bool &wifiAvailable, bool &bleAvailable,
     NimBLEScan *&radarScan, float &outDistM, int8_t &outAvgRssi, int &outNearbyBle
 ) {
-    // Capture fresh samples for ~1.8s
     int32_t rssiSum = 0;
     int rssiCount = 0;
 
@@ -1026,7 +1545,6 @@ static bool sampleTargetDistance(
         radarScan->clearResults();
     }
 
-    // Count active nearby BLE anchors for context
     outNearbyBle = 0;
     portENTER_CRITICAL(&ctx.mux);
     for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
@@ -1103,19 +1621,14 @@ static void runTriangulateWizard(
         bool gotSample = sampleTargetDistance(
             ctx, target, timeSliced, wifiAvailable, bleAvailable, radarScan, r[step], avgRssi[step], bleAnchors
         );
-        if (!gotSample) {
-            displayWarning("Weak signal: using last RSSI", true);
-        }
+        if (!gotSample) displayWarning("Weak signal: using last RSSI", true);
     }
 
-    // Solve 2D trilateration from P1(0,0), P2(D,0), P3(0,D):
-    // x = (r1^2 - r2^2 + D^2) / (2D), y = (r1^2 - r3^2 + D^2) / (2D)
     float xEst = (r[0] * r[0] - r[1] * r[1] + D * D) / (2.0f * D);
     float yEst = (r[0] * r[0] - r[2] * r[2] + D * D) / (2.0f * D);
     float distEst = sqrtf(xEst * xEst + yEst * yEst);
     float brgDeg = vectorToBearingDeg(xEst, yEst);
 
-    // Save triangulated coordinates back into the live Radar target
     portENTER_CRITICAL(&ctx.mux);
     for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
         RadarTarget &slot = ctx.targets[i];
@@ -1130,7 +1643,6 @@ static void runTriangulateWizard(
     }
     portEXIT_CRITICAL(&ctx.mux);
 
-    // Render visual trilateration result map
     drawMainBorderWithTitle("Triangulation Result");
     int top = BORDER_PAD_Y + FM * LH + 4;
     int bot = tftHeight - BORDER_PAD_X - LH - 4;
@@ -1142,11 +1654,10 @@ static void runTriangulateWizard(
     float maxCoord = max(D + 1.0f, max(fabsf(xEst), fabsf(yEst)) * 1.25f);
     float scalePx = (float)(mapR - 4) / maxCoord;
 
-    tft.drawCircle(mapCx, mapCy, mapR, TFT_DARKGREEN);
-    tft.drawFastHLine(mapCx - mapR, mapCy, 2 * mapR + 1, TFT_DARKGREEN);
-    tft.drawFastVLine(mapCx, mapCy - mapR, 2 * mapR + 1, TFT_DARKGREEN);
+    tft.drawCircle(mapCx, mapCy, mapR, COL_GRID_MID);
+    tft.drawFastHLine(mapCx - mapR, mapCy, 2 * mapR + 1, COL_GRID_DIM);
+    tft.drawFastVLine(mapCx, mapCy - mapR, 2 * mapR + 1, COL_GRID_DIM);
 
-    // Plot sample points P1, P2, P3
     int p1x = mapCx, p1y = mapCy;
     int p2x = mapCx + (int)(D * scalePx), p2y = mapCy;
     int p3x = mapCx, p3y = mapCy - (int)(D * scalePx);
@@ -1154,19 +1665,15 @@ static void runTriangulateWizard(
     tft.fillCircle(p2x, p2y, 2, TFT_CYAN);
     tft.fillCircle(p3x, p3y, 2, TFT_CYAN);
 
-    // Plot solved target vector
     int tx = constrain(mapCx + (int)(xEst * scalePx), mapCx - mapR + 3, mapCx + mapR - 3);
     int ty = constrain(mapCy - (int)(yEst * scalePx), mapCy - mapR + 3, mapCy + mapR - 3);
     tft.drawLine(p1x, p1y, tx, ty, TFT_YELLOW);
     tft.drawCircle(tx, ty, 5, TFT_RED);
     tft.fillCircle(tx, ty, 2, TFT_YELLOW);
 
-    // Right info panel
     int ix = mapCx + mapR + 10;
     int iy = top + 2;
-    int stepH = (FP == 1 && bruce_i18n::isChinese()) ? 13 : (LH + 3);
     tft.setTextSize(FP);
-
     tft.setTextColor(TFT_WHITE, bruceConfig.bgColor);
     tft.drawString(targetDisplayName(target), ix, iy, 1);
     iy += LH + 3;
@@ -1190,7 +1697,7 @@ static void runTriangulateWizard(
     tft.setTextColor(TFT_LIGHTGREY, bruceConfig.bgColor);
     snprintf(buf, sizeof(buf), "BLE Ref: %d", bleAnchors);
     tft.drawString(buf, ix, iy, 1);
-    iy += stepH;
+    iy += LH + 3;
 
     if (ctx.gpsFix) {
         snprintf(buf, sizeof(buf), "%.4f,%.4f", ctx.gpsLat, ctx.gpsLon);
@@ -1199,10 +1706,7 @@ static void runTriangulateWizard(
 
     tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
     tft.drawCentreString(
-        bruce_i18n::tr("Press any key to return"),
-        tftWidth / 2,
-        tftHeight - BORDER_PAD_X - LH,
-        1
+        bruce_i18n::tr("Press any key to return"), tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1
     );
 
     check(SelPress);
@@ -1226,7 +1730,7 @@ static bool gpsPinsSafeToOpen() {
 
 } // namespace
 
-void radar_setup(RadarInitialMode initialMode) {
+void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
     RadarContext ctx;
     if (psramFound()) {
         ctx.targets = static_cast<RadarTarget *>(ps_calloc(RADAR_MAX_TARGETS, sizeof(RadarTarget)));
@@ -1240,7 +1744,6 @@ void radar_setup(RadarInitialMode initialMode) {
     }
     s_radarCtx = &ctx;
 
-    // Optional non-blocking GPS receiver if dedicated GPS UART pins are available
     TinyGPSPlus gpsParser;
     HardwareSerial gpsSerial(2);
     if (gpsPinsSafeToOpen()) {
@@ -1251,11 +1754,9 @@ void radar_setup(RadarInitialMode initialMode) {
         ctx.gpsStarted = true;
     }
 
-    RadarMode mode = (initialMode == RADAR_INIT_WIFI)
-                         ? RadarMode::WIFI_ONLY
-                         : ((initialMode == RADAR_INIT_BLE) ? RadarMode::BLE_ONLY : RadarMode::BOTH);
+    RadarMode mode = static_cast<RadarMode>(initialMode);
+    RadarView view = static_cast<RadarView>(initialView);
 
-    // Coexistence on PSRAM boards when DMA allows; automatic time-sliced hand-off on low-RAM boards
     bool timeSliced = !psramFound();
     bool wifiAvailable = (WiFi.getMode() != WIFI_MODE_NULL);
     bool bleAvailable = false;
@@ -1304,7 +1805,6 @@ void radar_setup(RadarInitialMode initialMode) {
         if (wifiAvailable && WiFi.getMode() != WIFI_MODE_NULL) return true;
 
         if (!radioHasMemForWifi(false)) {
-            // Switch to time-sliced mode and reclaim BLE so we never pop up a Low RAM error
             timeSliced = true;
             teardownBle();
             if (!radioHasMemForWifi(true)) return false;
@@ -1322,7 +1822,6 @@ void radar_setup(RadarInitialMode initialMode) {
         if (bleAvailable && radarScan && NimBLEDevice::isInitialized()) return true;
 
         if (!NimBLEDevice::isInitialized()) {
-            // If DMA is too tight while Wi-Fi is still up, switch to time-sliced cleanly
             size_t minBlk = 0, minFree = 0;
             radioBleMinThresholds(minBlk, minFree);
             if (!radioDmaAtLeast(minBlk, minFree) && WiFi.getMode() != WIFI_MODE_NULL) {
@@ -1357,15 +1856,12 @@ void radar_setup(RadarInitialMode initialMode) {
     };
 
     auto drawLayout = [&]() {
-        drawMainBorderWithTitle("Radar");
+        drawMainBorderWithTitle(viewName(view, ctx.hasLocked));
         tft.setTextSize(FP);
         tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-        tft.drawCentreString(
-            bruce_i18n::tr("SEL=Menu  UP/DN=Filter  ESC=Back"),
-            tftWidth / 2,
-            tftHeight - BORDER_PAD_X - LH,
-            1
-        );
+        const char *hint = (view == RadarView::TABLE) ? "UP/DN=Select  LR=View  SEL=Act"
+                                                      : "LR=View  UP/DN=Filter  SEL=Menu";
+        tft.drawCentreString(bruce_i18n::tr(hint), tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1);
     };
 
     drawLayout();
@@ -1385,12 +1881,15 @@ void radar_setup(RadarInitialMode initialMode) {
 
     uint32_t lastFrameMs = 0;
     uint32_t lastHudMs = 0;
+    uint32_t lastFoxSampleMs = 0;
     bool exitRadar = false;
 
     check(SelPress);
     check(EscPress);
     check(PrevPress);
     check(NextPress);
+    check(UpPress);
+    check(DownPress);
 
     while (!exitRadar && !returnToMenu) {
         wakeUpScreen();
@@ -1399,9 +1898,7 @@ void radar_setup(RadarInitialMode initialMode) {
         // 0) Non-blocking GPS NMEA feed
         if (ctx.gpsStarted) {
             int budget = 64;
-            while (gpsSerial.available() > 0 && budget-- > 0) {
-                gpsParser.encode(gpsSerial.read());
-            }
+            while (gpsSerial.available() > 0 && budget-- > 0) gpsParser.encode(gpsSerial.read());
             if (gpsParser.location.isValid() && gpsParser.location.age() < 5000) {
                 ctx.gpsFix = true;
                 ctx.gpsLat = gpsParser.location.lat();
@@ -1421,14 +1918,22 @@ void radar_setup(RadarInitialMode initialMode) {
                     if (!bssid) continue;
                     String ssid = WiFi.SSID(i);
                     uint8_t auth = (uint8_t)WiFi.encryptionType(i);
-                    RadarCategory cat = ssid.isEmpty()
-                                            ? RadarCategory::WIFI_HIDDEN
-                                            : ((auth == WIFI_AUTH_OPEN) ? RadarCategory::WIFI_OPEN
-                                                                        : RadarCategory::WIFI_SECURED);
+                    uint8_t flags = 0;
+                    RadarCategory cat = RadarCategory::WIFI_SECURED;
+                    if (ssid.isEmpty()) {
+                        cat = RadarCategory::WIFI_HIDDEN;
+                    } else if (auth == WIFI_AUTH_OPEN) {
+                        cat = RadarCategory::WIFI_OPEN;
+                        flags |= RFLAG_WEAK_SEC;
+                    } else if (auth == WIFI_AUTH_WEP) {
+                        cat = RadarCategory::WIFI_WEP;
+                        flags |= RFLAG_WEAK_SEC;
+                    }
                     radarUpsertTarget(
                         &ctx,
                         RadarTargetType::WIFI,
                         cat,
+                        flags,
                         bssid,
                         ssid.c_str(),
                         wifiAuthShort(auth),
@@ -1439,14 +1944,15 @@ void radar_setup(RadarInitialMode initialMode) {
                     );
                 }
                 WiFi.scanDelete();
+                detectEvilTwins(ctx);
                 wifiScanning = false;
                 lastSweepEndMs = now;
-                if (mode == RadarMode::BOTH) nextIsBle = true;
+                if (mode != RadarMode::WIFI_ONLY && mode != RadarMode::OPEN_WIFI) nextIsBle = true;
             } else if (n == WIFI_SCAN_FAILED) {
                 WiFi.scanDelete();
                 wifiScanning = false;
                 lastSweepEndMs = now;
-                if (mode == RadarMode::BOTH) nextIsBle = true;
+                if (mode != RadarMode::WIFI_ONLY && mode != RadarMode::OPEN_WIFI) nextIsBle = true;
             }
         }
 
@@ -1455,129 +1961,232 @@ void radar_setup(RadarInitialMode initialMode) {
             radarScan->clearResults();
             bleScanning = false;
             lastSweepEndMs = now;
-            if (mode == RadarMode::BOTH) nextIsBle = false;
+            if (mode != RadarMode::BLE_ONLY) nextIsBle = false;
         }
 
-        // 3) Launch next sweep (coexisting or time-sliced seamlessly)
-        if (!wifiScanning && !bleScanning && (now - lastSweepEndMs >= 220)) {
-            bool wantBle = (mode == RadarMode::BLE_ONLY) || (mode == RadarMode::BOTH && nextIsBle);
-            bool wantWifi = (mode == RadarMode::WIFI_ONLY) || (mode == RadarMode::BOTH && !nextIsBle);
+        // 3) Launch next sweep (coexisting or time-sliced; prioritize locked radio in Fox-Hunt!)
+        if (!wifiScanning && !bleScanning && (now - lastSweepEndMs >= 200)) {
+            bool wantBle = false;
+            bool wantWifi = false;
+            if (view == RadarView::FOX_SPEC && ctx.hasLocked) {
+                wantBle = (ctx.lockedType == RadarTargetType::BLE);
+                wantWifi = (ctx.lockedType == RadarTargetType::WIFI);
+            } else if (mode == RadarMode::BLE_ONLY) {
+                wantBle = true;
+            } else if (mode == RadarMode::WIFI_ONLY || mode == RadarMode::OPEN_WIFI) {
+                wantWifi = true;
+            } else {
+                wantBle = nextIsBle;
+                wantWifi = !nextIsBle;
+            }
 
             if (wantBle) {
                 if (ensureBleReady() && radarScan->start(RADAR_BLE_SCAN_MS, false, true)) {
                     bleScanning = true;
                 } else {
                     lastSweepEndMs = now;
-                    if (mode == RadarMode::BOTH) nextIsBle = false;
+                    nextIsBle = false;
                 }
             } else if (wantWifi) {
                 if (ensureWifiReady()) {
                     int16_t res = WiFi.scanNetworks(true, true, false, 110);
-                    if (res == WIFI_SCAN_RUNNING) {
-                        wifiScanning = true;
-                    } else {
+                    if (res == WIFI_SCAN_RUNNING) wifiScanning = true;
+                    else {
                         lastSweepEndMs = now;
-                        if (mode == RadarMode::BOTH) nextIsBle = true;
+                        nextIsBle = true;
                     }
                 } else {
                     lastSweepEndMs = now;
-                    if (mode == RadarMode::BOTH) nextIsBle = true;
+                    nextIsBle = true;
                 }
             }
         }
 
-        // 4) Render scope (~16 FPS) & HUD (~3 FPS)
-        if (now - lastFrameMs >= 60) {
-            pruneStaleTargets(ctx);
-            std::vector<RadarTarget> visible = snapshotVisibleTargets(ctx, mode);
+        // 4) Update Fox-Hunt sparkline + optional Geiger audio ticks
+        if (ctx.hasLocked && (now - lastFoxSampleMs >= 450)) {
+            lastFoxSampleMs = now;
+            int8_t curRssi = -100;
+            bool foundLocked = false;
+            portENTER_CRITICAL(&ctx.mux);
+            for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
+                const RadarTarget &slot = ctx.targets[i];
+                if (slot.active && slot.type == ctx.lockedType &&
+                    memcmp(slot.mac, ctx.lockedMac, 6) == 0) {
+                    curRssi = slot.rssi;
+                    foundLocked = true;
+                    break;
+                }
+            }
+            portEXIT_CRITICAL(&ctx.mux);
 
-            sweepRad += 0.16f;
-            if (sweepRad >= 2.0f * RADAR_PI) sweepRad -= 2.0f * RADAR_PI;
-            drawRadarScope(scopeCx, scopeCy, scopeR, sweepRad, visible, ctx);
-            lastFrameMs = now;
-
-            if (wideLayout && (now - lastHudMs >= 320 || lastHudMs == 0)) {
-                drawRadarHud(
-                    hudX, contentTop, hudW, contentH, mode, timeSliced, wifiScanning, bleScanning, visible, ctx
-                );
-                lastHudMs = now;
+            if (foundLocked) {
+                if (curRssi > ctx.foxPeakRssi) ctx.foxPeakRssi = curRssi;
+                if (ctx.foxHistCount < RADAR_HIST_LEN) {
+                    ctx.foxHist[ctx.foxHistCount++] = curRssi;
+                } else {
+                    memmove(ctx.foxHist, ctx.foxHist + 1, RADAR_HIST_LEN - 1);
+                    ctx.foxHist[RADAR_HIST_LEN - 1] = curRssi;
+                }
+                if (ctx.geigerAudio && bruceConfig.soundEnabled) {
+                    int pct = constrain((curRssi + 95) * 100 / 60, 0, 100);
+                    uint32_t interval = (uint32_t)constrain(920 - pct * 8, 120, 920);
+                    if (now - ctx.lastGeigerMs >= interval) {
+                        ctx.lastGeigerMs = now;
+                        unsigned int freq = 1400 + (unsigned int)pct * 22;
+                        _tone(freq, 22, PLAYBACK_ASYNC);
+                    }
+                }
             }
         }
 
-        // 5) Controls
+        // 5) Render active view
+        if (view == RadarView::SCOPE) {
+            if (now - lastFrameMs >= 60) {
+                pruneStaleTargets(ctx);
+                std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
+                sweepRad += 0.16f;
+                if (sweepRad >= 2.0f * RADAR_PI) sweepRad -= 2.0f * RADAR_PI;
+                drawRadarScope(scopeCx, scopeCy, scopeR, sweepRad, visible, ctx);
+                lastFrameMs = now;
+
+                if (wideLayout && (now - lastHudMs >= 320 || lastHudMs == 0)) {
+                    drawRadarHud(
+                        hudX, contentTop, hudW, contentH, mode, timeSliced, wifiScanning, bleScanning, visible, ctx
+                    );
+                    lastHudMs = now;
+                }
+            }
+        } else if (now - lastHudMs >= 350 || lastHudMs == 0) {
+            pruneStaleTargets(ctx);
+            if (view == RadarView::TABLE) {
+                std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
+                drawIntelTable(
+                    contentL, contentTop, contentW, contentH, mode, timeSliced, wifiScanning, bleScanning,
+                    visible, ctx
+                );
+            } else {
+                std::vector<RadarTarget> allList = snapshotTargets(ctx, mode, true);
+                drawFoxHuntOrSpectrum(contentL, contentTop, contentW, contentH, allList, ctx);
+            }
+            lastHudMs = now;
+        }
+
+        // 6) Controls
+        auto cycleView = [&](int dir) {
+            int next = ((int)view + dir + 3) % 3;
+            view = static_cast<RadarView>(next);
+            drawLayout();
+            lastHudMs = 0;
+        };
+
+        auto cycleFilter = [&](int dir) {
+            stopAllScans();
+            int next = ((int)mode + dir + 5) % 5;
+            mode = static_cast<RadarMode>(next);
+            nextIsBle = (mode == RadarMode::BLE_ONLY);
+            ctx.tableCursor = 0;
+            ctx.tableScroll = 0;
+            lastSweepEndMs = 0;
+            lastHudMs = 0;
+        };
+
         if (check(EscPress)) {
             exitRadar = true;
-        } else if (check(PrevPress) || check(UpPress)) {
-            stopAllScans();
-            mode = (mode == RadarMode::BOTH)
-                       ? RadarMode::BLE_ONLY
-                       : ((mode == RadarMode::BLE_ONLY) ? RadarMode::WIFI_ONLY : RadarMode::BOTH);
-            nextIsBle = (mode == RadarMode::BLE_ONLY);
-            lastSweepEndMs = 0;
-            lastHudMs = 0;
-        } else if (check(NextPress) || check(DownPress)) {
-            stopAllScans();
-            mode = (mode == RadarMode::BOTH)
-                       ? RadarMode::WIFI_ONLY
-                       : ((mode == RadarMode::WIFI_ONLY) ? RadarMode::BLE_ONLY : RadarMode::BOTH);
-            nextIsBle = (mode == RadarMode::BLE_ONLY);
-            lastSweepEndMs = 0;
-            lastHudMs = 0;
+        } else if (check(PrevPress)) {
+            cycleView(-1);
+        } else if (check(NextPress)) {
+            cycleView(1);
+        } else if (check(UpPress)) {
+            if (view == RadarView::TABLE) {
+                if (ctx.tableCursor > 0) --ctx.tableCursor;
+                lastHudMs = 0;
+            } else {
+                cycleFilter(-1);
+            }
+        } else if (check(DownPress)) {
+            if (view == RadarView::TABLE) {
+                ++ctx.tableCursor;
+                lastHudMs = 0;
+            } else {
+                cycleFilter(1);
+            }
         } else if (check(SelPress)) {
             stopAllScans();
-            std::vector<RadarTarget> visible = snapshotVisibleTargets(ctx, mode);
-            options = {
-                {"Inspect Target",
-                 [&]() {
-                     RadarTarget chosen;
-                     if (pickTarget(ctx, visible, "Inspect Target", chosen)) {
-                         bool wantTri = false;
-                         showDeviceInspector(ctx, chosen, wantTri);
-                         if (wantTri) {
-                             runTriangulateWizard(
-                                 ctx, chosen, timeSliced, wifiAvailable, bleAvailable, radarScan
-                             );
-                         }
-                     }
-                 }},
-                {"Locate / Triangulate",
-                 [&]() {
-                     RadarTarget chosen;
-                     bool have = false;
-                     if (ctx.hasLocked) {
-                         for (const auto &v : visible) {
-                             if (v.type == ctx.lockedType && memcmp(v.mac, ctx.lockedMac, 6) == 0) {
-                                 chosen = v;
-                                 have = true;
-                                 break;
-                             }
-                         }
-                     }
-                     if (!have) have = pickTarget(ctx, visible, "Locate / Triangulate", chosen);
-                     if (have) {
-                         ctx.hasLocked = true;
-                         ctx.lockedType = chosen.type;
-                         memcpy(ctx.lockedMac, chosen.mac, 6);
-                         runTriangulateWizard(ctx, chosen, timeSliced, wifiAvailable, bleAvailable, radarScan);
-                     }
-                 }},
-                {"Lock Target",
-                 [&]() {
-                     RadarTarget chosen;
-                     if (pickTarget(ctx, visible, "Lock Target", chosen)) {
-                         ctx.hasLocked = true;
-                         ctx.lockedType = chosen.type;
-                         memcpy(ctx.lockedMac, chosen.mac, 6);
-                     }
-                 }},
-            };
+            std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
+            bool hasTableSelection =
+                (view == RadarView::TABLE && !visible.empty() && ctx.tableCursor < (int)visible.size());
+            RadarTarget focused = hasTableSelection ? visible[ctx.tableCursor] : RadarTarget{};
+
+            options.clear();
+            if (hasTableSelection) {
+                options.push_back({"Inspect Target", [&]() {
+                    bool wantTri = false, wantFox = false;
+                    showDeviceInspector(ctx, focused, wantTri, wantFox);
+                    if (wantTri) {
+                        runTriangulateWizard(ctx, focused, timeSliced, wifiAvailable, bleAvailable, radarScan);
+                    } else if (wantFox) {
+                        view = RadarView::FOX_SPEC;
+                    }
+                }});
+                options.push_back({"Fox-Hunt / Geiger", [&]() {
+                    lockOnTarget(ctx, focused);
+                    view = RadarView::FOX_SPEC;
+                }});
+                options.push_back({"Locate / Triangulate", [&]() {
+                    lockOnTarget(ctx, focused);
+                    runTriangulateWizard(ctx, focused, timeSliced, wifiAvailable, bleAvailable, radarScan);
+                }});
+            } else {
+                options.push_back({"Inspect Target", [&]() {
+                    RadarTarget chosen;
+                    if (pickTarget(ctx, visible, "Inspect Target", chosen)) {
+                        bool wantTri = false, wantFox = false;
+                        showDeviceInspector(ctx, chosen, wantTri, wantFox);
+                        if (wantTri) {
+                            runTriangulateWizard(ctx, chosen, timeSliced, wifiAvailable, bleAvailable, radarScan);
+                        } else if (wantFox) {
+                            view = RadarView::FOX_SPEC;
+                        }
+                    }
+                }});
+                options.push_back({"Fox-Hunt / Geiger", [&]() {
+                    RadarTarget chosen;
+                    if (pickTarget(ctx, visible, "Fox-Hunt / Geiger", chosen)) {
+                        lockOnTarget(ctx, chosen);
+                        view = RadarView::FOX_SPEC;
+                    }
+                }});
+                options.push_back({"Locate / Triangulate", [&]() {
+                    RadarTarget chosen;
+                    bool have = false;
+                    if (ctx.hasLocked) {
+                        for (const auto &v : visible) {
+                            if (v.type == ctx.lockedType && memcmp(v.mac, ctx.lockedMac, 6) == 0) {
+                                chosen = v;
+                                have = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!have) have = pickTarget(ctx, visible, "Locate / Triangulate", chosen);
+                    if (have) {
+                        lockOnTarget(ctx, chosen);
+                        runTriangulateWizard(ctx, chosen, timeSliced, wifiAvailable, bleAvailable, radarScan);
+                    }
+                }});
+            }
+
             if (ctx.hasLocked) {
                 options.push_back({"Unlock Target", [&]() { ctx.hasLocked = false; }});
+                options.push_back({ctx.geigerAudio ? "Geiger Beep: ON" : "Geiger Beep: OFF", [&]() {
+                    ctx.geigerAudio = !ctx.geigerAudio;
+                }});
             }
+            options.push_back({String("View: ") + viewName(view, ctx.hasLocked), [&]() {
+                view = static_cast<RadarView>(((int)view + 1) % 3);
+            }});
             options.push_back({modeLabel(mode), [&]() {
-                mode = (mode == RadarMode::BOTH)
-                           ? RadarMode::WIFI_ONLY
-                           : ((mode == RadarMode::WIFI_ONLY) ? RadarMode::BLE_ONLY : RadarMode::BOTH);
+                mode = static_cast<RadarMode>(((int)mode + 1) % 5);
                 nextIsBle = (mode == RadarMode::BLE_ONLY);
             }});
             options.push_back({ctx.showLabels ? "Labels: ON" : "Labels: OFF", [&]() {
@@ -1588,6 +2197,7 @@ void radar_setup(RadarInitialMode initialMode) {
                 portENTER_CRITICAL(&ctx.mux);
                 for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) ctx.targets[i].active = false;
                 portEXIT_CRITICAL(&ctx.mux);
+                ctx.foxHistCount = 0;
                 lastSweepEndMs = 0;
             }});
             options.push_back({"Exit", [&]() { exitRadar = true; }});
@@ -1602,7 +2212,6 @@ void radar_setup(RadarInitialMode initialMode) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 
-    // Clean teardown
     stopAllScans();
     if (radarScan) {
         radarScan->setScanCallbacks(nullptr);
@@ -1619,7 +2228,6 @@ void radar_setup(RadarInitialMode initialMode) {
 }
 
 void radar_locate_setup() {
-    // Quick-entry Locate mode: do a fast BLE+WiFi discovery pass then jump right into Triangulate
     RadarContext ctx;
     if (psramFound()) {
         ctx.targets = static_cast<RadarTarget *>(ps_calloc(RADAR_MAX_TARGETS, sizeof(RadarTarget)));
@@ -1640,7 +2248,6 @@ void radar_locate_setup() {
 
     displayInfo("Scanning nearby BLE & WiFi...");
 
-    // 1) BLE pass first (primary proximity / tracker beacons)
     if (timeSliced && WiFi.getMode() != WIFI_MODE_NULL) {
         WiFi.scanDelete();
         wifiDisconnect();
@@ -1666,7 +2273,6 @@ void radar_locate_setup() {
         }
     }
 
-    // 2) Wi-Fi pass
     if (timeSliced && (bleAvailable || NimBLEDevice::isInitialized())) {
         if (radarScan) {
             radarScan->stop();
@@ -1689,14 +2295,21 @@ void radar_locate_setup() {
             if (!bssid) continue;
             String ssid = WiFi.SSID(i);
             uint8_t auth = (uint8_t)WiFi.encryptionType(i);
-            RadarCategory cat = ssid.isEmpty()
-                                    ? RadarCategory::WIFI_HIDDEN
-                                    : ((auth == WIFI_AUTH_OPEN) ? RadarCategory::WIFI_OPEN
-                                                                : RadarCategory::WIFI_SECURED);
+            uint8_t flags = 0;
+            RadarCategory cat = RadarCategory::WIFI_SECURED;
+            if (ssid.isEmpty()) cat = RadarCategory::WIFI_HIDDEN;
+            else if (auth == WIFI_AUTH_OPEN) {
+                cat = RadarCategory::WIFI_OPEN;
+                flags |= RFLAG_WEAK_SEC;
+            } else if (auth == WIFI_AUTH_WEP) {
+                cat = RadarCategory::WIFI_WEP;
+                flags |= RFLAG_WEAK_SEC;
+            }
             radarUpsertTarget(
                 &ctx,
                 RadarTargetType::WIFI,
                 cat,
+                flags,
                 bssid,
                 ssid.c_str(),
                 wifiAuthShort(auth),
@@ -1707,9 +2320,10 @@ void radar_locate_setup() {
             );
         }
         WiFi.scanDelete();
+        detectEvilTwins(ctx);
     }
 
-    std::vector<RadarTarget> found = snapshotVisibleTargets(ctx, RadarMode::BOTH);
+    std::vector<RadarTarget> found = snapshotTargets(ctx, RadarMode::BOTH);
     RadarTarget chosen;
     if (pickTarget(ctx, found, "Locate / Triangulate", chosen)) {
         runTriangulateWizard(ctx, chosen, timeSliced, wifiAvailable, bleAvailable, radarScan);

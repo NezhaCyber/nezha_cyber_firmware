@@ -7,9 +7,19 @@ enum RadarInitialMode {
     RADAR_INIT_BOTH = 0,
     RADAR_INIT_WIFI = 1,
     RADAR_INIT_BLE = 2,
+    RADAR_INIT_ALERTS = 3,
+    RADAR_INIT_OPEN = 4,
 };
 
-void radar_setup(RadarInitialMode initialMode = RADAR_INIT_BOTH);
+enum RadarInitialView {
+    RADAR_VIEW_SCOPE = 0,
+    RADAR_VIEW_TABLE = 1,
+    RADAR_VIEW_FOX_SPEC = 2,
+};
+
+void radar_setup(
+    RadarInitialMode initialMode = RADAR_INIT_BOTH, RadarInitialView initialView = RADAR_VIEW_SCOPE
+);
 void radar_locate_setup();
 
 #endif // !LITE_VERSION

@@ -8,10 +8,13 @@
 void RadarMenu::optionsMenu() {
     bool isStartup = (bruceConfig.startupApp == "Radar");
     options = {
-        {"Start Radar (W+B)",    []() { radar_setup(RADAR_INIT_BOTH); }   },
-        {"WiFi Radar",           []() { radar_setup(RADAR_INIT_WIFI); }   },
-        {"BLE Radar",            []() { radar_setup(RADAR_INIT_BLE); }    },
-        {"Locate / Triangulate", []() { radar_locate_setup(); }           },
+        {"Start Radar (W+B)",    []() { radar_setup(RADAR_INIT_BOTH, RADAR_VIEW_SCOPE); }     },
+        {"Intel Table",          []() { radar_setup(RADAR_INIT_BOTH, RADAR_VIEW_TABLE); }     },
+        {"Spectrum / Fox-Hunt",  []() { radar_setup(RADAR_INIT_BOTH, RADAR_VIEW_FOX_SPEC); }  },
+        {"Trackers & Alerts",    []() { radar_setup(RADAR_INIT_ALERTS, RADAR_VIEW_TABLE); }   },
+        {"Locate / Triangulate", []() { radar_locate_setup(); }                               },
+        {"WiFi Radar",           []() { radar_setup(RADAR_INIT_WIFI, RADAR_VIEW_SCOPE); }     },
+        {"BLE Radar",            []() { radar_setup(RADAR_INIT_BLE, RADAR_VIEW_SCOPE); }      },
         {isStartup ? "Unset Startup App" : "Set as Startup App",
          [isStartup]() {
              bruceConfig.setStartupApp(isStartup ? "" : "Radar");
