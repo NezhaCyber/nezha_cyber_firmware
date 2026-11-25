@@ -34,8 +34,35 @@ public:
     void draw(float scale = 1) {
         if (rotation != bruceConfigPins.rotation) resetCoordinates();
         if (!checkTheme()) {
-            tft.fillRect(0, 27, tftWidth, tftHeight - 27, bruceConfig.bgColor);
-            drawIcon(scale);
+            uint16_t bg = bruceConfig.bgColor;
+            uint16_t pri = bruceConfig.priColor;
+            uint16_t surface = uiSurfaceColor();
+            uint16_t borderDim = uiBorderDimColor();
+            uint16_t textBright = uiTextBrightColor();
+
+            int contentTop = STATUS_BAR_HEIGHT - 3;
+            int contentBottom = tftHeight - 5;
+            tft.fillRect(0, contentTop, tftWidth, contentBottom - contentTop, bg);
+
+            bool compactScreen = (tftHeight < 160);
+            int pillH = compactScreen ? 20 : 26;
+            int pillY = contentBottom - pillH - (compactScreen ? 2 : 6);
+            int cardTop = contentTop + (compactScreen ? 3 : 8);
+            int cardH = pillY - cardTop - (compactScreen ? 4 : 8);
+            if (cardH < 36) cardH = 36;
+            int cardW = min(tftWidth - (compactScreen ? 64 : 84), cardH + (compactScreen ? 34 : 44));
+            int cardX = (tftWidth - cardW) / 2;
+
+            // Elevated Cyber Spotlight Card framing the module icon
+            tft.fillRoundRect(cardX, cardTop, cardW, cardH, 8, surface);
+            tft.drawRoundRect(cardX, cardTop, cardW, cardH, 8, borderDim);
+            tft.fillRect(cardX + 12, cardTop, cardW - 24, 2, pri);
+            tft.fillRect(cardX + cardW / 2 - 12, cardTop + cardH - 2, 24, 2, pri);
+
+            int box = min(cardW - 18, cardH - 14);
+            if (box < 20) box = 20;
+            drawIconInBox(tftWidth / 2, cardTop + cardH / 2, box, textBright, surface);
+
             drawArrows(scale);
             drawTitle(scale);
         } else {
@@ -82,67 +109,57 @@ public:
     }
 
     void drawArrows(float scale = 1) {
-        tft.fillRect(arrowAreaX, iconAreaY, arrowAreaW, iconAreaH, bruceConfig.bgColor);
-        tft.fillRect(
-            tftWidth - arrowAreaX - arrowAreaW, iconAreaY, arrowAreaW, iconAreaH, bruceConfig.bgColor
-        );
+        (void)scale;
+        bool compactScreen = (tftHeight < 160);
+        int contentTop = STATUS_BAR_HEIGHT - 3;
+        int pillH = compactScreen ? 20 : 26;
+        int pillY = (tftHeight - 5) - pillH - (compactScreen ? 2 : 6);
+        int cardTop = contentTop + (compactScreen ? 3 : 8);
+        int cardH = max(36, pillY - cardTop - (compactScreen ? 4 : 8));
+        int arrowY = cardTop + cardH / 2;
 
-        int arrowSize = scale * 10;
-        int lineWidth = scale * 3;
+        int arrowSize = compactScreen ? 7 : 10;
+        int lineWidth = compactScreen ? 2 : 3;
+        int arrowX = compactScreen ? 10 : 16;
 
-        int arrowX = BORDER_PAD_X + 1.5 * arrowSize;
-        int arrowY = iconCenterY + 1.5 * arrowSize;
+        uint16_t pri = bruceConfig.priColor;
+        uint16_t bg = bruceConfig.bgColor;
 
-        // Left Arrow
+        // Left sleek chevron
+        tft.drawWideLine(arrowX, arrowY, arrowX + arrowSize, arrowY + arrowSize, lineWidth, pri, bg);
+        tft.drawWideLine(arrowX, arrowY, arrowX + arrowSize, arrowY - arrowSize, lineWidth, pri, bg);
+
+        // Right sleek chevron
         tft.drawWideLine(
-            arrowX,
-            arrowY,
-            arrowX + arrowSize,
-            arrowY + arrowSize,
-            lineWidth,
-            bruceConfig.priColor,
-            bruceConfig.bgColor
-        );
-        tft.drawWideLine(
-            arrowX,
-            arrowY,
-            arrowX + arrowSize,
-            arrowY - arrowSize,
-            lineWidth,
-            bruceConfig.priColor,
-            bruceConfig.bgColor
-        );
-
-        // Right Arrow
-        tft.drawWideLine(
-            tftWidth - arrowX,
-            arrowY,
-            tftWidth - arrowX - arrowSize,
-            arrowY + arrowSize,
-            lineWidth,
-            bruceConfig.priColor,
-            bruceConfig.bgColor
+            tftWidth - arrowX, arrowY, tftWidth - arrowX - arrowSize, arrowY + arrowSize, lineWidth, pri, bg
         );
         tft.drawWideLine(
-            tftWidth - arrowX,
-            arrowY,
-            tftWidth - arrowX - arrowSize,
-            arrowY - arrowSize,
-            lineWidth,
-            bruceConfig.priColor,
-            bruceConfig.bgColor
+            tftWidth - arrowX, arrowY, tftWidth - arrowX - arrowSize, arrowY - arrowSize, lineWidth, pri, bg
         );
     }
 
     void drawTitle(float scale = 1) {
-        int titleY = iconCenterY + iconAreaH / 2 + FG;
+        (void)scale;
+        bool compactScreen = (tftHeight < 160);
+        int pillH = compactScreen ? 20 : 26;
+        int pillY = (tftHeight - 5) - pillH - (compactScreen ? 2 : 6);
+        int pillW = tftWidth - (compactScreen ? 48 : 68);
+        int pillX = (tftWidth - pillW) / 2;
+
+        uint16_t pri = bruceConfig.priColor;
+        uint16_t surfaceHi = uiSurfaceHiColor();
+        uint16_t textBright = uiTextBrightColor();
+
+        tft.fillRoundRect(pillX, pillY, pillW, pillH, 5, surfaceHi);
+        tft.drawRoundRect(pillX, pillY, pillW, pillH, 5, pri);
+        tft.fillRect(pillX + 2, pillY + 4, 3, pillH - 8, pri);
 
         tft.setTextSize(FM);
-        tft.drawPixel(0, 0, 0);
-        tft.fillRect(arrowAreaX, titleY, tftWidth - 2 * arrowAreaX, LH * FM, bruceConfig.bgColor);
+        tft.setTextColor(textBright, surfaceHi);
         String label = bruce_i18n::tr(getName());
-        String fitted = bruce_i18n::utf8TruncateToWidth(label, tftWidth - 16, FM);
-        tft.drawCentreString(fitted, iconCenterX, titleY, 1);
+        String fitted = bruce_i18n::utf8TruncateToWidth(label, pillW - 18, FM);
+        int textY = pillY + (pillH - FM * LH) / 2;
+        tft.drawCentreString(fitted, tftWidth / 2, textY, 1);
     }
 
 protected:

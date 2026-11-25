@@ -99,7 +99,7 @@ public:
     int devMode = 0;
 
     int colorInverted = DEFAULT_COLOR_INVERTED;
-    int mainMenuStyle = MAIN_MENU_CAROUSEL;
+    int mainMenuStyle = MAIN_MENU_GRID;
     int badUSBBLEKeyboardLayout = 0;
     uint16_t badUSBBLEKeyDelay = 10;
     bool badUSBBLEShowOutput = true;
