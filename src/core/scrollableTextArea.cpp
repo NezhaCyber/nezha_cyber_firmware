@@ -1,4 +1,5 @@
 #include "scrollableTextArea.h"
+#include "i18n.h"
 #define _scrollBuffer tft
 ScrollableTextArea::ScrollableTextArea(const String &title)
     : firstVisibleLine{0}, _redraw{true}, _title(title), _fontSize(FP), _startX(BORDER_PAD_X),
@@ -35,7 +36,7 @@ void ScrollableTextArea::setup() {
     _scrollBuffer.fillRect(_startX, _startY, _width, _height, bruceConfig.bgColor);
 
     _maxCharactersPerLine = floor(_width / _scrollBuffer.textWidth("w", _fontSize));
-    _pixelsPerLine = _scrollBuffer.fontHeight() + 2;
+    _pixelsPerLine = (_fontSize == 1 && bruce_i18n::isChinese()) ? 14 : (_scrollBuffer.fontHeight() + 2);
     _maxVisibleLines = floor(_height / _pixelsPerLine);
 }
 
@@ -152,6 +153,26 @@ void ScrollableTextArea::fromString(const String &text) {
 void ScrollableTextArea::addLine(const String &text) {
     if (text.isEmpty()) {
         linesBuffer.emplace_back("");
+        return;
+    }
+
+    String trText = bruce_i18n::tr(text);
+    if (bruce_i18n::containsNonAscii(trText)) {
+        String clean = trText;
+        if (clean.endsWith("\r")) clean.remove(clean.length() - 1);
+        std::vector<String> wrapped = bruce_i18n::utf8WrapToWidth(clean, _width, _fontSize);
+        if (wrapped.empty()) {
+            linesBuffer.emplace_back("");
+        } else {
+            for (size_t i = 0; i < wrapped.size(); ++i) {
+                if (i > 0 && _indentWrappedLines) {
+                    linesBuffer.emplace_back(" " + wrapped[i]);
+                } else {
+                    linesBuffer.emplace_back(wrapped[i]);
+                }
+            }
+        }
+        _redraw = true;
         return;
     }
 
