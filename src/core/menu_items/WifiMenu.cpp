@@ -26,6 +26,7 @@
 #include "modules/wifi/dual_band_analyzer.h"
 #endif
 #include "modules/wifi/jam_detect.h"
+#include "modules/wifi/wifi_adv_tools.h"
 #include "modules/wifi/wifi_recover.h"
 #endif
 
@@ -105,6 +106,9 @@ void WifiMenu::optionsMenu() {
     options.push_back({"Brucegotchi", brucegotchi_start});
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
     options.push_back({"WiFite", wifite_menu});
+#endif
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+    options.push_back({"WiFi Adv Tools", wifi_adv_tools_menu});
 #endif
     options.push_back({"WiFi Pass Recovery", wifi_recover_menu});
 #endif
