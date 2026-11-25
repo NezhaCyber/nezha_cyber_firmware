@@ -96,7 +96,7 @@ void displayScrollingText(const String &text, Opt_Coord &coord, bool highlight) 
 ** Description:   Draw touch screen footer
 ***************************************************************************************/
 void TouchFooter(uint16_t color) {
-#if defined(HAS_TOUCH)
+#if defined(HAS_TOUCH) && !defined(NO_TOUCH_FOOTER)
     tft.drawRoundRect(
         BORDER_OFFSET_FROM_SCREEN_EDGE,
         tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 3,
@@ -110,13 +110,16 @@ void TouchFooter(uint16_t color) {
     tft.drawCentreString(bruce_i18n::tr("PREV"), tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
     tft.drawCentreString(bruce_i18n::tr("SEL"), tftWidth / 2, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
     tft.drawCentreString(bruce_i18n::tr("NEXT"), 5 * tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
+#else
+    (void)color;
 #endif
 }
 /***************************************************************************************
-** Function name: TouchFooter
+** Function name: MegaFooter
 ** Description:   Draw touch screen footer
 ***************************************************************************************/
 void MegaFooter(uint16_t color) {
+#if defined(HAS_TOUCH) && !defined(NO_TOUCH_FOOTER)
     tft.drawRoundRect(
         BORDER_OFFSET_FROM_SCREEN_EDGE,
         tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 3,
@@ -130,6 +133,9 @@ void MegaFooter(uint16_t color) {
     tft.drawCentreString(bruce_i18n::tr("Exit"), tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
     tft.drawCentreString(bruce_i18n::tr("UP"), tftWidth / 2, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
     tft.drawCentreString(bruce_i18n::tr("DOWN"), 5 * tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
+#else
+    (void)color;
+#endif
 }
 
 /***************************************************************************************
