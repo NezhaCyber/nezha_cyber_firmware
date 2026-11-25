@@ -1033,7 +1033,7 @@ static int execSingleCommand(ShellState &st, const String &rawStmt, int depth) {
         snprintf(buf, sizeof(buf), "up %02u:%02u:%02u", (unsigned)h, (unsigned)m, (unsigned)s);
         st.emitLine(buf);
     } else if (cmd == "uname") {
-        st.emitLine("Bruce " + String(BRUCE_VERSION) + " " + String(DEVICE_NAME) + " FreeRTOS");
+        st.emitLine("Nezha Cyber " + String(BRUCE_VERSION) + " " + String(DEVICE_NAME) + " FreeRTOS");
     } else if (cmd == "ip" || cmd == "ifconfig") {
         st.emitLine("MAC: " + WiFi.macAddress());
         if (WiFi.isConnected()) st.emitLine("STA: " + WiFi.localIP().toString());
@@ -1137,7 +1137,7 @@ void shell_terminal_setup() {
     ShellState st;
     st.useSd = sdcardMounted;
     st.area = &area;
-    st.emitLine("Bruce Shell " + String(BRUCE_VERSION) + " (" + (st.useSd ? "/sd" : "/fs") + ")");
+    st.emitLine("Nezha Cyber Shell " + String(BRUCE_VERSION) + " (" + (st.useSd ? "/sd" : "/fs") + ")");
     st.emitLine("Type 'help' or 'exit'");
     area.draw(true);
 

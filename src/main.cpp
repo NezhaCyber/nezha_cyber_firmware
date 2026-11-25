@@ -163,6 +163,7 @@ volatile int tftHeight = TFT_WIDTH;
 
 #include "core/bus_HAL.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/led_control.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
@@ -274,12 +275,12 @@ void boot_screen() {
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
     tft.setTextSize(FM);
     tft.drawPixel(0, 0, bruceConfig.bgColor);
-    tft.drawCentreString("Bruce", tftWidth / 2, 10, 1);
+    tft.drawCentreString(bruce_i18n::tr("Nezha Cyber"), tftWidth / 2, 10, 1);
     tft.setTextSize(FP);
-    tft.drawCentreString(BRUCE_VERSION, tftWidth / 2, 25, 1);
+    tft.drawCentreString(BRUCE_VERSION, tftWidth / 2, 28, 1);
     tft.setTextSize(FM);
     tft.drawCentreString(
-        "PREDATORY FIRMWARE", tftWidth / 2, tftHeight + 2, 1
+        bruce_i18n::tr("CYBER SECURITY SUITE"), tftWidth / 2, tftHeight + 2, 1
     ); // will draw outside the screen on non touch devices
 }
 

@@ -1413,6 +1413,7 @@ struct StatusBarCache {
     uint8_t iconMask = 0xFF;
     bool clockSet = false;
     bool border = false;
+    bool isZh = false;
     uint16_t priColor = 0;
     uint16_t bgColor = 0;
     int16_t w = 0;
@@ -1450,9 +1451,11 @@ void drawStatusBar(bool force) {
 #endif
     }
 
+    bool isZh = bruce_i18n::isChinese();
     if (!force && s_statusBarCache.valid && s_statusBarCache.bat == bat &&
         s_statusBarCache.charging == charging && s_statusBarCache.iconMask == iconMask &&
         s_statusBarCache.clockSet == clock_set && s_statusBarCache.border == bruceConfig.theme.border &&
+        s_statusBarCache.isZh == isZh &&
         s_statusBarCache.priColor == bruceConfig.priColor && s_statusBarCache.bgColor == bruceConfig.bgColor &&
         s_statusBarCache.w == tftWidth && s_statusBarCache.h == tftHeight &&
         (!clock_set || strncmp(s_statusBarCache.timeBuf, timeStr, sizeof(s_statusBarCache.timeBuf)) == 0)) {
@@ -1465,6 +1468,7 @@ void drawStatusBar(bool force) {
     s_statusBarCache.iconMask = iconMask;
     s_statusBarCache.clockSet = clock_set;
     s_statusBarCache.border = bruceConfig.theme.border;
+    s_statusBarCache.isZh = isZh;
     s_statusBarCache.priColor = bruceConfig.priColor;
     s_statusBarCache.bgColor = bruceConfig.bgColor;
     s_statusBarCache.w = tftWidth;
@@ -1500,15 +1504,18 @@ void drawStatusBar(bool force) {
         tft.drawFastVLine(tftWidth - 3, by - br + 1, br, pri);
     }
 
-    // Left HUD badge (live clock or BRUCE identity)
-    int badgeY = (hudH - LH * FP) / 2;
+    // Left HUD badge (live clock or Nezha Cyber / 哪吒网络安全 identity)
     if (clock_set) {
+        int badgeY = (hudH - LH * FP) / 2;
         setTftDisplay(8, badgeY, textBright, FP, hudBg);
         tft.print(timeStr);
     } else {
+        String brand = bruce_i18n::tr("Nezha Cyber");
+        int badgeH = (FP == 1 && bruce_i18n::containsNonAscii(brand)) ? 12 : (LH * FP);
+        int badgeY = (hudH - badgeH) / 2;
         setTftDisplay(8, badgeY, textBright, FP, hudBg);
-        tft.print("BRUCE");
-        if (tftWidth >= 260) {
+        tft.print(brand);
+        if (tftWidth >= 260 && !bruce_i18n::containsNonAscii(brand)) {
             tft.setTextColor(pri, hudBg);
             tft.print(" // ");
             tft.setTextColor(bruceConfig.secColor, hudBg);

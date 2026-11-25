@@ -2103,7 +2103,7 @@ void calibrateTouch() {
     tft.setTextSize(FP);
     const int16_t lineHeight = LH;
     int16_t y = (_h - lineHeight * 4) / 2;
-    drawCenteredLine("Bruce Touch Calibration", y);
+    drawCenteredLine(bruce_i18n::tr("Nezha Cyber Touch Calibration"), y);
     y += lineHeight;
     drawCenteredLine("---------------------------", y);
     y += lineHeight;
