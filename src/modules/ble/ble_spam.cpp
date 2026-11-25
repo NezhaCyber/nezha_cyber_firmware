@@ -31,6 +31,7 @@
 #include "ble_spam.h"
 #include "ble_p4_compat.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/radio_mem.h"
 #include "core/sd_functions.h"
@@ -911,6 +912,12 @@ static BleSpamListMetrics bleSpamGetListMetrics(int footerLines) {
 }
 
 static String bleSpamTruncateText(const String &text, int maxWidth) {
+    if (bruce_i18n::containsNonAscii(text)) {
+        if (bruce_i18n::utf8PixelWidth(text, FP) <= maxWidth) return text;
+        int ellipsisW = bruce_i18n::utf8PixelWidth("...", FP);
+        if (maxWidth <= ellipsisW) return "...";
+        return bruce_i18n::utf8TruncateToWidth(text, maxWidth - ellipsisW, FP) + "...";
+    }
     if (tft.textWidth(text.c_str()) <= maxWidth) return text;
 
     String trimmed = text;
@@ -927,7 +934,7 @@ static String bleSpamTruncateText(const String &text, int maxWidth) {
 static String bleSpamMakeTitle(const String &title) {
     tft.setTextSize(FP);
     int maxWidth = tftWidth - 2 * BORDER_PAD_X;
-    return bleSpamTruncateText(title, maxWidth);
+    return bleSpamTruncateText(bruce_i18n::tr(title), maxWidth);
 }
 
 static void bleSpamEnsureScroll(BleSpamListState &state, int itemCount, int visibleRows) {
@@ -962,7 +969,7 @@ static void bleSpamRenderList(
         tft.fillRect(metrics.list_x, row_y, metrics.list_w, metrics.row_h, bg);
         tft.setTextColor(fg, bg);
 
-        String line = String(selected ? "> " : "  ") + labelFn(idx);
+        String line = String(selected ? "> " : "  ") + bruce_i18n::tr(String(labelFn(idx)));
         line = bleSpamTruncateText(line, metrics.list_w - 6);
         tft.drawString(line, metrics.list_x + 4, row_y + 2, 1);
     }
@@ -970,7 +977,7 @@ static void bleSpamRenderList(
     if (footer != nullptr) {
         tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
         tft.fillRect(8, metrics.footer_y, tftWidth - 16, FP * LH, bruceConfig.bgColor);
-        tft.drawCentreString(footer, tftWidth / 2, metrics.footer_y + 2, 1);
+        tft.drawCentreString(bruce_i18n::tr(footer), tftWidth / 2, metrics.footer_y + 2, 1);
     }
 }
 
@@ -1729,9 +1736,9 @@ static void bleSpamRenderConfigRows(
         tft.fillRect(10, rowY, tftWidth - 20, rowH, bruceConfig.bgColor);
         uint16_t fg = selected ? TFT_YELLOW : bruceConfig.priColor;
         tft.setTextColor(fg, bruceConfig.bgColor);
-        tft.drawString(rows[i].label, 12, rowY + 2, 1);
+        tft.drawString(bruce_i18n::tr(rows[i].label), 12, rowY + 2, 1);
 
-        String valueText = rows[i].value;
+        String valueText = bruce_i18n::tr(rows[i].value);
         if (editing) valueText = "[ " + valueText + " ]";
         tft.drawRightString(valueText, tftWidth - 12, rowY + 2, 1);
     }
@@ -1766,11 +1773,11 @@ bleSpamConfigScreen(const BleSpamSelection &selection, BleSpamConfig &config, bo
             tft.fillRect(10, startRowY, tftWidth - 20, rowH, bruceConfig.bgColor);
             uint16_t startColor = (cursor == 4) ? TFT_YELLOW : bruceConfig.priColor;
             tft.setTextColor(startColor, bruceConfig.bgColor);
-            tft.drawCentreString("[ Start ]", tftWidth / 2, startRowY + 2, 1);
+            tft.drawCentreString(bruce_i18n::tr("[ Start ]"), tftWidth / 2, startRowY + 2, 1);
 
             tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
             tft.fillRect(8, footerY, tftWidth - 16, footerH, bruceConfig.bgColor);
-            tft.drawCentreString("Click=Select  ESC=Back", tftWidth / 2, footerY + 2, 1);
+            tft.drawCentreString(bruce_i18n::tr("Click=Select  ESC=Back"), tftWidth / 2, footerY + 2, 1);
 
             redrawRows = false;
         }
