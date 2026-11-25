@@ -314,22 +314,28 @@ void media_music_player() {
             setAudioPlaybackVolume(volume);
             lastDrawMs = 0;
         } else if (check(SelPress)) {
-            options = {
-                {"Play / Pause", [&]() { pauseAudioPlayback(); }},
-                {"Track List",
-                 [&]() {
-                     options.clear();
-                     for (size_t i = 0; i < tracks.size(); ++i) {
-                         options.push_back({stripExt(tracks[i].name), [&, i]() { startTrack((int)i); }});
-                     }
-                     options.push_back({"Back", []() {}});
-                     loopOptions(options, MENU_TYPE_SUBMENU, "Track List");
-                 }},
-                {shuffle ? "Shuffle: ON" : "Shuffle: OFF", [&]() { shuffle = !shuffle; }},
-                {repeatOne ? "Repeat One: ON" : "Repeat One: OFF", [&]() { repeatOne = !repeatOne; }},
-                {"Exit", [&]() { exitPlayer = true; }},
+            int act = 0;
+            std::vector<Option> playerOpts = {
+                {"Play / Pause", [&]() { act = 1; }},
+                {"Track List", [&]() { act = 2; }},
+                {shuffle ? "Shuffle: ON" : "Shuffle: OFF", [&]() { act = 3; }},
+                {repeatOne ? "Repeat One: ON" : "Repeat One: OFF", [&]() { act = 4; }},
+                {"Exit", [&]() { act = 5; }},
             };
-            loopOptions(options, MENU_TYPE_SUBMENU, "Music Player");
+            loopOptions(playerOpts, MENU_TYPE_SUBMENU, "Music Player");
+            if (act == 1) pauseAudioPlayback();
+            else if (act == 2) {
+                int pickedIdx = -1;
+                std::vector<Option> trackOpts;
+                for (size_t i = 0; i < tracks.size(); ++i) {
+                    trackOpts.push_back({stripExt(tracks[i].name), [&, i]() { pickedIdx = (int)i; }});
+                }
+                trackOpts.push_back({"Back", []() {}});
+                loopOptions(trackOpts, MENU_TYPE_SUBMENU, "Track List");
+                if (pickedIdx >= 0) startTrack(pickedIdx);
+            } else if (act == 3) shuffle = !shuffle;
+            else if (act == 4) repeatOne = !repeatOne;
+            else if (act == 5) exitPlayer = true;
             if (!exitPlayer) {
                 drawPlayer(true);
                 lastDrawMs = 0;
@@ -422,32 +428,34 @@ void media_photo_viewer() {
             showOverlay = !showOverlay;
             renderPhoto();
         } else if (check(SelPress)) {
-            options = {
-                {slideshow ? "Slideshow: ON" : "Slideshow: OFF", [&]() { slideshow = !slideshow; }},
-                {showOverlay ? "Info Bar: ON" : "Info Bar: OFF", [&]() { showOverlay = !showOverlay; }},
-                {"Photo Gallery",
-                 [&]() {
-                     options.clear();
-                     for (size_t i = 0; i < photos.size(); ++i) {
-                         String lbl = photos[i].name + " (" + String(photos[i].sizeBytes / 1024) + "K)";
-                         options.push_back({lbl, [&, i]() { idx = (int)i; }});
-                     }
-                     options.push_back({"Back", []() {}});
-                     loopOptions(options, MENU_TYPE_SUBMENU, "Photo Gallery");
-                 }},
-                {"Delete Photo",
-                 [&]() {
-                     if (fs->remove(photos[idx].path)) {
-                         photos.erase(photos.begin() + idx);
-                         if (idx >= (int)photos.size() && idx > 0) --idx;
-                         displaySuccess("Photo deleted", true);
-                     } else {
-                         displayError("Delete failed", true);
-                     }
-                 }},
-                {"Exit", [&]() { exitViewer = true; }},
+            int act = 0;
+            std::vector<Option> photoOpts = {
+                {slideshow ? "Slideshow: ON" : "Slideshow: OFF", [&]() { act = 1; }},
+                {showOverlay ? "Info Bar: ON" : "Info Bar: OFF", [&]() { act = 2; }},
+                {"Photo Gallery", [&]() { act = 3; }},
+                {"Delete Photo", [&]() { act = 4; }},
+                {"Exit", [&]() { act = 5; }},
             };
-            loopOptions(options, MENU_TYPE_SUBMENU, "Photo Viewer");
+            loopOptions(photoOpts, MENU_TYPE_SUBMENU, "Photo Viewer");
+            if (act == 1) slideshow = !slideshow;
+            else if (act == 2) showOverlay = !showOverlay;
+            else if (act == 3) {
+                std::vector<Option> galOpts;
+                for (size_t i = 0; i < photos.size(); ++i) {
+                    String lbl = photos[i].name + " (" + String(photos[i].sizeBytes / 1024) + "K)";
+                    galOpts.push_back({lbl, [&, i]() { idx = (int)i; }});
+                }
+                galOpts.push_back({"Back", []() {}});
+                loopOptions(galOpts, MENU_TYPE_SUBMENU, "Photo Gallery");
+            } else if (act == 4) {
+                if (fs->remove(photos[idx].path)) {
+                    photos.erase(photos.begin() + idx);
+                    if (idx >= (int)photos.size() && idx > 0) --idx;
+                    displaySuccess("Photo deleted", true);
+                } else {
+                    displayError("Delete failed", true);
+                }
+            } else if (act == 5) exitViewer = true;
             if (!exitViewer && !photos.empty()) renderPhoto();
         }
         vTaskDelay(pdMS_TO_TICKS(15));
@@ -473,8 +481,8 @@ void phone_notes_app() {
         scanMediaDir(*fs, "/notes", [](const String &n) { return hasExtCI(n, ".txt"); }, notes, 0);
 
         bool exitNotes = false;
-        options.clear();
-        options.push_back({"+ New Note", [&]() {
+        std::vector<Option> noteOpts;
+        noteOpts.push_back({"+ New Note", [&]() {
             String title = keyboard("", 20, "Note Title");
             if (title.isEmpty() || title == "\x1B") return;
             title.replace("/", "_");
@@ -491,7 +499,7 @@ void phone_notes_app() {
         }});
 
         for (const auto &n : notes) {
-            options.push_back({stripExt(n.name), [&, n]() {
+            noteOpts.push_back({stripExt(n.name), [&, n]() {
                 File f = fs->open(n.path, FILE_READ);
                 if (!f) return;
                 ScrollableTextArea area(stripExt(n.name));
@@ -520,8 +528,8 @@ void phone_notes_app() {
                 loopOptions(act, MENU_TYPE_SUBMENU, stripExt(n.name).c_str());
             }});
         }
-        options.push_back({"Back", [&]() { exitNotes = true; }});
-        int sel = loopOptions(options, MENU_TYPE_SUBMENU, "Notes");
+        noteOpts.push_back({"Back", [&]() { exitNotes = true; }});
+        int sel = loopOptions(noteOpts, MENU_TYPE_SUBMENU, "Notes");
         if (exitNotes || sel == -1) break;
     }
 }

@@ -6,7 +6,7 @@
 #include "modules/others/phone_suite.h"
 
 void PhoneMenu::optionsMenu() {
-    options = {
+    std::vector<Option> localOpts = {
         {"Phone Home",   phone_home_setup    },
         {"Music Player", media_music_player  },
         {"Photo Viewer", media_photo_viewer  },
@@ -14,9 +14,9 @@ void PhoneMenu::optionsMenu() {
         {"Calculator",   phone_calculator_app},
         {"Stopwatch",    phone_stopwatch_app },
         {"Torch / SOS",  phone_flashlight_app},
+        {"Main Menu",    []() { backToMenu(); }},
     };
-    addOptionToMainMenu();
-    loopOptions(options, MENU_TYPE_SUBMENU, "Phone");
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "Phone");
 }
 
 void PhoneMenu::drawIcon(float scale) {
