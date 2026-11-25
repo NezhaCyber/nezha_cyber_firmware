@@ -136,7 +136,7 @@ void updateTimeStr(struct tm timeInfo) {
 void showDeviceInfo() {
     ScrollableTextArea area = ScrollableTextArea("DEVICE INFO");
 
-    area.addLine(bruce_i18n::tr("Nezha Cyber") + " v" + String(BRUCE_VERSION));
+    area.addLine(String(bruce_i18n::tr("Nezha Cyber")) + " v" + String(BRUCE_VERSION));
     area.addLine("EEPROM size: " + String(EEPROMSIZE));
     area.addLine("");
     area.addLine("[MEMORY]");
