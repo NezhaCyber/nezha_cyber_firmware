@@ -8,6 +8,7 @@
 #include "modules/others/ibutton.h"
 #include "modules/others/mic.h"
 #include "modules/others/qrcode_menu.h"
+#include "modules/others/shell_terminal.h"
 #include "modules/others/tururururu.h"
 #include "modules/others/u2f.h"
 // Removed: #include "modules/others/timer.h"
@@ -27,7 +28,8 @@ void OthersMenu::optionsMenu() {
 #endif
 
 #ifndef LITE_VERSION
-        {"iButton",      setup_ibutton                },
+        {"Terminal",       shell_terminal_setup         },
+        {"iButton",        setup_ibutton                },
 #endif
 
         // Timer removed - moved to another "Clock"

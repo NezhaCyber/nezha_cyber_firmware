@@ -1,0 +1,58 @@
+#if !defined(LITE_VERSION)
+#include "RadarMenu.h"
+
+#include "core/display.h"
+#include "core/utils.h"
+#include "modules/others/radar.h"
+
+void RadarMenu::optionsMenu() {
+    bool isStartup = (bruceConfig.startupApp == "Radar");
+    options = {
+        {"Start Radar (W+B)",    []() { radar_setup(RADAR_INIT_BOTH); }   },
+        {"WiFi Radar",           []() { radar_setup(RADAR_INIT_WIFI); }   },
+        {"BLE Radar",            []() { radar_setup(RADAR_INIT_BLE); }    },
+        {"Locate / Triangulate", []() { radar_locate_setup(); }           },
+        {isStartup ? "Unset Startup App" : "Set as Startup App",
+         [isStartup]() {
+             bruceConfig.setStartupApp(isStartup ? "" : "Radar");
+             displaySuccess(isStartup ? "Startup App cleared" : "Radar set as Startup App", true);
+         }},
+    };
+    addOptionToMainMenu();
+    loopOptions(options, MENU_TYPE_SUBMENU, "Radar");
+}
+
+void RadarMenu::drawIcon(float scale) {
+    clearIconArea();
+    int cx = iconCenterX;
+    int cy = iconCenterY;
+
+    int r = (int)(scale * 26.0f);
+    if (r < 9) r = 9;
+    int rMid = (r * 2) / 3;
+    int rIn = r / 3;
+    int lineW = (int)(scale * 2.0f);
+    if (lineW < 1) lineW = 1;
+
+    // Concentric radar rings
+    tft.drawCircle(cx, cy, r, bruceConfig.priColor);
+    if (r >= 14) tft.drawCircle(cx, cy, r - 1, bruceConfig.priColor);
+    tft.drawCircle(cx, cy, rMid, bruceConfig.priColor);
+    tft.drawCircle(cx, cy, rIn, bruceConfig.priColor);
+
+    // Subtle crosshairs
+    tft.drawFastHLine(cx - r, cy, 2 * r + 1, bruceConfig.priColor);
+    tft.drawFastVLine(cx, cy - r, 2 * r + 1, bruceConfig.priColor);
+
+    // Sweep arm (pointing upper-right ~45 deg)
+    int sx = cx + (int)(r * 0.70f);
+    int sy = cy - (int)(r * 0.70f);
+    tft.drawWideLine(cx, cy, sx, sy, lineW, bruceConfig.priColor, bruceConfig.bgColor);
+
+    // Center dot + two radar blips
+    int dotR = max(2, (int)(scale * 2.5f));
+    tft.fillCircle(cx, cy, dotR, bruceConfig.priColor);
+    tft.fillCircle(cx - rMid / 2, cy - rMid / 2, dotR, bruceConfig.priColor);
+    tft.fillCircle(cx + rMid / 2, cy + rIn, dotR, bruceConfig.priColor);
+}
+#endif

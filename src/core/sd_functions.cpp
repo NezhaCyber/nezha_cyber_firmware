@@ -12,6 +12,7 @@
 #include "modules/others/audio_player.h"
 #endif
 #include "modules/others/qrcode_menu.h"
+#include "modules/others/shell_terminal.h"
 #include "modules/rf/rf_send.h"
 #include "mykeyboard.h" // using keyboard when calling rename
 #include "passwords.h"
@@ -790,6 +791,15 @@ String loopSD(FS &fs, bool filePicker, const String &allowed_ext, String rootPat
                 options.insert(options.begin(), {"JS Script Run", [&]() {
                                                      delay(200);
                                                      run_bjs_script_headless(fs, filepath);
+                                                     exit = true;
+                                                 }});
+            }
+#endif
+#if !defined(LITE_VERSION)
+            if (filepath.endsWith(".sh")) {
+                options.insert(options.begin(), {"Run Shell", [&]() {
+                                                     delay(200);
+                                                     shell_run_script_file(fs, filepath);
                                                      exit = true;
                                                  }});
             }
