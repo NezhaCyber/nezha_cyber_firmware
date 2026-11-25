@@ -21,6 +21,7 @@
 #include "menu_items/ScriptsMenu.h"
 #include "menu_items/WifiMenu.h"
 #include "menu_items/WireToolsMenu.h"
+#include "menu_items/PhoneMenu.h"
 class MainMenu {
 public:
     FileMenu fileMenu;
@@ -42,6 +43,7 @@ public:
     LoRaMenu loraMenu;
     EthernetMenu ethernetMenu;
     WireToolsMenu wireToolsMenu;
+    PhoneMenu phoneMenu;
 #endif
 
     MainMenu();
