@@ -1,0 +1,34 @@
+{
+  "stations": [
+    {
+      "name": "BBC World Service",
+      "url": "http://stream.live.vc.bbcmedia.co.uk/bbc_world_service",
+      "genre": "News / UK"
+    },
+    {
+      "name": "BFM 89.9 Business",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/BFM899AAC.aac",
+      "genre": "News / MY"
+    },
+    {
+      "name": "TraxxFM 90.3",
+      "url": "https://playerservices.streamtheworld.com/api/livestream-redirect/TRAXX_FM.mp3",
+      "genre": "Music / MY"
+    },
+    {
+      "name": "NPR Program Stream",
+      "url": "https://npr-ice.streamguys1.com/live.mp3",
+      "genre": "News / US"
+    },
+    {
+      "name": "SomaFM Groove Salad",
+      "url": "http://ice1.somafm.com/groovesalad-128-mp3",
+      "genre": "Ambient"
+    },
+    {
+      "name": "Radio Paradise Main",
+      "url": "http://stream.radioparadise.com/aac-128",
+      "genre": "Eclectic"
+    }
+  ]
+}
