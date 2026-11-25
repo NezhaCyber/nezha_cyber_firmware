@@ -15,6 +15,7 @@
 #include "modules/bjs_interpreter/interpreter.h"
 #include "modules/gps/gps_tracker.h"
 #include "modules/gps/wardriving.h"
+#include "modules/others/radar.h"
 #include "modules/pwnagotchi/pwnagotchi.h"
 #include "modules/rf/rf_send.h"
 #include "modules/rfid/PN532KillerTools.h"
@@ -31,6 +32,7 @@ StartupApp::StartupApp() {
     _startupApps["GPS Tracker"] = []() { GPSTracker(); };
     _startupApps["PN532 BLE"] = []() { Pn532ble(); };
     _startupApps["PN532 UART"] = []() { PN532KillerTools(); };
+    _startupApps["Radar"] = []() { radar_setup(); };
 #endif
     _startupApps["Clock"] = []() { runClockLoop(); };
     _startupApps["Custom SubGHz"] = []() { sendCustomRF(); };
