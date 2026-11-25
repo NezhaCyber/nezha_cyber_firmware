@@ -7,6 +7,7 @@
 #include "modules/ble/ble_spam.h"
 #if !defined(LITE_VERSION)
 #include "modules/ble/BLE_Suite.h"
+#include "modules/ble/ble_adv_tools.h"
 #else
 #include "modules/ble/ble_sniffer.h"
 #endif
@@ -37,6 +38,10 @@ void BleMenu::optionsMenu() {
 
 #if !defined(LITE_VERSION)
     options.push_back({"BLE Suite", [=]() { BleSuiteMenu(); }});
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+    options.push_back({"BLE Adv Tools", ble_adv_tools_menu});
+    options.push_back({"BLE File Transfer", ble_file_transfer});
+#endif
     options.push_back({"Ninebot", [=]() { BLENinebot(); }});
     options.push_back({"Presenter mode", [=]() { PresenterMode(hid_ble, true); }});
 #else
