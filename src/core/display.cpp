@@ -143,6 +143,7 @@ void MegaFooter(uint16_t color) {
 ** Description:   set cursor to 0,0, screen and text to default color
 ***************************************************************************************/
 void resetTftDisplay(int x, int y, uint16_t fc, int size, uint16_t bg, uint16_t screen) {
+    invalidateStatusBarCache();
     tft.setCursor(x, y);
     tft.fillScreen(screen);
     tft.setTextSize(size);
@@ -310,11 +311,11 @@ int8_t displayMessage(
     bool redraw = true;
 
     while (true) {
-        if (check(PrevPress) || check(EscPress)) {
+        if (check(PrevPress) || check(UpPress) || check(EscPress)) {
             selected = (selected - 1 + totalButtons) % totalButtons; // Cycle backward
             redraw = true;
         }
-        if (check(NextPress)) {
+        if (check(NextPress) || check(DownPress)) {
             selected = (selected + 1) % totalButtons; // Cycle forward
             redraw = true;
         }
@@ -610,31 +611,9 @@ int loopOptions(
     Opt_Coord coord;
     bool redraw = true;
     bool exit = false;
-    int menuSize = options.size();
     int devModeCounter = 0;
     static unsigned long _clock_bat_timer = millis();
-    if (options.size() > MAX_MENU_SIZE) { menuSize = MAX_MENU_SIZE; }
-    if (index > 0 && !compact) {
-        if (border)
-            tft.fillRoundRect(
-                tftWidth * 0.10,
-                tftHeight / 2 - menuSize * (FM * 8 + 4) / 2 - 5,
-                tftWidth * 0.8,
-                (FM * 8 + 4) * menuSize + 10,
-                5,
-                bruceConfig.bgColor
-            );
-        else
-            tft.fillRoundRect(
-                BORDER_OFFSET_FROM_SCREEN_EDGE,
-                BORDER_OFFSET_FROM_SCREEN_EDGE,
-                tftWidth - 2 * BORDER_OFFSET_FROM_SCREEN_EDGE,
-                tftHeight - 2 * BORDER_OFFSET_FROM_SCREEN_EDGE,
-                5,
-                bruceConfig.bgColor
-            );
-    }
-    if (index >= options.size()) index = 0;
+    if (index >= static_cast<int>(options.size())) index = 0;
     bool firstRender = true;
     unsigned long menuOpenTs =
         0; // timestamp when this menu was first rendered (per-invocation, not shared across nested menus)
@@ -895,7 +874,7 @@ int loopOptions(
                 }
                 redraw = true;
             }
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            vTaskDelay(5 / portTICK_PERIOD_MS);
         }
 
         /* Select and run function
@@ -903,7 +882,7 @@ int loopOptions(
         */
         // Prevent immediate selection if the SEL button was already being held when the menu opened.
         // Allow a short grace period for the user to release the button first.
-        static const unsigned long MENU_SELECT_IGNORE_MS = 600; // ms to ignore SEL after menu opens
+        static const unsigned long MENU_SELECT_IGNORE_MS = 220; // ms to ignore SEL after menu opens
 
         if (forceMenuOption >= 0 || (millis() - menuOpenTs > MENU_SELECT_IGNORE_MS && check(SelPress))) {
             uint16_t chosen = index;
@@ -1312,8 +1291,75 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
 #endif
 }
 
-void drawStatusBar() {
+namespace {
+struct StatusBarCache {
+    bool valid = false;
+    uint8_t bat = 0xFF;
+    bool charging = false;
+    uint8_t iconMask = 0xFF;
+    bool clockSet = false;
+    bool border = false;
+    uint16_t priColor = 0;
+    uint16_t bgColor = 0;
+    int16_t w = 0;
+    int16_t h = 0;
+    char timeBuf[16] = {0};
+};
+StatusBarCache s_statusBarCache;
+} // namespace
+
+void invalidateStatusBarCache() { s_statusBarCache.valid = false; }
+
+void drawStatusBar(bool force) {
     uint8_t bat = getBattery();
+    bool charging = (bat > 0) ? isCharging() : false;
+
+    bool showSD = sdcardMounted;
+    bool showGPS = gpsConnected;
+#ifdef CONFIG_IDF_TARGET_ESP32P4
+    bool showWifi = WiFi.isConnected() || WiFi.AP.started();
+#else
+    bool showWifi = (WiFi.getMode() != 0);
+#endif
+    bool showWeb = isWebUIActive;
+    bool showBLE = BLEConnected;
+    bool showWG = isConnectedWireguard;
+
+    uint8_t iconMask = (showSD ? 0x01 : 0) | (showGPS ? 0x02 : 0) | (showWifi ? 0x04 : 0) |
+                       (showWeb ? 0x08 : 0) | (showBLE ? 0x10 : 0) | (showWG ? 0x20 : 0);
+
+    if (clock_set) {
+#if defined(HAS_RTC)
+        updateTimeStr(_rtc.getTimeStruct());
+#else
+        updateTimeStr(rtc.getTimeStruct());
+#endif
+    }
+
+    if (!force && s_statusBarCache.valid && s_statusBarCache.bat == bat &&
+        s_statusBarCache.charging == charging && s_statusBarCache.iconMask == iconMask &&
+        s_statusBarCache.clockSet == clock_set && s_statusBarCache.border == bruceConfig.theme.border &&
+        s_statusBarCache.priColor == bruceConfig.priColor && s_statusBarCache.bgColor == bruceConfig.bgColor &&
+        s_statusBarCache.w == tftWidth && s_statusBarCache.h == tftHeight &&
+        (!clock_set || strncmp(s_statusBarCache.timeBuf, timeStr, sizeof(s_statusBarCache.timeBuf)) == 0)) {
+        return;
+    }
+
+    s_statusBarCache.valid = true;
+    s_statusBarCache.bat = bat;
+    s_statusBarCache.charging = charging;
+    s_statusBarCache.iconMask = iconMask;
+    s_statusBarCache.clockSet = clock_set;
+    s_statusBarCache.border = bruceConfig.theme.border;
+    s_statusBarCache.priColor = bruceConfig.priColor;
+    s_statusBarCache.bgColor = bruceConfig.bgColor;
+    s_statusBarCache.w = tftWidth;
+    s_statusBarCache.h = tftHeight;
+    if (clock_set) {
+        strncpy(s_statusBarCache.timeBuf, timeStr, sizeof(s_statusBarCache.timeBuf) - 1);
+        s_statusBarCache.timeBuf[sizeof(s_statusBarCache.timeBuf) - 1] = '\0';
+    }
+
     if (bat > 0) drawBatteryStatus(bat);
 
     if (bruceConfig.theme.border) {
@@ -1337,11 +1383,6 @@ void drawStatusBar() {
     if (clock_set) {
         setTftDisplay(BORDER_PAD_X, BORDER_PAD_X, bruceConfig.priColor, FP, bruceConfig.bgColor);
         tft.fillRect(BORDER_PAD_X, BORDER_PAD_X, LW * FP * 10, LH * FP, bruceConfig.bgColor);
-#if defined(HAS_RTC)
-        updateTimeStr(_rtc.getTimeStruct());
-#else
-        updateTimeStr(rtc.getTimeStruct());
-#endif
         tft.print(timeStr);
     } else {
         setTftDisplay(BORDER_PAD_X, BORDER_PAD_X, bruceConfig.priColor, FP, bruceConfig.bgColor);
@@ -1349,16 +1390,6 @@ void drawStatusBar() {
     }
 
     int iconCount = 0;
-    bool showSD = sdcardMounted;
-    bool showGPS = gpsConnected;
-#ifdef CONFIG_IDF_TARGET_ESP32P4
-    bool showWifi = WiFi.isConnected() || WiFi.AP.started();
-#else
-    bool showWifi = (WiFi.getMode() != 0);
-#endif
-    bool showWeb = isWebUIActive;
-    bool showBLE = BLEConnected;
-    bool showWG = isConnectedWireguard;
     if (showSD) iconCount++;
     if (showGPS) iconCount++;
     if (showWifi) iconCount++;
@@ -1418,6 +1449,7 @@ void drawStatusBar() {
 
 void drawMainBorder(bool clear) {
     if (clear) {
+        invalidateStatusBarCache();
         tft.drawPixel(0, 0, 0);
         tft.fillScreen(bruceConfig.bgColor);
     }
@@ -1426,7 +1458,7 @@ void drawMainBorder(bool clear) {
 
     // if(wifiConnected) {tft.print(timeStr);} else {tft.print("BRUCE 1.0b");}
 
-    drawStatusBar();
+    drawStatusBar(clear);
 
 #if defined(HAS_TOUCH)
     TouchFooter();

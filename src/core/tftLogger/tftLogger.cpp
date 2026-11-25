@@ -577,15 +577,29 @@ int16_t tft_logger::drawUtf8Text(
         }
 
         if (glyph) {
+            auto emitRowSpans = [&](int yPos, uint16_t bits, int srcCols, int dstCols) {
+                if (!bits) return;
+                int runStart = -1;
+                for (int dx = 0; dx < dstCols; ++dx) {
+                    int sx = (dstCols == srcCols) ? dx : (dx * srcCols) / dstCols;
+                    bool on = (bits & (1u << (srcCols - 1 - sx))) != 0;
+                    if (on) {
+                        if (runStart < 0) runStart = dx;
+                    } else if (runStart >= 0) {
+                        BRUCE_TFT_DRIVER::drawFastHLine(curX + runStart, yPos, dx - runStart, fg);
+                        runStart = -1;
+                    }
+                }
+                if (runStart >= 0) {
+                    BRUCE_TFT_DRIVER::drawFastHLine(curX + runStart, yPos, dstCols - runStart, fg);
+                }
+            };
+#if defined(USE_TFT_ESPI)
+            BRUCE_TFT_DRIVER::startWrite();
+#endif
             if (ts == 1) {
                 for (int row = 0; row < 12; ++row) {
-                    uint16_t bits = pgm_read_word(&glyph->rows12[row]);
-                    if (!bits) continue;
-                    for (int col = 0; col < 12; ++col) {
-                        if (bits & (1u << (11 - col))) {
-                            BRUCE_TFT_DRIVER::drawPixel(curX + col, glyphY + row, fg);
-                        }
-                    }
+                    emitRowSpans(glyphY + row, pgm_read_word(&glyph->rows12[row]), 12, 12);
                 }
             }
 #if defined(BRUCE_COMPACT_CJK_FONT)
@@ -593,41 +607,24 @@ int16_t tft_logger::drawUtf8Text(
                 // Scale 12x12 glyph cleanly to drawSize x drawSize (saves ~18KB Flash on 4MB boards)
                 for (int dy = 0; dy < drawSize; ++dy) {
                     int sy = (dy * 12) / drawSize;
-                    uint16_t bits = pgm_read_word(&glyph->rows12[sy]);
-                    if (!bits) continue;
-                    for (int dx = 0; dx < drawSize; ++dx) {
-                        int sx = (dx * 12) / drawSize;
-                        if (bits & (1u << (11 - sx))) {
-                            BRUCE_TFT_DRIVER::drawPixel(curX + dx, glyphY + dy, fg);
-                        }
-                    }
+                    emitRowSpans(glyphY + dy, pgm_read_word(&glyph->rows12[sy]), 12, drawSize);
                 }
             }
 #else
             else if (ts == 2) {
                 for (int row = 0; row < 16; ++row) {
-                    uint16_t bits = pgm_read_word(&glyph->rows16[row]);
-                    if (!bits) continue;
-                    for (int col = 0; col < 16; ++col) {
-                        if (bits & (1u << (15 - col))) {
-                            BRUCE_TFT_DRIVER::drawPixel(curX + col, glyphY + row, fg);
-                        }
-                    }
+                    emitRowSpans(glyphY + row, pgm_read_word(&glyph->rows16[row]), 16, 16);
                 }
             } else {
                 // Scale 16x16 glyph cleanly to drawSize x drawSize (e.g. 24x24 at ts=3)
                 for (int dy = 0; dy < drawSize; ++dy) {
                     int sy = (dy * 16) / drawSize;
-                    uint16_t bits = pgm_read_word(&glyph->rows16[sy]);
-                    if (!bits) continue;
-                    for (int dx = 0; dx < drawSize; ++dx) {
-                        int sx = (dx * 16) / drawSize;
-                        if (bits & (1u << (15 - sx))) {
-                            BRUCE_TFT_DRIVER::drawPixel(curX + dx, glyphY + dy, fg);
-                        }
-                    }
+                    emitRowSpans(glyphY + dy, pgm_read_word(&glyph->rows16[sy]), 16, drawSize);
                 }
             }
+#endif
+#if defined(USE_TFT_ESPI)
+            BRUCE_TFT_DRIVER::endWrite();
 #endif
         } else {
             // Fallback hollow box for unmapped non-ASCII codepoint

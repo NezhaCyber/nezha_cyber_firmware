@@ -195,7 +195,8 @@ Opt_Coord drawOptions(
 
 void drawSubmenu(int index, std::vector<Option> &options, const char *title);
 
-void drawStatusBar();
+void invalidateStatusBarCache();
+void drawStatusBar(bool force = false);
 void drawMainBorder(bool clear = true);
 void drawMainBorderWithTitle(const String &title, bool clear = true);
 void printTitle(const String &title);

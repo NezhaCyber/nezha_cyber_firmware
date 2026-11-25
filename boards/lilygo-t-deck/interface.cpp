@@ -175,45 +175,37 @@ void _setBrightness(uint8_t brightval) { hal_bright_set(TFT_BL, brightval); }
 void InputHandler(void) {
     char keyValue = 0;
     static unsigned long tm = millis();
+    static unsigned long tbTm = 0;
     BruceTouchPoint t;
     bool touched = hal_touch_read(touchCfg(), t);
-    delay(1);
     Wire1.requestFrom(LILYGO_KB_SLAVE_ADDRESS, 1);
     while (Wire1.available() > 0) {
         keyValue = Wire1.read();
-        delay(1);
     }
-    if (millis() - tm < 200 && !LongPress) return;
 
-    // 0 - UP
-    // 1 - Down
-    // 2 - Left
-    // 3 - Right
-    if (trackball_interrupted) {
+    // Trackball uses its own fast 80ms cadence so 4-way grid/list navigation feels fluid
+    if (trackball_interrupted && (millis() - tbTm >= 80)) {
         uint8_t xx = 1;
         uint8_t yy = 1;
         xx += trackball_left_count;
         xx -= trackball_right_count;
         yy -= trackball_up_count;
         yy += trackball_down_count;
-        if (xx == 1 && yy == 1) {
-            ISR_rst();
-        } else {
+        ISR_rst();
+        if (xx != 1 || yy != 1) {
+            tbTm = millis();
             if (!wakeUpScreen()) AnyKeyPress = true;
             else return;
+            delay(10);
+            if (yy < 1) UpPress = true;
+            else if (yy > 1) DownPress = true;
+            else if (xx < 1) PrevPress = true;
+            else if (xx > 1) NextPress = true;
+            return;
         }
-        delay(50);
-        // Print "bot - xx - yy",  1 is normal value for xx and yy 0 and 2 means movement on the axis
-        // Serial.print(bot); Serial.print("-"); Serial.print(xx); Serial.print("-"); Serial.println(yy);
-        if (xx < 1 || yy < 1) {
-            ISR_rst();
-            PrevPress = true;
-        } // left , Up
-        else if (xx > 1 || yy > 1) {
-            ISR_rst();
-            NextPress = true;
-        } // right, Down
     }
+
+    if (millis() - tm < 160 && !LongPress) return;
 
     if (keyValue != (char)0x00) {
         if (!wakeUpScreen()) {
@@ -240,7 +232,7 @@ void InputHandler(void) {
         SelPress = true;
     }
 
-    if ((millis() - tm) > 190 || LongPress) { // one reading each 190ms
+    if ((millis() - tm) > 160 || LongPress) { // responsive touch polling
         if (touched) {
             tm = millis();
             hal_touch_apply(t);
