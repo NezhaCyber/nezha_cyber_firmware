@@ -31,6 +31,7 @@ static inline bool radioSafeBleInit(const std::string &name, bool = true) {
     return NimBLEDevice::isInitialized() || NimBLEDevice::init(name);
 }
 #endif
+#include "core/location_state.h"
 #include "core/sd_functions.h"
 #include "core/utils.h"
 #include "core/wifi/wifi_common.h"
@@ -94,8 +95,8 @@ struct OuiEntry {
     const char *vendor;
 };
 
-// Compact pentest-focused OUI vendor table in flash
-static const OuiEntry kOuiTable[] PROGMEM = {
+// Compact pentest-focused OUI vendor table in const flash (.rodata)
+static const OuiEntry kOuiTable[] = {
     {0x24, 0x0A, 0xC4, "Espressif"}, {0x30, 0xAE, 0xA4, "Espressif"}, {0xA4, 0xCF, 0x12, "Espressif"},
     {0xDC, 0xA6, 0x32, "RaspPi"   }, {0xB8, 0x27, 0xEB, "RaspPi"   }, {0xE4, 0x5F, 0x01, "RaspPi"   },
     {0xD8, 0x3A, 0xDD, "RaspPi"   }, {0x74, 0x83, 0xC2, "Ubiquiti" }, {0x80, 0x2A, 0xA8, "Ubiquiti" },
@@ -114,9 +115,8 @@ static const OuiEntry kOuiTable[] PROGMEM = {
 
 static const char *lookupOuiVendor(const uint8_t mac[6]) {
     for (size_t i = 0; i < sizeof(kOuiTable) / sizeof(kOuiTable[0]); ++i) {
-        if (pgm_read_byte(&kOuiTable[i].b0) == mac[0] && pgm_read_byte(&kOuiTable[i].b1) == mac[1] &&
-            pgm_read_byte(&kOuiTable[i].b2) == mac[2]) {
-            return (const char *)pgm_read_ptr(&kOuiTable[i].vendor);
+        if (kOuiTable[i].b0 == mac[0] && kOuiTable[i].b1 == mac[1] && kOuiTable[i].b2 == mac[2]) {
+            return kOuiTable[i].vendor;
         }
     }
     return nullptr;
@@ -575,7 +575,12 @@ static void radarUpsertTarget(
     if (channel > 0) slot.channel = channel;
     slot.authMode = authMode;
 
-    if (ctx->gpsFix) {
+    double estLat = 0.0, estLon = 0.0;
+    if (bruceLocation.estimateTargetGps(slot.relX, slot.relY, estLat, estLon)) {
+        slot.hasGps = true;
+        slot.lat = estLat;
+        slot.lon = estLon;
+    } else if (ctx->gpsFix) {
         slot.hasGps = true;
         slot.lat = ctx->gpsLat;
         slot.lon = ctx->gpsLon;
@@ -870,12 +875,23 @@ static void drawRadarHud(
     }
     y += LH + 2;
 
-    // Live GPS or BLE-anchor fix line
-    tft.setTextColor(ctx.gpsFix ? TFT_GREEN : TFT_LIGHTGREY, bg);
-    char locLine[32];
-    if (ctx.gpsFix) {
-        snprintf(locLine, sizeof(locLine), "%.4f,%.4f", ctx.gpsLat, ctx.gpsLon);
+    // Live GPS, RF-Anchor Fix, Saved Location, or Relative BLE-Anchor line
+    char locLine[36];
+    if (bruceLocation.hasLocation()) {
+        uint16_t locCol = bruceLocation.hasLiveGps()
+                              ? TFT_GREEN
+                              : ((bruceLocation.source() == "RF-FIX") ? TFT_CYAN : TFT_YELLOW);
+        tft.setTextColor(locCol, bg);
+        snprintf(
+            locLine,
+            sizeof(locLine),
+            "%s %.3f,%.3f",
+            bruceLocation.source().substring(0, 3).c_str(),
+            bruceLocation.lat(),
+            bruceLocation.lon()
+        );
     } else if (anchorCnt > 0) {
+        tft.setTextColor(TFT_LIGHTGREY, bg);
         snprintf(
             locLine,
             sizeof(locLine),
@@ -885,6 +901,7 @@ static void drawRadarHud(
             anchorSumY / anchorCnt
         );
     } else {
+        tft.setTextColor(TFT_DARKGREY, bg);
         snprintf(locLine, sizeof(locLine), "Loc: scanning...");
     }
     tft.drawString(String(locLine).substring(0, maxChars), hudX, y, 1);
@@ -1358,10 +1375,17 @@ static void showDeviceInspector(
     }
     drawKV("Coords", String(coordBuf), TFT_YELLOW);
 
-    if (t.hasGps) {
-        char gpsBuf[36];
-        snprintf(gpsBuf, sizeof(gpsBuf), "%.5f, %.5f", t.lat, t.lon);
+    double tLat = t.lat, tLon = t.lon;
+    bool hasTargetGps = t.hasGps;
+    if (!hasTargetGps && bruceLocation.estimateTargetGps(t.relX, t.relY, tLat, tLon)) {
+        hasTargetGps = true;
+    }
+    if (hasTargetGps) {
+        char gpsBuf[42];
+        snprintf(gpsBuf, sizeof(gpsBuf), "%.5f,%.5f (%s)", tLat, tLon, bruceLocation.source().c_str());
         drawKV("GPS", String(gpsBuf), TFT_CYAN);
+    } else {
+        drawKV("GPS", bruce_i18n::tr("No GPS fix"), TFT_DARKGREY);
     }
 
     tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
@@ -1401,21 +1425,23 @@ static bool pickTarget(
         return false;
     }
     bool picked = false;
-    options.clear();
+    // Always use a local vector so we NEVER invalidate an outer menu's executing lambda!
+    std::vector<Option> pickOpts;
     size_t limit = min<size_t>(list.size(), 30);
+    pickOpts.reserve(limit + 1);
     for (size_t i = 0; i < limit; ++i) {
         const RadarTarget t = list[i];
         String prefix = (t.flags & (RFLAG_EVIL_TWIN | RFLAG_TRACKER | RFLAG_HACK_DEV))
                             ? "[!] "
                             : (t.type == RadarTargetType::WIFI ? "[W] " : "[B] ");
         String label = prefix + targetDisplayName(t) + " " + formatDistShort(t.distM);
-        options.push_back({label, [&outTarget, &picked, t]() {
+        pickOpts.push_back({label, [&outTarget, &picked, t]() {
             outTarget = t;
             picked = true;
         }});
     }
-    options.push_back({"Back", []() {}});
-    loopOptions(options, MENU_TYPE_SUBMENU, title);
+    pickOpts.push_back({"Back", []() {}});
+    loopOptions(pickOpts, MENU_TYPE_SUBMENU, title);
     return picked;
 }
 
@@ -1437,6 +1463,9 @@ static void exportRadarCsv(const std::vector<RadarTarget> &list) {
     uint32_t now = millis();
     for (const auto &t : list) {
         const char *oui = lookupOuiVendor(t.mac);
+        double outLat = t.hasGps ? t.lat : 0.0;
+        double outLon = t.hasGps ? t.lon : 0.0;
+        if (!t.hasGps) bruceLocation.estimateTargetGps(t.relX, t.relY, outLat, outLon);
         f.printf(
             "%lu,%s,%s,%s,%s,\"%s\",%s,%s,%u,%d,%d,%.2f,%u,%lu,0x%02X,%.2f,%.2f,%.6f,%.6f\n",
             (unsigned long)t.lastSeenMs,
@@ -1456,8 +1485,8 @@ static void exportRadarCsv(const std::vector<RadarTarget> &list) {
             (unsigned)t.flags,
             t.relX,
             t.relY,
-            t.hasGps ? t.lat : 0.0,
-            t.hasGps ? t.lon : 0.0
+            outLat,
+            outLon
         );
     }
     f.close();
@@ -1744,11 +1773,12 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
     }
     s_radarCtx = &ctx;
 
+    bruceLocation.ensureLoaded();
+
     TinyGPSPlus gpsParser;
-    HardwareSerial gpsSerial(2);
     if (gpsPinsSafeToOpen()) {
         ioExpander.turnPinOnOff(IO_EXP_GPS, HIGH);
-        gpsSerial.begin(
+        Serial2.begin(
             bruceConfigPins.gpsBaudrate, SERIAL_8N1, bruceConfigPins.gps_bus.rx, bruceConfigPins.gps_bus.tx
         );
         ctx.gpsStarted = true;
@@ -1882,6 +1912,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
     uint32_t lastFrameMs = 0;
     uint32_t lastHudMs = 0;
     uint32_t lastFoxSampleMs = 0;
+    uint32_t lastLocSyncMs = 0;
     bool exitRadar = false;
 
     check(SelPress);
@@ -1895,17 +1926,59 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         wakeUpScreen();
         uint32_t now = millis();
 
-        // 0) Non-blocking GPS NMEA feed
+        // 0) Non-blocking GPS NMEA feed -> updates global bruceLocation state
         if (ctx.gpsStarted) {
             int budget = 64;
-            while (gpsSerial.available() > 0 && budget-- > 0) gpsParser.encode(gpsSerial.read());
+            while (Serial2.available() > 0 && budget-- > 0) gpsParser.encode(Serial2.read());
             if (gpsParser.location.isValid() && gpsParser.location.age() < 5000) {
                 ctx.gpsFix = true;
                 ctx.gpsLat = gpsParser.location.lat();
                 ctx.gpsLon = gpsParser.location.lng();
                 ctx.gpsSats = gpsParser.satellites.value();
+                bruceLocation.updateGps(
+                    ctx.gpsLat, ctx.gpsLon, gpsParser.altitude.meters(), ctx.gpsSats
+                );
             } else {
                 ctx.gpsFix = false;
+            }
+        }
+
+        // 0b) Periodic RF-anchor positioning & whole-app location synchronization (~every 4s)
+        if (now - lastLocSyncMs >= 4000) {
+            lastLocSyncMs = now;
+            std::vector<RadarTarget> allNow = snapshotTargets(ctx, mode, true);
+            if (!allNow.empty()) {
+                if (!ctx.gpsFix && !bruceLocation.anchors().empty()) {
+                    std::vector<RfObservation> obs;
+                    obs.reserve(allNow.size());
+                    for (const auto &t : allNow) {
+                        RfObservation o;
+                        memcpy(o.mac, t.mac, 6);
+                        o.isWifi = (t.type == RadarTargetType::WIFI);
+                        o.rssi = t.rssi;
+                        o.distM = t.distM;
+                        obs.push_back(o);
+                    }
+                    int matched = 0;
+                    bruceLocation.tryRfPositionFix(obs, matched);
+                }
+                if (bruceLocation.hasLocation()) {
+                    // Record strongest nearby Wi-Fi/BLE devices with estimated GPS coords as persistent anchors
+                    size_t recLimit = min<size_t>(allNow.size(), 10);
+                    for (size_t i = 0; i < recLimit; ++i) {
+                        double tLat = 0.0, tLon = 0.0;
+                        if (bruceLocation.estimateTargetGps(allNow[i].relX, allNow[i].relY, tLat, tLon)) {
+                            bruceLocation.recordAnchor(
+                                allNow[i].mac,
+                                allNow[i].type == RadarTargetType::WIFI,
+                                targetDisplayName(allNow[i]).c_str(),
+                                tLat,
+                                tLon,
+                                allNow[i].rssi
+                            );
+                        }
+                    }
+                }
             }
         }
 
@@ -2114,52 +2187,81 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
             stopAllScans();
             std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
             bool hasTableSelection =
-                (view == RadarView::TABLE && !visible.empty() && ctx.tableCursor < (int)visible.size());
+                (view == RadarView::TABLE && !visible.empty() && ctx.tableCursor >= 0 &&
+                 ctx.tableCursor < (int)visible.size());
             RadarTarget focused = hasTableSelection ? visible[ctx.tableCursor] : RadarTarget{};
 
-            options.clear();
-            if (hasTableSelection) {
-                options.push_back({"Inspect Target", [&]() {
-                    bool wantTri = false, wantFox = false;
-                    showDeviceInspector(ctx, focused, wantTri, wantFox);
-                    if (wantTri) {
-                        runTriangulateWizard(ctx, focused, timeSliced, wifiAvailable, bleAvailable, radarScan);
-                    } else if (wantFox) {
-                        view = RadarView::FOX_SPEC;
-                    }
-                }});
-                options.push_back({"Fox-Hunt / Geiger", [&]() {
-                    lockOnTarget(ctx, focused);
-                    view = RadarView::FOX_SPEC;
-                }});
-                options.push_back({"Locate / Triangulate", [&]() {
-                    lockOnTarget(ctx, focused);
-                    runTriangulateWizard(ctx, focused, timeSliced, wifiAvailable, bleAvailable, radarScan);
-                }});
-            } else {
-                options.push_back({"Inspect Target", [&]() {
-                    RadarTarget chosen;
-                    if (pickTarget(ctx, visible, "Inspect Target", chosen)) {
+            enum RadarMenuAction : uint8_t {
+                ACT_NONE = 0,
+                ACT_INSPECT,
+                ACT_FOXHUNT,
+                ACT_TRIANGULATE,
+                ACT_UNLOCK,
+                ACT_GEIGER,
+                ACT_CYCLE_VIEW,
+                ACT_CYCLE_FILTER,
+                ACT_LABELS,
+                ACT_LOC_INFO,
+                ACT_SET_GPS_ANCHOR,
+                ACT_SAVE_LOC,
+                ACT_EXPORT_CSV,
+                ACT_RESCAN,
+                ACT_EXIT,
+            };
+            RadarMenuAction act = ACT_NONE;
+
+            // Flat local menu vector: callbacks ONLY set `act`, so nested dialogs run after loopOptions returns!
+            std::vector<Option> menuOpts;
+            menuOpts.push_back({"Inspect Target", [&]() { act = ACT_INSPECT; }});
+            menuOpts.push_back({"Fox-Hunt / Geiger", [&]() { act = ACT_FOXHUNT; }});
+            menuOpts.push_back({"Locate / Triangulate", [&]() { act = ACT_TRIANGULATE; }});
+            if (ctx.hasLocked) {
+                menuOpts.push_back({"Unlock Target", [&]() { act = ACT_UNLOCK; }});
+                menuOpts.push_back({ctx.geigerAudio ? "Geiger Beep: ON" : "Geiger Beep: OFF",
+                                    [&]() { act = ACT_GEIGER; }});
+            }
+            menuOpts.push_back({String("View: ") + viewName(view, ctx.hasLocked),
+                                [&]() { act = ACT_CYCLE_VIEW; }});
+            menuOpts.push_back({modeLabel(mode), [&]() { act = ACT_CYCLE_FILTER; }});
+            menuOpts.push_back({ctx.showLabels ? "Labels: ON" : "Labels: OFF", [&]() { act = ACT_LABELS; }});
+            menuOpts.push_back({"Location State", [&]() { act = ACT_LOC_INFO; }});
+            menuOpts.push_back({"Set GPS Anchor", [&]() { act = ACT_SET_GPS_ANCHOR; }});
+            menuOpts.push_back({"Save Location State", [&]() { act = ACT_SAVE_LOC; }});
+            menuOpts.push_back({"Export CSV", [&]() { act = ACT_EXPORT_CSV; }});
+            menuOpts.push_back({"Rescan Now", [&]() { act = ACT_RESCAN; }});
+            menuOpts.push_back({"Exit", [&]() { act = ACT_EXIT; }});
+
+            loopOptions(menuOpts, MENU_TYPE_SUBMENU, "Radar");
+
+            switch (act) {
+                case ACT_INSPECT: {
+                    RadarTarget chosen = focused;
+                    bool have = hasTableSelection || pickTarget(ctx, visible, "Inspect Target", chosen);
+                    if (have) {
                         bool wantTri = false, wantFox = false;
                         showDeviceInspector(ctx, chosen, wantTri, wantFox);
                         if (wantTri) {
                             runTriangulateWizard(ctx, chosen, timeSliced, wifiAvailable, bleAvailable, radarScan);
+                            if (bruceLocation.hasLocation()) bruceLocation.save();
                         } else if (wantFox) {
                             view = RadarView::FOX_SPEC;
                         }
                     }
-                }});
-                options.push_back({"Fox-Hunt / Geiger", [&]() {
-                    RadarTarget chosen;
-                    if (pickTarget(ctx, visible, "Fox-Hunt / Geiger", chosen)) {
+                    break;
+                }
+                case ACT_FOXHUNT: {
+                    RadarTarget chosen = focused;
+                    bool have = hasTableSelection || pickTarget(ctx, visible, "Fox-Hunt / Geiger", chosen);
+                    if (have) {
                         lockOnTarget(ctx, chosen);
                         view = RadarView::FOX_SPEC;
                     }
-                }});
-                options.push_back({"Locate / Triangulate", [&]() {
-                    RadarTarget chosen;
-                    bool have = false;
-                    if (ctx.hasLocked) {
+                    break;
+                }
+                case ACT_TRIANGULATE: {
+                    RadarTarget chosen = focused;
+                    bool have = hasTableSelection;
+                    if (!have && ctx.hasLocked) {
                         for (const auto &v : visible) {
                             if (v.type == ctx.lockedType && memcmp(v.mac, ctx.lockedMac, 6) == 0) {
                                 chosen = v;
@@ -2172,36 +2274,60 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                     if (have) {
                         lockOnTarget(ctx, chosen);
                         runTriangulateWizard(ctx, chosen, timeSliced, wifiAvailable, bleAvailable, radarScan);
+                        if (bruceLocation.hasLocation()) bruceLocation.save();
                     }
-                }});
+                    break;
+                }
+                case ACT_UNLOCK:
+                    ctx.hasLocked = false;
+                    break;
+                case ACT_GEIGER:
+                    ctx.geigerAudio = !ctx.geigerAudio;
+                    break;
+                case ACT_CYCLE_VIEW:
+                    view = static_cast<RadarView>(((int)view + 1) % 3);
+                    break;
+                case ACT_CYCLE_FILTER:
+                    mode = static_cast<RadarMode>(((int)mode + 1) % 5);
+                    nextIsBle = (mode == RadarMode::BLE_ONLY);
+                    ctx.tableCursor = 0;
+                    ctx.tableScroll = 0;
+                    break;
+                case ACT_LABELS:
+                    ctx.showLabels = !ctx.showLabels;
+                    break;
+                case ACT_LOC_INFO:
+                    bruceLocation.showLocationInfoScreen();
+                    break;
+                case ACT_SET_GPS_ANCHOR:
+                    if (bruceLocation.promptManualGpsAnchor()) {
+                        displaySuccess("GPS Anchor Saved", true);
+                    }
+                    break;
+                case ACT_SAVE_LOC:
+                    if (bruceLocation.save()) {
+                        displaySuccess("Location State Saved", true);
+                    } else {
+                        displayError("No storage found", true);
+                    }
+                    break;
+                case ACT_EXPORT_CSV:
+                    exportRadarCsv(visible);
+                    break;
+                case ACT_RESCAN:
+                    portENTER_CRITICAL(&ctx.mux);
+                    for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) ctx.targets[i].active = false;
+                    portEXIT_CRITICAL(&ctx.mux);
+                    ctx.foxHistCount = 0;
+                    lastSweepEndMs = 0;
+                    break;
+                case ACT_EXIT:
+                    exitRadar = true;
+                    break;
+                default:
+                    break;
             }
 
-            if (ctx.hasLocked) {
-                options.push_back({"Unlock Target", [&]() { ctx.hasLocked = false; }});
-                options.push_back({ctx.geigerAudio ? "Geiger Beep: ON" : "Geiger Beep: OFF", [&]() {
-                    ctx.geigerAudio = !ctx.geigerAudio;
-                }});
-            }
-            options.push_back({String("View: ") + viewName(view, ctx.hasLocked), [&]() {
-                view = static_cast<RadarView>(((int)view + 1) % 3);
-            }});
-            options.push_back({modeLabel(mode), [&]() {
-                mode = static_cast<RadarMode>(((int)mode + 1) % 5);
-                nextIsBle = (mode == RadarMode::BLE_ONLY);
-            }});
-            options.push_back({ctx.showLabels ? "Labels: ON" : "Labels: OFF", [&]() {
-                ctx.showLabels = !ctx.showLabels;
-            }});
-            options.push_back({"Export CSV", [&]() { exportRadarCsv(visible); }});
-            options.push_back({"Rescan Now", [&]() {
-                portENTER_CRITICAL(&ctx.mux);
-                for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) ctx.targets[i].active = false;
-                portEXIT_CRITICAL(&ctx.mux);
-                ctx.foxHistCount = 0;
-                lastSweepEndMs = 0;
-            }});
-            options.push_back({"Exit", [&]() { exitRadar = true; }});
-            loopOptions(options, MENU_TYPE_SUBMENU, "Radar");
             if (!exitRadar) {
                 drawLayout();
                 lastHudMs = 0;
@@ -2217,8 +2343,11 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         radarScan->setScanCallbacks(nullptr);
         radarScan->clearResults();
     }
+    if (bruceLocation.hasLocation() || bruceLocation.anchorCount() > 0) {
+        bruceLocation.save();
+    }
     if (ctx.gpsStarted) {
-        gpsSerial.end();
+        Serial2.end();
         ioExpander.turnPinOnOff(IO_EXP_GPS, LOW);
     }
     s_radarCtx = nullptr;
