@@ -290,7 +290,13 @@ void setUIColor() {
                     uint16_t bgColor = mapping.bgColor;
                     bruceConfig.setUiColor(mapping.priColor, &secColor, &bgColor);
                 },
-                idx == i
+                idx == i,
+                nullptr,
+                nullptr,
+                false,
+                true,
+                true,
+                mapping.priColor
             );
             ++i;
         }
