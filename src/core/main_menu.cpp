@@ -29,6 +29,7 @@ MainMenu::MainMenu() {
         &othersMenu,
 #if !defined(LITE_VERSION)
         &wireToolsMenu,
+        &phoneMenu,
 #endif
         &configMenu,
     };
