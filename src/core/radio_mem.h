@@ -1,5 +1,6 @@
 #ifndef __RADIO_MEM_H__
 #define __RADIO_MEM_H__
+#define RADIO_MEM_TWO_TIER 1
 /*
     Internal-DRAM contiguous-block guard for radio bring-up on no-PSRAM boards.
 
@@ -148,6 +149,8 @@ static inline void radioCleanupFailedBleController() {
 }
 
 static inline bool radioHasMemForWifi(bool allowSdUnmount = true) {
+    // If Wi-Fi driver is already up, only verify minimal scan/buffer headroom
+    if (WiFi.getMode() != WIFI_MODE_NULL && radioLargestDmaBlock() >= 10 * 1024) return true;
     if (radioLargestDmaBlock() >= RADIO_WIFI_MIN_DMA_BLOCK) return true;
 
     // Heap looks tight: hand the SDR bank back to the heap before Wi-Fi init
@@ -191,19 +194,17 @@ static inline bool radioHasMemForBle(bool allowSdUnmount = true) {
     // (on Cardputer ADV this frees ~64 KiB immediately; on other boards it is a no-op).
     sdrBankHeapInit();
     sdrBankReleaseForRadio();
-    if (radioDmaAtLeast(RADIO_BLE_TARGET_DMA_BLOCK, RADIO_BLE_TARGET_DMA_FREE)) return true;
+    if (radioDmaAtLeast(minBlock, minFree)) return true;
 
-    // If still below a comfortable margin and Wi-Fi/WebUI is holding DMA RAM, free it.
-    if (!radioDmaAtLeast(minBlock, minFree) || isWebUIActive || wifiConnected ||
-        WiFi.getMode() != WIFI_MODE_NULL) {
-        Serial.printf(
-            "[RAM] Tight DMA for BLE (largest=%u, free=%u, psram=%d), reclaiming WiFi...\n",
-            (unsigned)radioLargestDmaBlock(),
-            (unsigned)radioFreeDmaBytes(),
-            psramFound() ? 1 : 0
-        );
-        radioReclaimWifiMemory(RADIO_BLE_TARGET_DMA_BLOCK, RADIO_BLE_TARGET_DMA_FREE);
-    }
+    // Only tear down Wi-Fi/WebUI when DMA is actually below the safe minimum for BLE,
+    // allowing Wi-Fi + BLE to coexist whenever internal DMA headroom permits.
+    Serial.printf(
+        "[RAM] Tight DMA for BLE (largest=%u, free=%u, psram=%d), reclaiming WiFi...\n",
+        (unsigned)radioLargestDmaBlock(),
+        (unsigned)radioFreeDmaBytes(),
+        psramFound() ? 1 : 0
+    );
+    radioReclaimWifiMemory(RADIO_BLE_TARGET_DMA_BLOCK, RADIO_BLE_TARGET_DMA_FREE);
 
     if (radioDmaAtLeast(minBlock, minFree)) {
         Serial.printf(
