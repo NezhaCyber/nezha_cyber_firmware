@@ -510,9 +510,16 @@ void ble_gatt_explorer() {
                         if (s_notifyDirty) {
                             s_notifyDirty = false;
                             area.fromString(s_notifyLog);
+                            area.scrollToLine(area.getMaxLines());
                             area.draw(true);
                         }
-                        area.update();
+                        if (check(UpPress) || check(PrevPress)) {
+                            area.scrollUp();
+                            area.draw(true);
+                        } else if (check(DownPress) || check(NextPress)) {
+                            area.scrollDown();
+                            area.draw(true);
+                        }
                         vTaskDelay(pdMS_TO_TICKS(30));
                     }
                     c->unsubscribe();
