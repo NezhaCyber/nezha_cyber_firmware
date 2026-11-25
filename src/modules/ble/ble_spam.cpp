@@ -1006,11 +1006,11 @@ static int bleSpamListLoop(
         if (EscPress && PrevPress) EscPress = false;
         if (check(EscPress)) return -1;
 
-        if (check(NextPress)) {
+        if (check(NextPress) || check(DownPress)) {
             state.cursor = (state.cursor + 1) % itemCount;
             bleSpamEnsureScroll(state, itemCount, metrics.visible_rows);
             state.redraw = true;
-        } else if (check(PrevPress)) {
+        } else if (check(PrevPress) || check(UpPress)) {
             state.cursor = (state.cursor + itemCount - 1) % itemCount;
             bleSpamEnsureScroll(state, itemCount, metrics.visible_rows);
             state.redraw = true;
@@ -1815,7 +1815,7 @@ bleSpamConfigScreen(const BleSpamSelection &selection, BleSpamConfig &config, bo
         }
 
         if (editState.editing) {
-            if (check(NextPress)) {
+            if (check(NextPress) || check(UpPress)) {
                 if (editState.edit_row == 0) {
                     config.adv_ms = bleSpamAdjustMs(config.adv_ms, 1);
                     configChanged = true;
@@ -1830,7 +1830,7 @@ bleSpamConfigScreen(const BleSpamSelection &selection, BleSpamConfig &config, bo
                     configChanged = true;
                 }
                 redrawRows = true;
-            } else if (check(PrevPress)) {
+            } else if (check(PrevPress) || check(DownPress)) {
                 if (editState.edit_row == 0) {
                     config.adv_ms = bleSpamAdjustMs(config.adv_ms, -1);
                     configChanged = true;
@@ -1847,10 +1847,10 @@ bleSpamConfigScreen(const BleSpamSelection &selection, BleSpamConfig &config, bo
                 redrawRows = true;
             }
         } else {
-            if (check(NextPress)) {
+            if (check(NextPress) || check(DownPress)) {
                 cursor = (cursor + 1) % 5;
                 redrawRows = true;
-            } else if (check(PrevPress)) {
+            } else if (check(PrevPress) || check(UpPress)) {
                 cursor = (cursor + 4) % 5;
                 redrawRows = true;
             }
@@ -1963,10 +1963,10 @@ static bool bleSpamStoppedPrompt(const BleSpamSelection &selection, uint32_t sen
         if (EscPress && PrevPress) EscPress = false;
         if (check(EscPress)) return false;
 
-        if (check(NextPress)) {
+        if (check(NextPress) || check(DownPress)) {
             cursor = (cursor + 1) % optionCount;
             redraw = true;
-        } else if (check(PrevPress)) {
+        } else if (check(PrevPress) || check(UpPress)) {
             cursor = (cursor + optionCount - 1) % optionCount;
             redraw = true;
         } else if (check(SelPress)) {
@@ -2058,7 +2058,7 @@ static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &c
             }
 
             if (editState.editing) {
-                if (check(NextPress)) {
+                if (check(NextPress) || check(UpPress)) {
                     if (editState.edit_row == 0) {
                         config.adv_ms = bleSpamAdjustMs(config.adv_ms, 1);
                     } else if (editState.edit_row == 1) {
@@ -2071,7 +2071,7 @@ static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &c
                         runState.mac_initialized = false;
                     }
                     configDirty = true;
-                } else if (check(PrevPress)) {
+                } else if (check(PrevPress) || check(DownPress)) {
                     if (editState.edit_row == 0) {
                         config.adv_ms = bleSpamAdjustMs(config.adv_ms, -1);
                     } else if (editState.edit_row == 1) {
@@ -2086,10 +2086,10 @@ static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &c
                     configDirty = true;
                 }
             } else {
-                if (check(NextPress)) {
+                if (check(NextPress) || check(DownPress)) {
                     cursor = (cursor + 1) % 4;
                     configDirty = true;
-                } else if (check(PrevPress)) {
+                } else if (check(PrevPress) || check(UpPress)) {
                     cursor = (cursor + 3) % 4;
                     configDirty = true;
                 }
@@ -2148,10 +2148,10 @@ static int bleSpamTwoOptionPrompt(const String &title, const char *opt0, const c
         }
         if (EscPress && PrevPress) EscPress = false;
         if (check(EscPress)) return -1;
-        if (check(NextPress)) {
+        if (check(NextPress) || check(DownPress)) {
             cursor = (cursor + 1) % 2;
             redraw = true;
-        } else if (check(PrevPress)) {
+        } else if (check(PrevPress) || check(UpPress)) {
             cursor = (cursor + 1) % 2;
             redraw = true;
         } else if (check(SelPress)) return cursor;

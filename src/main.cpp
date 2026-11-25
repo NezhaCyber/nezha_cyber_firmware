@@ -109,6 +109,22 @@ void __attribute__((weak)) taskInputHandler(void *parameter) {
             inputUnlock();
             timer = millis();
         }
+#if defined(NO_TOUCH_FOOTER)
+        else if (millis() - timer >= 40) {
+            // If a legacy module only listens to PrevPress/NextPress (ignoring UpPress/DownPress),
+            // promote unconsumed vertical trackball ticks so up/down rolling works everywhere.
+            inputLock();
+            if (UpPress) {
+                UpPress = false;
+                PrevPress = true;
+            }
+            if (DownPress) {
+                DownPress = false;
+                NextPress = true;
+            }
+            inputUnlock();
+        }
+#endif
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
