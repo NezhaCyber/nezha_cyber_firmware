@@ -119,6 +119,11 @@ uint16_t getColorVariation(uint16_t color, int delta = 10, int direction = 0);
 // Linear RGB565 mix: t = 0 returns a, t = 255 returns b. Use it to derive dim
 // or highlighted shades from the theme instead of hardcoding TFT_* constants.
 uint16_t blendColors(uint16_t a, uint16_t b, uint8_t t);
+// Theme-derived UI surface & accent helpers for the modern hacker HUD/card UI.
+uint16_t uiSurfaceColor();
+uint16_t uiSurfaceHiColor();
+uint16_t uiBorderDimColor();
+uint16_t uiTextBrightColor();
 // Fills lut[0..n-1] with a theme ramp going from the background up to a
 // brightened primary, for waterfalls and other intensity plots.
 void buildHeatPalette(uint16_t *lut, uint8_t n);
