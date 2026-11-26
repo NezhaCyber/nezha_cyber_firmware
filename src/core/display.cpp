@@ -45,11 +45,14 @@ bool __attribute__((weak)) isCharging() { return hal_gauge_is_charging(); }
 ***************************************************************************************/
 void displayScrollingText(const String &text, Opt_Coord &coord, bool highlight) {
     String trText = bruce_i18n::tr(text);
-    uint8_t ts = tft.getTextSize();
-    if (ts < 1) ts = 1;
-    int16_t boxPx = (coord.size > 1) ? (coord.size - 1) * LW * ts : 0;
-    if (boxPx <= 0) return;
-    int16_t textPx = bruce_i18n::utf8PixelWidth(trText, ts);
+    bool useFont2 = false;
+#if defined(LOAD_FONT2)
+    useFont2 = !bruce_i18n::containsNonAscii(trText);
+#endif
+    uint8_t ts = useFont2 ? 1 : FM;
+    int16_t boxPx = coord.size; // drawOptions now stores exact pixel width in coord.size
+    if (boxPx <= 16) return;
+    int16_t textPx = uiMeasureText16(trText);
     static int i = 0;
     static long _lastmillis = 0;
     static String lastText = "";
@@ -58,14 +61,12 @@ void displayScrollingText(const String &text, Opt_Coord &coord, bool highlight) 
         lastText = trText;
         lastY = coord.y;
         i = 0;
-        _lastmillis = millis() + 700;
+        _lastmillis = millis() + 800;
     }
     uint16_t fg = highlight ? coord.bgcolor : coord.fgcolor;
     uint16_t bg = highlight ? coord.fgcolor : coord.bgcolor;
-    tft.setTextColor(fg, bg);
-    if (textPx <= boxPx) {
-        return;
-    } else if (millis() > _lastmillis + 180) {
+    if (textPx <= boxPx) return;
+    if (millis() > _lastmillis + 160) {
         String displayText = trText + "    ";
         const char *base = displayText.c_str();
         const char *p = base;
@@ -81,16 +82,14 @@ void displayScrollingText(const String &text, Opt_Coord &coord, bool highlight) 
             startPtr = base;
         }
         String tail = displayText.substring(startPtr - base);
-        String scrollingPart = bruce_i18n::utf8TruncateToWidth(tail, boxPx, ts);
-        int16_t clearH = (ts == 1 && bruce_i18n::containsNonAscii(trText)) ? 12 : (LH * ts);
-        tft.fillRect(coord.x, coord.y, boxPx, clearH, bg);
-        tft.setCursor(coord.x, coord.y);
-        tft.print(scrollingPart);
+        tft.fillRect(coord.x, coord.y, boxPx, 16, bg);
+        uiDrawText16(tail, coord.x, coord.y, boxPx, fg, bg, 0);
         if (i >= cpCount - 2) i = -1;
         _lastmillis = millis();
         i++;
         if (i == 1) _lastmillis = millis() + 900;
     }
+    (void)ts;
 }
 
 /***************************************************************************************
@@ -224,42 +223,44 @@ std::vector<String> wrapText(const String &text, int maxCharsPerLine) {
 ** Description:   Display Red Stripe with information (supports multi-line text wrapping)
 ***************************************************************************************/
 void displayRedStripe(const String &text, uint16_t fgcolor, uint16_t bgcolor) {
-    int size;
     if (fgcolor == bgcolor && fgcolor == TFT_WHITE) fgcolor = TFT_BLACK;
 
     String displayText = bruce_i18n::tr(text);
-    int maxBoxPx = tftWidth - 2 * BORDER_PAD_X - 10;
+    int boxX = (tftWidth >= 280) ? 18 : 10;
+    int boxW = tftWidth - 2 * boxX;
+    int maxBoxPx = boxW - 24;
 
+    bool singleLine16 = (uiMeasureText16(displayText) <= maxBoxPx);
     std::vector<String> wrappedLines;
-    if (bruce_i18n::utf8PixelWidth(displayText, FM) < maxBoxPx) {
-        size = FM;
-        wrappedLines = bruce_i18n::utf8WrapToWidth(displayText, maxBoxPx, FM);
+    if (singleLine16) {
+        wrappedLines.push_back(displayText);
     } else {
-        size = FP;
         wrappedLines = bruce_i18n::utf8WrapToWidth(displayText, maxBoxPx, FP);
+        if (wrappedLines.empty()) wrappedLines.push_back(displayText);
     }
-    if (wrappedLines.empty()) wrappedLines.push_back(displayText);
 
-    int lineHeight = (size == 1 && bruce_i18n::containsNonAscii(displayText)) ? 14 : (LH * size + 2);
-    int boxHeight = wrappedLines.size() * lineHeight + 12;
-    int boxX = BORDER_PAD_X;
-    int boxY = tftHeight / 2 - boxHeight / 2;
-    int boxW = tftWidth - 2 * BORDER_PAD_X;
+    int lineHeight = singleLine16 ? 18 : ((FP == 1 && bruce_i18n::containsNonAscii(displayText)) ? 14 : (LH * FP + 3));
+    int boxHeight = (int)wrappedLines.size() * lineHeight + 18;
+    int boxY = (tftHeight - boxHeight) / 2;
 
-    // Elevated cyber toast card with bright left accent bar
-    uint16_t cardBg = blendColors(bruceConfig.bgColor, bgcolor, 60);
-    uint16_t textCol = (bgcolor == TFT_YELLOW) ? TFT_YELLOW : uiTextBrightColor();
+    // Clean elevated neutral sheet with crisp semantic hairline & status dot (no cliché side stripe)
+    uint16_t cardBg = uiSurfaceColor();
+    uint16_t textCol = uiTextBrightColor();
     tft.drawPixel(0, 0, 0);
-    tft.fillRoundRect(boxX, boxY, boxW, boxHeight, 6, cardBg);
-    tft.drawRoundRect(boxX, boxY, boxW, boxHeight, 6, bgcolor);
-    tft.fillRect(boxX + 2, boxY + 4, 4, boxHeight - 8, bgcolor);
+    tft.fillRoundRect(boxX, boxY, boxW, boxHeight, 8, cardBg);
+    tft.drawRoundRect(boxX, boxY, boxW, boxHeight, 8, bgcolor);
+    tft.fillCircle(boxX + 10, boxY + boxHeight / 2, 3, bgcolor);
 
-    tft.setTextColor(textCol, cardBg);
-    tft.setTextSize(size);
-
-    int startY = boxY + (boxHeight - (int)wrappedLines.size() * lineHeight) / 2 + 1;
-    for (size_t i = 0; i < wrappedLines.size(); i++) {
-        tft.drawCentreString(wrappedLines[i], boxX + 4 + (boxW - 4) / 2, startY + i * lineHeight);
+    int textCenterX = boxX + 8 + (boxW - 12) / 2;
+    int startY = boxY + (boxHeight - (int)wrappedLines.size() * lineHeight) / 2 + (singleLine16 ? 1 : 0);
+    if (singleLine16) {
+        uiDrawText16(wrappedLines[0], textCenterX, startY, maxBoxPx, textCol, cardBg, 1);
+    } else {
+        tft.setTextColor(textCol, cardBg);
+        tft.setTextSize(FP);
+        for (size_t i = 0; i < wrappedLines.size(); i++) {
+            tft.drawCentreString(wrappedLines[i], textCenterX, startY + i * lineHeight);
+        }
     }
 }
 
@@ -618,11 +619,12 @@ int loopOptions(
     unsigned long menuOpenTs =
         0; // timestamp when this menu was first rendered (per-invocation, not shared across nested menus)
 #if defined(HAS_TOUCH)
+    // Integrated top-left "<" back button zone inside the menu header (replaces floating [X] box)
     bool showEscButton = useTapToSelect && (menuType == MENU_TYPE_REGULAR || menuType == MENU_TYPE_SUBMENU);
-    const int escW = 28;
-    const int escH = 16;
-    const int escX = tftWidth - escW - 6;
-    const int escY = STATUS_BAR_HEIGHT - 2;
+    const int escX = 4;
+    const int escY = STATUS_BAR_HEIGHT - 3;
+    const int escW = 36;
+    const int escH = 22;
 #endif
     if (!compact) drawMainBorder();
     while (1) {
@@ -927,31 +929,32 @@ int loopOptions(
 ** Description:   Função para manipular o progresso da atualização
 ** Dependencia: prog_handler =>>    0 - Flash, 1 - LittleFS
 ***************************************************************************************/
+static void drawBackChevron(int cx, int cy, uint16_t color) {
+    tft.drawLine(cx + 3, cy - 4, cx - 2, cy, color);
+    tft.drawLine(cx + 2, cy - 4, cx - 3, cy, color);
+    tft.drawLine(cx - 2, cy, cx + 3, cy + 4, color);
+    tft.drawLine(cx - 3, cy, cx + 2, cy + 4, color);
+}
+
 void progressHandler(int progress, size_t total, const String &message) {
-    int barHeight = LH * FP + 6;
-    int barY = tftHeight - barHeight - BORDER_PAD_Y;
-    int trackW = tftWidth - 4 * BORDER_PAD_X;
-    int barWidth = (total > 0) ? map(progress, 0, total, 0, trackW - 4) : 0;
+    int barHeight = 8;
+    int barY = tftHeight - barHeight - 16;
+    int trackX = 20;
+    int trackW = tftWidth - 40;
+    int barWidth = (total > 0) ? map(progress, 0, total, 0, trackW) : 0;
     if (barWidth < 3) {
-        tft.fillRect(
-            0,
-            STATUS_BAR_HEIGHT - 4,
-            tftWidth,
-            tftHeight - STATUS_BAR_HEIGHT + 4,
-            bruceConfig.bgColor
-        );
-        tft.fillRoundRect(2 * BORDER_PAD_X, barY - 2, trackW, barHeight + 4, 4, uiSurfaceColor());
-        tft.drawRoundRect(2 * BORDER_PAD_X, barY - 2, trackW, barHeight + 4, 4, uiBorderDimColor());
+        tft.fillRect(0, STATUS_BAR_HEIGHT - 4, tftWidth, tftHeight - STATUS_BAR_HEIGHT + 4, bruceConfig.bgColor);
+        tft.fillRoundRect(trackX, barY, trackW, barHeight, 4, uiSurfaceHiColor());
         displayRedStripe(message, TFT_WHITE, bruceConfig.priColor);
     }
     if (barWidth > 0) {
-        tft.fillRoundRect(2 * BORDER_PAD_X + 2, barY, barWidth, barHeight, 3, bruceConfig.priColor);
+        tft.fillRoundRect(trackX, barY, min(barWidth, trackW), barHeight, 4, bruceConfig.priColor);
     }
 }
 
 /***************************************************************************************
 ** Function name: drawOptions
-** Description:   Modern tactical context/list menu with partial-row dirty redraws
+** Description:   Clean hardware list/modal picker with Font 2, color swatches & partial redraws
 ***************************************************************************************/
 Opt_Coord drawOptions(
     int index, std::vector<Option> &options, uint16_t fgcolor, uint16_t selcolor, uint16_t bgcolor,
@@ -964,10 +967,13 @@ Opt_Coord drawOptions(
     uint16_t surface = border ? uiSurfaceColor() : bgcolor;
     uint16_t borderDim = uiBorderDimColor();
     uint16_t textBright = uiTextBrightColor();
+    uint16_t textMuted = uiTextMutedColor();
+    uint16_t textNormal = blendColors(bgcolor, textBright, 200);
 
-    int rowHeightPx = (tftHeight < 160) ? (FM * LH + 5) : (FM * LH + 8);
+    bool compactScreen = (tftHeight < 160);
+    int rowHeightPx = compactScreen ? 21 : 25;
 #if defined(HAS_TOUCH)
-    int32_t topMargin = border ? (STATUS_BAR_HEIGHT + 16) : (STATUS_BAR_HEIGHT + 16);
+    int32_t topMargin = STATUS_BAR_HEIGHT + 18;
 #else
     int32_t topMargin = border ? (STATUS_BAR_HEIGHT + 2) : (STATUS_BAR_HEIGHT - 1);
 #endif
@@ -1039,22 +1045,23 @@ Opt_Coord drawOptions(
 
     int totalRows = needsPaging ? maxRowsAcrossPages : menuSize;
     if (totalRows < 1) totalRows = 1;
-    int32_t boxX = border ? (tftWidth >= 280 ? 18 : 8) : 4;
+    int32_t boxX = border ? (tftWidth >= 280 ? 14 : 6) : 4;
     int32_t boxW = tftWidth - 2 * boxX;
     int32_t contentTopY = border ? max(topMargin, (tftHeight + topMargin - totalRows * rowHeightPx) / 2) : topMargin;
     int32_t boxTopY = border ? (contentTopY - 6) : (topMargin - 2);
     int32_t boxH = border ? (rowHeightPx * totalRows + 12) : (tftHeight - boxTopY - 4);
-    int32_t scrollPad = needsPaging ? 8 : 2;
+    int32_t scrollPad = needsPaging ? 7 : 2;
     int32_t innerW = boxW - 8 - scrollPad;
 
     bool fullPageRepaint = firstRender || (init != last_init);
     tft.drawPixel(0, 0, bgcolor);
 
     if (firstRender) {
-        tft.fillRoundRect(boxX, boxTopY, boxW, boxH, 6, surface);
-        tft.drawRoundRect(boxX, boxTopY, boxW, boxH, 6, borderDim);
         if (border) {
-            tft.fillRect(boxX + 8, boxTopY, boxW - 16, 2, fgcolor);
+            tft.fillRoundRect(boxX, boxTopY, boxW, boxH, 8, surface);
+            tft.drawRoundRect(boxX, boxTopY, boxW, boxH, 8, borderDim);
+        } else {
+            tft.fillRect(boxX, boxTopY, boxW, boxH, surface);
         }
     } else if (init != last_init) {
         tft.fillRect(boxX + 2, contentTopY, boxW - 4, totalRows * rowHeightPx, surface);
@@ -1068,17 +1075,14 @@ Opt_Coord drawOptions(
     }
 
     int32_t curY = contentTopY;
-    tft.setTextSize(FM);
 
 #if defined(HAS_TOUCH)
     if (showPageUp) {
         if (fullPageRepaint) {
-            tft.fillRoundRect(boxX + 4, curY + 1, innerW, rowHeightPx - 2, 3, blendColors(surface, fgcolor, 18));
-            tft.setTextColor(fgcolor, blendColors(surface, fgcolor, 18));
+            tft.fillRect(boxX + 4, curY, innerW, rowHeightPx, surface);
+            tft.setTextColor(textMuted, surface);
             tft.setTextSize(FP);
-            int ty = curY + (rowHeightPx - LH * FP) / 2;
-            tft.drawCentreString(bruce_i18n::tr("-- Page Up --"), boxX + 4 + innerW / 2, ty, 1);
-            tft.setTextSize(FM);
+            tft.drawCentreString(bruce_i18n::tr("-- Page Up --"), boxX + 4 + innerW / 2, curY + (rowHeightPx - LH * FP) / 2, 1);
         }
         s_pageUpVisible = true;
         s_pageUpX = boxX;
@@ -1104,60 +1108,54 @@ Opt_Coord drawOptions(
         if (!fullPageRepaint && !isSel && !wasSel) continue;
 
         uint16_t accentCol = options[i].hasColor ? options[i].color : fgcolor;
-        uint16_t rowBg = isSel ? blendColors(bgcolor, accentCol, 52) : surface;
-        int32_t textX = boxX + 12;
-        int32_t textY = rowY + (rowHeightPx - FM * LH) / 2;
-        int16_t rightReserve = options[i].selected ? 16 : 10;
-        int16_t maxLinePx = innerW - 14 - rightReserve;
+        uint16_t rowBg = isSel ? accentCol : surface;
+        uint16_t onAccent = uiTextOnAccentColor(accentCol);
+
+        int32_t leftPad = options[i].hasColor ? 26 : 12;
+        int32_t textX = boxX + leftPad;
+        int32_t textY = rowY + (rowHeightPx - 16) / 2;
+        int16_t rightReserve = options[i].selected ? 18 : 10;
+        int16_t maxLinePx = innerW - (leftPad - 4) - rightReserve;
 
         tft.fillRect(boxX + 3, rowY, innerW + 2, rowHeightPx, surface);
         if (isSel) {
-            tft.fillRoundRect(boxX + 4, rowY + 1, innerW, rowHeightPx - 2, 4, rowBg);
-            tft.drawRoundRect(boxX + 4, rowY + 1, innerW, rowHeightPx - 2, 4, accentCol);
-            tft.fillRect(boxX + 5, rowY + 3, 3, rowHeightPx - 6, accentCol);
-
+            tft.fillRoundRect(boxX + 4, rowY + 1, innerW, rowHeightPx - 2, 5, rowBg);
             coord.x = textX;
             coord.y = textY;
-            coord.size = max(2, maxLinePx / (LW * FM) + 1);
-            coord.fgcolor = textBright;
+            coord.size = maxLinePx;
+            coord.fgcolor = onAccent;
             coord.bgcolor = rowBg;
-        } else {
-            tft.fillRect(boxX + 6, rowY + rowHeightPx / 2 - 1, 2, 2, borderDim);
+        }
+
+        // Theme color swatch square when option carries an explicit color
+        if (options[i].hasColor) {
+            int swX = boxX + 10;
+            int swY = rowY + (rowHeightPx - 10) / 2;
+            tft.fillRoundRect(swX, swY, 10, 10, 3, options[i].color);
+            tft.drawRoundRect(swX, swY, 10, 10, 3, isSel ? onAccent : borderDim);
         }
 
         uint16_t textCol;
-        if (!options[i].enabled) textCol = TFT_DARKGREY;
-        else if (isSel) textCol = textBright;
-        else if (options[i].selected) textCol = selcolor;
-        else if (options[i].hasColor) textCol = options[i].color;
-        else textCol = bruceConfig.secColor;
+        if (!options[i].enabled) textCol = 0x528A;
+        else if (isSel) textCol = onAccent;
+        else if (options[i].selected) textCol = textBright;
+        else textCol = textNormal;
 
         String labelText = bruce_i18n::tr(options[i].label);
-        String fitted = bruce_i18n::utf8TruncateToWidth(labelText, maxLinePx, FM);
-        tft.setTextSize(FM);
-        tft.setTextColor(textCol, rowBg);
-        tft.setCursor(textX, textY);
-        tft.print(fitted);
+        uiDrawText16(labelText, textX, textY, maxLinePx, textCol, rowBg, 0);
 
         if (options[i].selected) {
-            tft.fillCircle(boxX + 4 + innerW - 8, rowY + rowHeightPx / 2, 3, isSel ? accentCol : selcolor);
-        } else if (isSel && innerW > 80) {
-            tft.setTextSize(FP);
-            tft.setTextColor(accentCol, rowBg);
-            tft.drawRightString(">", boxX + 4 + innerW - 5, rowY + (rowHeightPx - LH * FP) / 2, 1);
-            tft.setTextSize(FM);
+            tft.fillCircle(boxX + 4 + innerW - 9, rowY + rowHeightPx / 2, 3, isSel ? onAccent : fgcolor);
         }
     }
 
 #if defined(HAS_TOUCH)
     if (showPageDown) {
         if (fullPageRepaint) {
-            tft.fillRoundRect(boxX + 4, curY + 1, innerW, rowHeightPx - 2, 3, blendColors(surface, fgcolor, 18));
-            tft.setTextColor(fgcolor, blendColors(surface, fgcolor, 18));
+            tft.fillRect(boxX + 4, curY, innerW, rowHeightPx, surface);
+            tft.setTextColor(textMuted, surface);
             tft.setTextSize(FP);
-            int ty = curY + (rowHeightPx - LH * FP) / 2;
-            tft.drawCentreString(bruce_i18n::tr("-- Page Down --"), boxX + 4 + innerW / 2, ty, 1);
-            tft.setTextSize(FM);
+            tft.drawCentreString(bruce_i18n::tr("-- Page Down --"), boxX + 4 + innerW / 2, curY + (rowHeightPx - LH * FP) / 2, 1);
         }
         s_pageDownVisible = true;
         s_pageDownX = boxX;
@@ -1177,30 +1175,35 @@ Opt_Coord drawOptions(
     }
 
     if (needsPaging) {
-        int barX = boxX + boxW - 5;
-        int trackY = contentTopY + 2;
-        int trackH = totalRows * rowHeightPx - 4;
-        tft.fillRoundRect(barX, trackY, 3, trackH, 1, blendColors(bgcolor, fgcolor, 25));
+        int barX = boxX + boxW - 4;
+        int trackY = contentTopY + 3;
+        int trackH = totalRows * rowHeightPx - 6;
+        tft.fillRect(barX, trackY, 2, trackH, borderDim);
         int thumbH = max(8, trackH * menuSize / arraySize);
         int denom = max(1, arraySize - 1);
         int thumbY = trackY + (trackH - thumbH) * index / denom;
-        tft.fillRoundRect(barX, thumbY, 3, thumbH, 1, fgcolor);
+        tft.fillRect(barX, thumbY, 2, thumbH, textBright);
     }
 
     last_init = init;
     last_index = index;
     tft.setTextColor(fgcolor, bgcolor);
 #if defined(HAS_TOUCH)
-    if (firstRender) {
-        const int escW = 28;
-        const int escH = 16;
-        const int escX = tftWidth - escW - 6;
-        const int escY = STATUS_BAR_HEIGHT - 2;
-        tft.fillRoundRect(escX, escY, escW, escH, 3, uiSurfaceColor());
-        tft.drawRoundRect(escX, escY, escW, escH, 3, fgcolor);
-        tft.setTextColor(textBright, uiSurfaceColor());
+    {
+        int hy = STATUS_BAR_HEIGHT - 3;
+        if (firstRender) {
+            tft.fillRect(0, hy, tftWidth, 18, bgcolor);
+            drawBackChevron(13, hy + 9, textBright);
+            tft.setTextSize(FP);
+            tft.setTextColor(textMuted, bgcolor);
+            tft.drawString(bruce_i18n::tr("Back"), 22, hy + (18 - LH * FP) / 2, 1);
+        }
+        char cntBuf[12];
+        snprintf(cntBuf, sizeof(cntBuf), "%d/%d", index + 1, arraySize);
+        tft.fillRect(tftWidth - 48, hy + 1, 42, 16, bgcolor);
         tft.setTextSize(FP);
-        tft.drawCentreString("X", escX + escW / 2, escY + (escH - LH * FP) / 2, 1);
+        tft.setTextColor(textMuted, bgcolor);
+        tft.drawRightString(cntBuf, tftWidth - 8, hy + (18 - LH * FP) / 2, 1);
     }
     TouchFooter();
 #endif
@@ -1209,7 +1212,7 @@ Opt_Coord drawOptions(
 
 /***************************************************************************************
 ** Function name: drawSubmenu
-** Description:   Modern hacker tactical submenu with header, cards & dirty-row redraws
+** Description:   Clean industrial hardware list with crisp Font 2 & partial-row redraws
 ***************************************************************************************/
 void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
     drawStatusBar();
@@ -1228,21 +1231,21 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
 
     uint16_t bg = bruceConfig.bgColor;
     uint16_t pri = bruceConfig.priColor;
-    uint16_t surface = uiSurfaceColor();
-    uint16_t surfaceHi = uiSurfaceHiColor();
     uint16_t borderDim = uiBorderDimColor();
     uint16_t textBright = uiTextBrightColor();
+    uint16_t textMuted = uiTextMutedColor();
+    uint16_t textNormal = blendColors(bg, textBright, 200);
+    uint16_t onAccent = uiTextOnAccentColor(pri);
 
     bool compactScreen = (tftHeight < 160);
-    int headerY = STATUS_BAR_HEIGHT - 2;
-    int headerH = compactScreen ? 14 : 17;
+    int headerY = STATUS_BAR_HEIGHT - 3;
+    int headerH = compactScreen ? 15 : 21;
     int listTop = headerY + headerH + 4;
-    int listBottom = tftHeight - 5;
+    int listBottom = tftHeight - 4;
     int rowH = compactScreen ? 21 : 26;
     int visibleRows = max(1, (listBottom - listTop) / rowH);
     if (visibleRows > menuSize) visibleRows = menuSize;
 
-    // Keep scroll window stable across same-submenu navigation
     bool sameMenu = !s_submenuForceFull && (s_lastData == options.data()) && (s_lastSize == menuSize) &&
                     (s_lastPri == pri) && (s_lastBg == bg) && (s_lastW == tftWidth) && (s_lastH == tftHeight);
 
@@ -1256,59 +1259,41 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
     bool fullRedraw = !sameMenu || (scroll != s_lastScroll);
 
     int rowX = 6;
-    int rowW = tftWidth - 18;
-    int barX = tftWidth - 8;
+    int rowW = tftWidth - 15;
+    int barX = tftWidth - 5;
 
-    // Header strip: "// TITLE" + counter pill + touch [X]
+    // Clean header bar: integrated "<" back chevron (on touch) + crisp title + muted counter
     if (fullRedraw) {
         tft.fillRect(0, headerY, tftWidth, headerH + 2, bg);
+        int titleX = 10;
+#if defined(HAS_TOUCH)
+        drawBackChevron(13, headerY + headerH / 2, textMuted);
+        titleX = 25;
+#endif
         String trTitle = bruce_i18n::tr(String(title));
-        int titleH = (FP == 1 && bruce_i18n::containsNonAscii(trTitle)) ? 12 : (LH * FP);
-        int titleY = headerY + (headerH - titleH) / 2;
-
-        tft.setTextSize(FP);
-        tft.setTextColor(pri, bg);
-        tft.setCursor(8, titleY);
-        tft.print("// ");
-        int prefixW = 3 * LW * FP;
-#if defined(HAS_TOUCH)
-        int rightBlock = 74;
-#else
-        int rightBlock = 44;
-#endif
-        String fittedTitle = bruce_i18n::utf8TruncateToWidth(trTitle, tftWidth - 16 - prefixW - rightBlock, FP);
-        tft.setTextColor(textBright, bg);
-        tft.print(fittedTitle);
+        int maxTitleW = tftWidth - titleX - 48;
+        if (!compactScreen) {
+            uiDrawText16(trTitle, titleX, headerY + (headerH - 16) / 2, maxTitleW, textBright, bg, 0);
+        } else {
+            int titleH = (FP == 1 && bruce_i18n::containsNonAscii(trTitle)) ? 12 : (LH * FP);
+            tft.setTextSize(FP);
+            tft.setTextColor(textBright, bg);
+            String fitted = bruce_i18n::utf8TruncateToWidth(trTitle, maxTitleW, FP);
+            tft.drawString(fitted, titleX, headerY + (headerH - titleH) / 2, 1);
+        }
         tft.drawFastHLine(6, headerY + headerH + 1, tftWidth - 12, borderDim);
-
-#if defined(HAS_TOUCH)
-        const int escW = 28;
-        const int escH = 16;
-        const int escX = tftWidth - escW - 6;
-        const int escY = headerY;
-        tft.fillRoundRect(escX, escY, escW, escH, 3, surface);
-        tft.drawRoundRect(escX, escY, escW, escH, 3, pri);
-        tft.setTextColor(textBright, surface);
-        tft.setTextSize(FP);
-        tft.drawCentreString("X", escX + escW / 2, escY + (escH - LH * FP) / 2, 1);
-#endif
     }
 
-    // Update counter pill (e.g. 03/12)
+    // Tabular item counter (e.g. 3/18)
     {
         char cntBuf[12];
-        snprintf(cntBuf, sizeof(cntBuf), "%02d/%02d", index + 1, menuSize);
-#if defined(HAS_TOUCH)
-        int cntRight = tftWidth - 38;
-#else
-        int cntRight = tftWidth - 8;
-#endif
-        int cntW = 5 * LW * FP + 6;
+        snprintf(cntBuf, sizeof(cntBuf), "%d/%d", index + 1, menuSize);
+        int cntW = 42;
         int cntY = headerY + (headerH - LH * FP) / 2;
-        tft.fillRect(cntRight - cntW, headerY + 1, cntW, headerH - 2, bg);
+        tft.fillRect(tftWidth - 8 - cntW, headerY + 1, cntW, headerH - 2, bg);
         tft.setTextSize(FP);
-        tft.setTextColor(bruceConfig.secColor, bg);
-        tft.drawRightString(cntBuf, cntRight, cntY, 1);
+        tft.setTextColor(textMuted, bg);
+        tft.drawRightString(cntBuf, tftWidth - 8, cntY, 1);
     }
 
     if (fullRedraw) {
@@ -1323,23 +1308,22 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
     s_pageUpVisible = (scroll > 0);
     s_pageDownVisible = (scroll + visibleRows < menuSize);
     if (s_pageUpVisible) {
-        s_pageUpX = barX - 8;
+        s_pageUpX = barX - 10;
         s_pageUpY = listTop;
-        s_pageUpW = 14;
+        s_pageUpW = 15;
         s_pageUpH = (listBottom - listTop) / 2;
         s_pageUpTargetIndex = max(0, scroll - visibleRows);
     }
     if (s_pageDownVisible) {
-        s_pageDownX = barX - 8;
+        s_pageDownX = barX - 10;
         s_pageDownY = listTop + (listBottom - listTop) / 2;
-        s_pageDownW = 14;
+        s_pageDownW = 15;
         s_pageDownH = (listBottom - listTop) / 2;
         s_pageDownTargetIndex = min(menuSize - 1, scroll + visibleRows);
     }
 #endif
 
-    // Draw visible rows (only changed rows when same scroll window!)
-    tft.setTextSize(FM);
+    // Render rows — only the 2 changed rows repaint during same-window scrolling
     for (int r = 0; r < visibleRows; ++r) {
         int i = scroll + r;
         int rowY = listTop + r * rowH;
@@ -1353,41 +1337,32 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
         bool wasSel = (i == s_lastIndex);
         if (!fullRedraw && !isSel && !wasSel) continue;
 
-        uint16_t rowBg = isSel ? surfaceHi : bg;
+        uint16_t rowBg = isSel ? pri : bg;
         tft.fillRect(rowX, rowY, rowW, rowH, bg);
         if (isSel) {
-            tft.fillRoundRect(rowX, rowY + 1, rowW, rowH - 2, 4, surfaceHi);
-            tft.drawRoundRect(rowX, rowY + 1, rowW, rowH - 2, 4, pri);
-            tft.fillRect(rowX + 1, rowY + 3, 3, rowH - 6, pri);
-        } else {
-            tft.fillRect(rowX + 4, rowY + rowH / 2 - 1, 2, 2, borderDim);
+            tft.fillRoundRect(rowX, rowY + 1, rowW, rowH - 2, 6, pri);
         }
 
-        uint16_t labelCol = !options[i].enabled ? TFT_DARKGREY : (isSel ? textBright : bruceConfig.secColor);
+        uint16_t labelCol = !options[i].enabled ? 0x528A : (isSel ? onAccent : textNormal);
         String label = bruce_i18n::tr(options[i].label);
-        int maxTextW = rowW - 24;
-        String fitted = bruce_i18n::utf8TruncateToWidth(label, maxTextW, FM);
-        int textY = rowY + (rowH - FM * LH) / 2;
-        tft.setTextSize(FM);
-        tft.setTextColor(labelCol, rowBg);
-        tft.setCursor(rowX + 10, textY);
-        tft.print(fitted);
+        int textY = rowY + (rowH - 16) / 2;
+        uiDrawText16(label, rowX + 10, textY, rowW - 24, labelCol, rowBg, 0);
 
         if (isSel) {
-            tft.setTextSize(FP);
-            tft.setTextColor(pri, surfaceHi);
-            tft.drawRightString(">", rowX + rowW - 5, rowY + (rowH - LH * FP) / 2, 1);
-            tft.setTextSize(FM);
+            int cx = rowX + rowW - 9;
+            int cy = rowY + rowH / 2;
+            tft.drawLine(cx - 2, cy - 3, cx + 1, cy, onAccent);
+            tft.drawLine(cx - 2, cy + 3, cx + 1, cy, onAccent);
         }
     }
 
-    // Sleek right-edge scrollbar
-    int trackH = visibleRows * rowH - 2;
-    tft.fillRoundRect(barX, listTop + 1, 3, trackH, 1, surface);
-    if (menuSize > 1) {
+    // Ultra-slim 2px scrollbar track on far right
+    if (menuSize > visibleRows) {
+        int trackH = visibleRows * rowH - 4;
+        tft.fillRect(barX, listTop + 2, 2, trackH, borderDim);
         int thumbH = max(8, trackH * visibleRows / menuSize);
-        int thumbY = listTop + 1 + (trackH - thumbH) * index / (menuSize - 1);
-        tft.fillRoundRect(barX, thumbY, 3, thumbH, 1, pri);
+        int thumbY = listTop + 2 + (trackH - thumbH) * index / max(1, menuSize - 1);
+        tft.fillRect(barX, thumbY, 2, thumbH, textBright);
     }
 
     s_lastData = options.data();
@@ -1480,47 +1455,27 @@ void drawStatusBar(bool force) {
 
     uint16_t bg = bruceConfig.bgColor;
     uint16_t pri = bruceConfig.priColor;
-    uint16_t hudBg = uiSurfaceColor();
+    uint16_t barBg = (bg == 0x0000) ? 0x0841 : uiSurfaceColor();
     uint16_t borderDim = uiBorderDimColor();
     uint16_t textBright = uiTextBrightColor();
-    int hudH = STATUS_BAR_HEIGHT - 5;
+    int hudH = STATUS_BAR_HEIGHT - 6;
 
-    // Elevated cyber HUD top bar with left neon accent notch + bottom hairline
-    tft.fillRect(0, 0, tftWidth, hudH, hudBg);
-    tft.fillRect(0, 0, 3, hudH, pri);
+    // Clean minimal hardware status bar with single neutral 1px hairline separator
+    tft.fillRect(0, 0, tftWidth, hudH, barBg);
     tft.drawFastHLine(0, hudH, tftWidth, borderDim);
-    tft.drawFastHLine(0, hudH, 36, pri);
 
-    // Subtle cyber corner brackets along the bottom edge (replaces dated Nokia outer box)
-    if (bruceConfig.theme.border) {
-        const int br = 9;
-        int by = tftHeight - 2;
-        tft.drawFastHLine(3, by, tftWidth - 6, borderDim);
-        // Bottom-left bracket
-        tft.drawFastHLine(2, by, br, pri);
-        tft.drawFastVLine(2, by - br + 1, br, pri);
-        // Bottom-right bracket
-        tft.drawFastHLine(tftWidth - 2 - br, by, br, pri);
-        tft.drawFastVLine(tftWidth - 3, by - br + 1, br, pri);
-    }
-
-    // Left HUD badge (live clock or Nezha Cyber / 哪吒网络安全 identity)
+    // Left badge: live clock or clean brand wordmark with subtle status dot
     if (clock_set) {
         int badgeY = (hudH - LH * FP) / 2;
-        setTftDisplay(8, badgeY, textBright, FP, hudBg);
+        setTftDisplay(8, badgeY, textBright, FP, barBg);
         tft.print(timeStr);
     } else {
+        tft.fillCircle(10, hudH / 2, 2, pri);
         String brand = bruce_i18n::tr("Nezha Cyber");
         int badgeH = (FP == 1 && bruce_i18n::containsNonAscii(brand)) ? 12 : (LH * FP);
         int badgeY = (hudH - badgeH) / 2;
-        setTftDisplay(8, badgeY, textBright, FP, hudBg);
+        setTftDisplay(17, badgeY, textBright, FP, barBg);
         tft.print(brand);
-        if (tftWidth >= 260 && !bruce_i18n::containsNonAscii(brand)) {
-            tft.setTextColor(pri, hudBg);
-            tft.print(" // ");
-            tft.setTextColor(bruceConfig.secColor, hudBg);
-            tft.print(BRUCE_VERSION);
-        }
     }
 
     if (bat > 0) drawBatteryStatus(bat);
@@ -1542,8 +1497,8 @@ void drawStatusBar(bool force) {
         int iy = (hudH - IH) / 2;
         int idx = 0;
 
-        // Temporarily match bgColor to hudBg so small status icons blend cleanly into the HUD bar
-        bruceConfig.bgColor = hudBg;
+        bruceConfig.bgColor = barBg;
+        bruceConfig.priColor = textBright;
         if (showSD) {
             drawSdSmall(sx + idx * (IW + GAP), iy);
             idx++;
@@ -1553,7 +1508,9 @@ void drawStatusBar(bool force) {
             idx++;
         }
         if (showWifi) {
+            bruceConfig.priColor = pri;
             drawWifiSmall(sx + idx * (IW + GAP), iy);
+            bruceConfig.priColor = textBright;
             idx++;
         }
         if (showWeb) {
@@ -1561,13 +1518,16 @@ void drawStatusBar(bool force) {
             idx++;
         }
         if (showBLE) {
+            bruceConfig.priColor = pri;
             drawBLESmall(sx + idx * (IW + GAP), iy);
+            bruceConfig.priColor = textBright;
             idx++;
         }
         if (showWG) {
             drawWireguardStatus(sx + idx * (IW + GAP), iy);
             idx++;
         }
+        bruceConfig.priColor = pri;
         bruceConfig.bgColor = bg;
     }
 }
@@ -1660,37 +1620,34 @@ void drawBatteryStatus(uint8_t bat) {
     if (bat == 0) return;
 
     bool charging = isCharging();
-    uint16_t hudBg = uiSurfaceColor();
-    uint16_t color = bruceConfig.priColor;
-    uint16_t barcolor = bruceConfig.priColor;
-    if (bat < 16) barcolor = color = TFT_RED;
-    else if (charging) barcolor = TFT_GREEN;
+    uint16_t barBg = (bruceConfig.bgColor == 0x0000) ? 0x0841 : uiSurfaceColor();
+    uint16_t outlineCol = (bat < 16) ? TFT_RED : uiTextMutedColor();
+    uint16_t fillCol = (bat < 16) ? TFT_RED : (charging ? TFT_GREEN : uiTextBrightColor());
 
-    const int hudH = STATUS_BAR_HEIGHT - 5;
-    const int battH = 11;
-    const int battW = 22;
+    const int hudH = STATUS_BAR_HEIGHT - 6;
+    const int battH = 10;
+    const int battW = 20;
     const int battY = (hudH - battH) / 2;
     const int battX = tftWidth - battW - 8;
     const int textGap = 5;
     const int textY = (hudH - LH * FP) / 2;
 
     tft.setTextSize(FP);
-    tft.setTextColor(charging ? TFT_GREEN : (bat < 16 ? TFT_RED : uiTextBrightColor()), hudBg);
+    tft.setTextColor(charging ? TFT_GREEN : (bat < 16 ? TFT_RED : uiTextMutedColor()), barBg);
     if (charging) {
         tft.drawRightString(bruce_i18n::tr("CHG"), battX - textGap, textY, 1);
     } else {
         tft.drawRightString(String(bat) + "%", battX - textGap, textY, 1);
     }
 
-    // Modern capsule battery with positive terminal nub
-    tft.fillRoundRect(battX, battY, battW, battH, 2, bruceConfig.bgColor);
-    tft.drawRoundRect(battX, battY, battW, battH, 2, color);
-    tft.fillRect(battX + battW, battY + 3, 2, battH - 6, color);
+    tft.fillRoundRect(battX, battY, battW, battH, 2, barBg);
+    tft.drawRoundRect(battX, battY, battW, battH, 2, outlineCol);
+    tft.fillRect(battX + battW, battY + 3, 2, battH - 6, outlineCol);
     int innerW = battW - 4;
     int fillW = (innerW * bat + 50) / 100;
     if (fillW < 2 && bat > 0) fillW = 2;
     if (fillW > innerW) fillW = innerW;
-    tft.fillRect(battX + 2, battY + 2, fillW, battH - 4, barcolor);
+    tft.fillRect(battX + 2, battY + 2, fillW, battH - 4, fillCol);
 }
 
 void drawWireguardStatus(int x, int y) {

@@ -288,16 +288,38 @@ void begin_tft() {
  **  Draw boot screen
  *********************************************************************/
 void boot_screen() {
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.setTextSize(FM);
-    tft.drawPixel(0, 0, bruceConfig.bgColor);
-    tft.drawCentreString(bruce_i18n::tr("Nezha Cyber"), tftWidth / 2, 10, 1);
+    uint16_t bg = bruceConfig.bgColor;
+    uint16_t pri = bruceConfig.priColor;
+    uint16_t ink = uiTextBrightColor();
+    uint16_t muted = uiTextMutedColor();
+    bool compact = (tftHeight < 160);
+    int cx = tftWidth / 2;
+    int emblemY = compact ? (tftHeight / 2 - 22) : (tftHeight / 2 - 34);
+    int r = compact ? 14 : 20;
+
+    tft.fillScreen(bg);
+    // Minimal precision geometric emblem (clean hardware mark)
+    tft.drawCircle(cx, emblemY, r, uiBorderDimColor());
+    tft.drawLine(cx, emblemY - r - 3, cx + r, emblemY, pri);
+    tft.drawLine(cx + r, emblemY, cx, emblemY + r + 3, pri);
+    tft.drawLine(cx, emblemY + r + 3, cx - r, emblemY, pri);
+    tft.drawLine(cx - r, emblemY, cx, emblemY - r - 3, pri);
+    tft.fillCircle(cx, emblemY, compact ? 3 : 4, pri);
+
+    int titleY = emblemY + r + (compact ? 10 : 16);
+    uiDrawText16(bruce_i18n::tr("Nezha Cyber"), cx, titleY, tftWidth - 20, ink, bg, 1);
+
     tft.setTextSize(FP);
-    tft.drawCentreString(BRUCE_VERSION, tftWidth / 2, 28, 1);
-    tft.setTextSize(FM);
-    tft.drawCentreString(
-        bruce_i18n::tr("CYBER SECURITY SUITE"), tftWidth / 2, tftHeight + 2, 1
-    ); // will draw outside the screen on non touch devices
+    tft.setTextColor(muted, bg);
+    tft.drawCentreString(String(BRUCE_VERSION) + "  " + bruce_i18n::tr("CYBER SECURITY SUITE"), cx, titleY + 20, 1);
+
+    // Subtle precision hairline progress rule
+    int barW = min(140, tftWidth - 60);
+    int barY = titleY + 34;
+    if (barY + 3 < tftHeight) {
+        tft.fillRoundRect(cx - barW / 2, barY, barW, 2, 1, uiSurfaceHiColor());
+        tft.fillRoundRect(cx - barW / 2, barY, barW / 3, 2, 1, pri);
+    }
 }
 
 /*********************************************************************
@@ -318,12 +340,10 @@ void boot_screen_anim() {
     else if (boot_img == 0 && LittleFS.exists("/boot.gif")) boot_img = 4;
     if (bruceConfig.theme.boot_img) boot_img = 5; // override others
 
-    tft.drawPixel(0, 0, 0);       // Forces back communication with TFT, to avoid ghosting
-                                  // Start image loop
-    while (millis() < i + 7000) { // boot image lasts for 5 secs
-        if ((millis() - i > 2000) && !drawn) {
-            tft.fillRect(0, 45, tftWidth, tftHeight - 45, bruceConfig.bgColor);
-            if (boot_img > 0 && !drawn) {
+    tft.drawPixel(0, 0, 0); // Forces back communication with TFT, to avoid ghosting
+    if (boot_img > 0) {
+        while (millis() < (unsigned long)i + 4500) {
+            if ((millis() - i > 600) && !drawn) {
                 tft.fillScreen(bruceConfig.bgColor);
                 if (boot_img == 5) {
                     drawImg(
@@ -334,56 +354,46 @@ void boot_screen_anim() {
                         true,
                         3600
                     );
-                    Serial.println("Image from SD theme");
                 } else if (boot_img == 1) {
                     drawImg(SD, "/boot.jpg", 0, 0, true);
-                    Serial.println("Image from SD");
                 } else if (boot_img == 2) {
                     drawImg(LittleFS, "/boot.jpg", 0, 0, true);
-                    Serial.println("Image from LittleFS");
                 } else if (boot_img == 3) {
                     drawImg(SD, "/boot.gif", 0, 0, true, 3600);
-                    Serial.println("Image from SD");
                 } else if (boot_img == 4) {
                     drawImg(LittleFS, "/boot.gif", 0, 0, true, 3600);
-                    Serial.println("Image from LittleFS");
                 }
-                tft.drawPixel(0, 0, 0); // Forces back communication with TFT, to avoid ghosting
+                tft.drawPixel(0, 0, 0);
+                drawn = true;
             }
-            drawn = true;
+            if (check(AnyKeyPress)) {
+                tft.fillScreen(bruceConfig.bgColor);
+                delay(10);
+                return;
+            }
+            vTaskDelay(pdMS_TO_TICKS(10));
         }
-#if !defined(LITE_VERSION)
-        if (!boot_img && (millis() - i > 2200) && (millis() - i) < 2700)
-            tft.drawRect(2 * tftWidth / 3, tftHeight / 2, 2, 2, bruceConfig.priColor);
-        if (!boot_img && (millis() - i > 2700) && (millis() - i) < 2900)
-            tft.fillRect(0, 45, tftWidth, tftHeight - 45, bruceConfig.bgColor);
-        if (!boot_img && (millis() - i > 2900) && (millis() - i) < 3400)
-            tft.drawXBitmap(
-                2 * tftWidth / 3 - 30,
-                5 + tftHeight / 2,
-                bruce_small_bits,
-                bruce_small_width,
-                bruce_small_height,
-                bruceConfig.bgColor,
-                bruceConfig.priColor
-            );
-        if (!boot_img && (millis() - i > 3400) && (millis() - i) < 3600) tft.fillScreen(bruceConfig.bgColor);
-        if (!boot_img && (millis() - i > 3600))
-            tft.drawXBitmap(
-                (tftWidth - 238) / 2,
-                (tftHeight - 133) / 2,
-                bits,
-                bits_width,
-                bits_height,
-                bruceConfig.bgColor,
-                bruceConfig.priColor
-            );
-#endif
-        if (check(AnyKeyPress)) // If any key or M5 key is pressed, it'll jump the boot screen
-        {
-            tft.fillScreen(bruceConfig.bgColor);
-            delay(10);
-            return;
+    } else {
+        // Smooth crisp 900ms boot progress bar (skip instantly on any key/touch)
+        bool compact = (tftHeight < 160);
+        int cx = tftWidth / 2;
+        int r = compact ? 14 : 20;
+        int emblemY = compact ? (tftHeight / 2 - 22) : (tftHeight / 2 - 34);
+        int barW = min(140, tftWidth - 60);
+        int barY = emblemY + r + (compact ? 10 : 16) + 34;
+        while (millis() - (unsigned long)i < 900) {
+            if (barY + 3 < tftHeight) {
+                int pct = (int)((millis() - (unsigned long)i) * 100 / 900);
+                int fillW = max(barW / 3, barW * pct / 100);
+                if (fillW > barW) fillW = barW;
+                tft.fillRoundRect(cx - barW / 2, barY, fillW, 2, 1, bruceConfig.priColor);
+            }
+            if (check(AnyKeyPress)) {
+                tft.fillScreen(bruceConfig.bgColor);
+                delay(10);
+                return;
+            }
+            vTaskDelay(pdMS_TO_TICKS(16));
         }
     }
 
