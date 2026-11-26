@@ -2,7 +2,7 @@
 .
 ├── boards
 │   ├── [board]
-│   │   └── interface.cpp
+│   │   └── interface.cc
 │   ├── pinouts
 │   │   ├── pins_arduino.h
 │   │   └── [board].h
@@ -18,7 +18,7 @@
 ├── src
 │   ├── core
 │   ├── modules
-│   └── main.cpp
+│   └── main.cc
 ├── test
 └── platformio.ini
 ```

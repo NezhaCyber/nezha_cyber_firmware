@@ -39,7 +39,7 @@ makes `USB_as_HID` (BadUSB / ducky typer / U2F) work.
 
 ## Pin defaults are only defaults
 
-`interface.cpp` seeds `bruceConfigPins` with the table above — the XIAO
+`interface.cc` seeds `bruceConfigPins` with the table above — the XIAO
 footprint's own labelled functions, so a stock XIAO expansion board or Grove
 wiring works out of the box. From the second boot on, `/brucePins.conf` wins,
 and everything (SD, CC1101, NRF24, PN532, I2C, UART, GPS, IR, RF) is remappable

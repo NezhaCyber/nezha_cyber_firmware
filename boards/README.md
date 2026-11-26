@@ -21,16 +21,16 @@ commented. Everything below is about filling it in correctly.
 └── boards
     ├── _New-Device-Model       ← THE TEMPLATE. Copy this folder.
     │   ├── _New-Device-Model.ini
-    │   └── interface.cpp
+    │   └── interface.cc
     ├── _jsonfiles
     │   ├── [mcu].json          esp32, esp32s3, esp32c3, esp32c5, esp32c6, esp32p4,
     │   │                       esp32p4_es, esp32s2
     │   ├── [mcu].h             generic Arduino pin defaults for that chip family
     │   ├── pins_arduino.h      dispatcher: includes the right [mcu].h for the build
-    │   └── variant.cpp
+    │   └── variant.cc
     └── [board]
         ├── [board].ini         PlatformIO env + all -D flags
-        ├── interface.cpp       the board's only C++ file
+        ├── interface.cc       the board's only C++ file
         └── connections.md      (optional) wiring/pinout notes
 ```
 
@@ -65,8 +65,8 @@ build_flags =
 	-Iboards/<board>
 ```
 
-`build_src_filter` is what compiles `interface.cpp`. **Forgetting it still links** —
-`_setup_gpio()` and `InputHandler()` have weak no-op defaults in `src/main.cpp` — and the
+`build_src_filter` is what compiles `interface.cc`. **Forgetting it still links** —
+`_setup_gpio()` and `InputHandler()` have weak no-op defaults in `src/main.cc` — and the
 board simply boots with no pins configured and no working buttons. If a freshly ported
 board does nothing at all, check this line first.
 
@@ -97,9 +97,9 @@ TFT_eSPI out of these `-D` values — copy a board with the same panel.
 
 Go through `boards/_New-Device-Model/_New-Device-Model.ini` top to bottom and uncomment
 what the device really has. Every flag there carries its own comment; the ones that decide
-the shape of `interface.cpp` are:
+the shape of `interface.cc` are:
 
-| Group | Flags | What it obliges you to do in `interface.cpp` |
+| Group | Flags | What it obliges you to do in `interface.cc` |
 |---|---|---|
 | Buttons | `HAS_1_BUTTON`, `HAS_2_BUTTONS` (+`BUTTONS_IDF_COMPONENT`), `HAS_3_BUTTONS`, `HAS_4_BUTTONS`, `HAS_5_BUTTONS`, `HAS_6_BUTTONS` | fill a `DeviceButtons`, call `hal_buttons_init()` + `hal_buttons_poll_N()` |
 | Encoder | `HAS_ENCODER` | fill a `DeviceEncoder`, call `hal_encoder_init()` + `hal_encoder_poll()` |
@@ -127,7 +127,7 @@ that uses the same short names as local variables (this really did break a build
 the boards/ refactor). If the real wiring differs, give it a Bruce-specific name
 (`SYS_I2C_SDA`, `SPI_SS_PIN`, …) and use that name explicitly in `_setup_gpio()`.
 
-### Step 5 — `interface.cpp`
+### Step 5 — `interface.cc`
 
 The template is a commented skeleton: uncomment and fill the blocks that apply, delete the
 rest. Everything except `InputHandler()` has a weak default in `src/`, so a minimal board
@@ -146,9 +146,9 @@ What goes where:
   (`src/core/configPins.h`) instead of a direct assignment: the core snapshots the generic
   wiring into `brucePinsSetupDefaults` right after `_setup_gpio()`, and the helper only takes
   the board default when the pin still holds it — anything else came from `/brucePins.conf`
-  and the user's wiring wins. One line per pin; see `boards/m5stack-cardputer/interface.cpp`.
+  and the user's wiring wins. One line per pin; see `boards/m5stack-cardputer/interface.cc`.
 
-Boot order in `src/main.cpp`:
+Boot order in `src/main.cc`:
 
 | Hook | Runs | Typical content |
 |---|---|---|
@@ -187,7 +187,7 @@ compiles to a no-op returning `false`/`-1`, so board code needs no `#ifdef` arou
 
 Deliberately **outside** the HAL:
 
-- **Keyboards** — too different per device; scan them in `interface.cpp`
+- **Keyboards** — too different per device; scan them in `interface.cc`
   (`m5stack-cardputer`, `lilygo-t-deck`, `lilygo-t-lora-pager`).
 - **Other PMICs/gauges** (AXP2101, AXP192, SY6970, MAX17048, …) — drive them directly and
   override `getBattery()`/`isCharging()`. Don't force them through `DevicePmic`.
@@ -225,7 +225,7 @@ When in doubt, copy from a board that already does the same thing:
 - [ ] Partition table, flash size and `memory_type`/`BOARD_HAS_PSRAM` match the hardware.
 - [ ] Exactly one display driver flag, with its `lib_deps` entry.
 - [ ] At most one `HAS_x_BUTTON(S)` flag; every input flag present has its matching
-      `hal_*_init()` + `hal_*_poll()` pair in `interface.cpp`.
+      `hal_*_init()` + `hal_*_poll()` pair in `interface.cc`.
 - [ ] `DEVICE_NAME`, `ROTATION`, `BTN_ALIAS` set.
 - [ ] No `-D` overriding a plain Arduino pin name (`SDA`, `SCL`, `SS`, `MOSI`, …).
 - [ ] `bruceConfigPins.*` filled for every module the board actually carries.

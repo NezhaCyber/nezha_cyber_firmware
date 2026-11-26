@@ -1,5 +1,5 @@
 /**
- * @file timer.cpp
+ * @file timer.cc
  * @author Aleksei Gor (https://github.com/AlekseiGor) - Reviewed and optimized by Senape3000
  * @brief Timer - Optimized implementation
  * @version 0.2

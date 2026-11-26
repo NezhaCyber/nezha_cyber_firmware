@@ -71,7 +71,7 @@ constexpr size_t RADIO_BLE_MIN_DMA_FREE_PSRAM = 28 * 1024;
 constexpr size_t RADIO_BLE_MIN_DMA_BLOCK_NOPSRAM = 18 * 1024;
 constexpr size_t RADIO_BLE_MIN_DMA_FREE_NOPSRAM = 32 * 1024;
 
-// SDR bank hand-off (implemented in modules/wifi/sdr.cpp): the SDR engine's
+// SDR bank hand-off (implemented in modules/wifi/sdr.cc): the SDR engine's
 // 64 KiB SRAM bank is kept out of the heap behind a fence allocation so the IQ
 // record/jammer can always start; when a radio bring-up finds the heap too
 // small, releasing the fence returns the bank to the heap. After that the SDR

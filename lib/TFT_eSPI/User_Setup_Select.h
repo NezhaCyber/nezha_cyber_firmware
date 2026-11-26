@@ -273,7 +273,7 @@
      #define  TFT_DRIVER 0x835C
 
                               // <<<<<<<<<<<<<<<<<<<<<<<< ADD NEW DRIVER HERE
-                              // XYZZY_init.h and XYZZY_rotation.h must also be added in TFT_eSPI.cpp
+                              // XYZZY_init.h and XYZZY_rotation.h must also be added in TFT_eSPI.cc
 #elif defined (XYZZY_DRIVER)
      #include "TFT_Drivers/XYZZY_Defines.h"
      #define  TFT_DRIVER 0x0000

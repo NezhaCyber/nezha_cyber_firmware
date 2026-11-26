@@ -20,7 +20,7 @@
 extern uint8_t mainMenuGridColumns;
 
 // Set once by MainMenu's constructor. Lets loopOptions() offer a page-up/page-down tap zone for
-// the grid without display.cpp depending on MainMenu's header. Returns true and writes newIndex
+// the grid without display.cc depending on MainMenu's header. Returns true and writes newIndex
 // when (x, y) landed in the page zone (only meaningful when mainMenuGridColumns > 1).
 extern bool (*gridPageTapHandler)(int x, int y, int currentIndex, int &newIndex);
 

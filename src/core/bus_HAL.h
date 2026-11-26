@@ -4,7 +4,7 @@
  * HAL for the I2C buses external modules can be wired to, plus SPI bus arbitration (below).
  *
  * bruceConfigPins.sys_i2c is the bus used by system peripherals (touchscreen, PMIC, RTC, IMU,
- * ...) set up once in boards/*\/interface.cpp and must never be stopped; some boards expose it.
+ * ...) set up once in boards/*\/interface.cc and must never be stopped; some boards expose it.
  * bruceConfigPins.i2c_bus is user-configurable at runtime, its pins may double as UART/GPIO/SPI,
  * and it may share the same physical pins as sys_i2c.
  *
@@ -18,7 +18,7 @@
 #include <Wire.h>
 
 // Tells the HAL which TwoWire instance is physically wired to bruceConfigPins.sys_i2c.
-// Call from boards/*/interface.cpp (_setup_gpio/_post_setup_gpio) only if that board does not use
+// Call from boards/*/interface.cc (_setup_gpio/_post_setup_gpio) only if that board does not use
 // the default (&Wire1).
 void setSysI2CBus(TwoWire *wire);
 
@@ -75,7 +75,7 @@ public:
     void release();
 
 private:
-    friend struct I2CLeaseAccess; // bus_HAL.cpp internals
+    friend struct I2CLeaseAccess; // bus_HAL.cc internals
     TwoWire *_wire = nullptr;
     I2CBusId _bus = I2CBusId::None;
     bool _found = false;
@@ -114,7 +114,7 @@ String i2cBusLabel(I2CBusId id);
 
 // Board-specific escape hatch for the user bus, used by the leases above when they open i2c_bus
 // (for example, a board whose only hardware controller is reserved for sys_i2c can time-share it,
-// as the Nesso N1 does). Most boards use the weak defaults in bus_HAL.cpp. releaseBoardI2CBus()
+// as the Nesso N1 does). Most boards use the weak defaults in bus_HAL.cc. releaseBoardI2CBus()
 // returns true if it handled (shut down) that wire.
 TwoWire *acquireBoardI2CBus(int8_t sda, int8_t scl);
 bool releaseBoardI2CBus(TwoWire *wire);

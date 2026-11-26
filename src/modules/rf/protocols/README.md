@@ -16,7 +16,7 @@ Centralize, in a single versioned and documented location:
   the concrete parameters applied to the transceiver.
 
 Before this directory existed, this data was scattered and
-duplicated across `rf_send.cpp`, `rf_scan.cpp`, and utilities. The
+duplicated across `rf_send.cc`, `rf_scan.cc`, and utilities. The
 refactor goal is that any protocol addition/adjustment happens
 **here**, and consumers (send, scan, replay) read from these definitions.
 
@@ -38,10 +38,10 @@ refactor goal is that any protocol addition/adjustment happens
   `RF_SUB_LEGACY_MIGRATION` (default 1) enables `.sub` backward compatibility.
 - `rf_protocol.h` — `RfPreset` and `RfProtocolDef` structs (data model,
   no tables). `RfProtocolFlags` (`RF_PF_HAS_SYNC`, `RF_PF_FIXED_LEN`).
-- `rf_presets.h/.cpp` — radio preset table + `rf_find_preset()`.
-- `rf_registry.h/.cpp` — static OOK protocol table +
+- `rf_presets.h/.cc` — radio preset table + `rf_find_preset()`.
+- `rf_registry.h/.cc` — static OOK protocol table +
   `rf_find_protocol()` / `rf_protocol_at()` / `rf_protocol_count()`.
-- `rf_legacy_migrate.h/.cpp` — **removable backward compatibility module**
+- `rf_legacy_migrate.h/.cc` — **removable backward compatibility module**
   (guarded by `RF_SUB_LEGACY_MIGRATION`): `n→name` table,
   `rf_sub_is_legacy()`, `rf_sub_migrate()`. Wiring in `readSubFile`
   is deferred to M3.
@@ -65,7 +65,7 @@ Coverage is delivered in three layers:
 
 1. **Named/parameterized (registry).** Static OOK families whose pulses are
    integer multiples of a base `TE` are described declaratively in
-   `rf_registry.cpp` and run through the shared decode/encode engines. These
+   `rf_registry.cc` and run through the shared decode/encode engines. These
    carry a stable `name` written to `Protocol:` in the `.sub`, so a captured
    code identifies and replays as the same protocol (round-trip).
    The table distinguishes two structural shapes handled by one model
@@ -100,7 +100,7 @@ Coverage is delivered in three layers:
      tolerance-based decoder intentionally does not do.
 
 2. **KeeLoq rolling code.** Manufacturer keystore (`/mfcodes`) + block cipher
-   live in `rf_keeloq.{h,cpp}`, together with `keeloq_build_hop()` — the pure
+   live in `rf_keeloq.{h,cc}`, together with `keeloq_build_hop()` — the pure
    per-manufacturer hop framing (button/serial mask/counter), shared by the
    counter step. The remaining per-frame state (counter step, key assembly)
    stays on `RfCodes::keeloq_step` in `rf_utils`, since it operates on a captured
@@ -141,7 +141,7 @@ Coverage is delivered in three layers:
 The sub-GHz protocol set, the KeeLoq cipher and learning schemes, and the
 manufacturer keystore format are ports of / validated against the Flipper Zero
 ecosystem. The encrypted built-in keystore (decrypted at runtime as a fallback
-when no `/mfcodes` file is present — see `rf_keeloq.cpp`) mirrors how Momentum
+when no `/mfcodes` file is present — see `rf_keeloq.cc`) mirrors how Momentum
 ships its `keeloq_mfcodes` asset.
 
 - **Flipper Zero firmware** — SubGhz protocols, `keeloq.c` / `keeloq_common`,

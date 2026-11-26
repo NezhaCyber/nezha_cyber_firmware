@@ -21,9 +21,9 @@ header pointing back to this document.
 - Used by: the KeeLoq block cipher, the manufacturer "learning" key-derivation
   schemes, the KeeLoq frame decoder/encoder framing, the `.sub` keystore format
   and protocol identities.
-  Files: `src/modules/rf/protocols/rf_keeloq.{h,cpp}`,
-  `src/modules/rf/protocols/rf_decoder.{h,cpp}`,
-  `src/modules/rf/protocols/rf_encoder.{h,cpp}`.
+  Files: `src/modules/rf/protocols/rf_keeloq.{h,cc}`,
+  `src/modules/rf/protocols/rf_decoder.{h,cc}`,
+  `src/modules/rf/protocols/rf_encoder.{h,cc}`.
 - The receive-only FSK register profiles in
   `src/modules/rf/protocols/rf_fsk_receive_profile.h` derive from
   `lib/subghz/devices/cc1101_configs.c` at commit
@@ -36,7 +36,7 @@ header pointing back to this document.
 - Used by: the extended KeeLoq manufacturer list and the model for the
   encrypted built-in keystore (`keeloq_mfcodes`), which Bruce mirrors by
   shipping an AES-encrypted keystore decrypted at runtime as a fallback.
-  Files: `src/modules/rf/protocols/rf_keeloq.cpp`,
+  Files: `src/modules/rf/protocols/rf_keeloq.cc`,
   `src/modules/rf/protocols/rf_keeloq_mfcodes_data.h` (generated),
   `tools/gen_mfcodes.py`.
 
@@ -53,9 +53,9 @@ header pointing back to this document.
   protocols and the factor-based `{high,low}×te` model) and the
   capture/decode and send state machines that Bruce re-implemented over its
   native RMT engine.
-  Files: `src/modules/rf/protocols/rf_registry.{h,cpp}`,
-  `src/modules/rf/protocols/rf_decoder.{h,cpp}`,
-  `src/modules/rf/protocols/rf_encoder.{h,cpp}`.
+  Files: `src/modules/rf/protocols/rf_registry.{h,cc}`,
+  `src/modules/rf/protocols/rf_decoder.{h,cc}`,
+  `src/modules/rf/protocols/rf_encoder.{h,cc}`.
 
 ## ProtoPirate vehicle protocols and optional JavaScript app
 
@@ -66,7 +66,7 @@ header pointing back to this document.
   `src/modules/rf/protocols/PROTOPIRATE_LICENSE`.
 - Vehicle codec implementations live in `src/modules/rf/protocols/decoders/`.
   Their framing and field logic retain upstream attribution; Bruce's existing
-  `rf_registry_ext.cpp` owns discovery and native decode/encode callbacks.
+  `rf_registry_ext.cc` owns discovery and native decode/encode callbacks.
 - Local changes preserve the Kia V1/V2 and Ford V0 reception, full serial range,
   upload capacity and saved-field fixes, plus the Subaru unsigned-shift fix.
 - Stateful pulse support derives from Flipper Zero firmware commit
@@ -80,7 +80,7 @@ header pointing back to this document.
 
 ## NFC / RFID (ST25R3916)
 
-The ST25R3916 NFC front-end driver (`src/modules/rfid/ST25R3916.{h,cpp}`) is a
+The ST25R3916 NFC front-end driver (`src/modules/rfid/ST25R3916.{h,cc}`) is a
 native re-implementation over a fork of ST's RFAL stack, but several parts —
 particularly the card-emulation (listen / passive-target) path — were **derived
 from** the Momentum firmware, itself a fork of the Flipper Zero firmware. Those
@@ -105,7 +105,7 @@ sequences and protocol state machines follow the upstream NFC HAL/stack.
     `READ_SIG` (ECC signature), `READ_CNT`, `PWD_AUTH`/`PACK` and the amiibo
     (NTAG215, UID-derived password, `80 80` PACK) behaviour.
   - The FeliCa (NFC-F) and Type 4 Tag (ISO-DEP / NDEF) emulation responders.
-  Files: `src/modules/rfid/ST25R3916.cpp`.
+  Files: `src/modules/rfid/ST25R3916.cc`.
 
 ### Crypto1 cipher (Crapto1 / Proxmark lineage) — public reimplementation
 - References: "Dismantling MIFARE Classic" (Garcia et al., 2008) and the public
@@ -114,7 +114,7 @@ sequences and protocol state machines follow the upstream NFC HAL/stack.
 - Used by: the compact Crypto1 stream cipher that backs both reader-side
   MIFARE Classic auth/read/write and the listener-side emulation, since the
   RFAL fork has no native Crypto1 support.
-  Files: `src/modules/rfid/crypto1.{h,cpp}`.
+  Files: `src/modules/rfid/crypto1.{h,cc}`.
 
 ## Bundled libraries (linked dependencies)
 

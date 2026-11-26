@@ -190,7 +190,7 @@ public:
 
     // An alternate wiring a board can offer for CC1101_bus/NRF24_bus (e.g. a legacy Grove module
     // vs. sharing the SD card's SPI bus, or an M5Stack Cap module). Populated per-board in
-    // _setup_gpio(); the generic menus in settings.cpp/NRF24.cpp just list whatever is here, so a
+    // _setup_gpio(); the generic menus in settings.cc/NRF24.cc just list whatever is here, so a
     // new board declares its own alt wiring without editing shared code.
     struct SPIPinPreset {
         const char *label;
@@ -342,7 +342,7 @@ public:
     void validateBuzzerPin();
 };
 
-// Generic wiring as applied by _setup_gpio(), captured by setup_gpio() (main.cpp) before
+// Generic wiring as applied by _setup_gpio(), captured by setup_gpio() (main.cc) before
 // /brucePins.conf is loaded. Post-storage board hooks compare against it with
 // applyBoardDefault() to tell their own defaults apart from values the user configured.
 extern BruceConfigPins brucePinsSetupDefaults;

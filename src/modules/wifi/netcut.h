@@ -86,9 +86,9 @@ struct NetCutDevice {
 };
 
 // ============================================
-// Module State (internal, managed by netcut.cpp)
+// Module State (internal, managed by netcut.cc)
 // ============================================
-// All state is file-scoped in netcut.cpp to prevent global collision.
+// All state is file-scoped in netcut.cc to prevent global collision.
 // Only function declarations are exposed here.
 
 // ============================================

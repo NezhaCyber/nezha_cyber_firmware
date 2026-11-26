@@ -319,7 +319,7 @@
 
   #define PARALLEL_INIT_TFT_DATA_BUS // None
 
-  #define INIT_TFT_DATA_BUS // Setup built into TFT_eSPI.cpp
+  #define INIT_TFT_DATA_BUS // Setup built into TFT_eSPI.cc
 
 ////////////////////////////////////////////////////////////////////////////////////////
 // Define the TFT_WR drive cycle timing

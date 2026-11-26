@@ -1,8 +1,8 @@
 # src/hal
 
-Shared hardware-abstraction code for board `interface.cpp` files: input
+Shared hardware-abstraction code for board `interface.cc` files: input
 polling (buttons, encoder, touch), power ICs (charger, fuel gauge), and
-backlight PWM. Every `hal_*.cpp` file here compiles for **every** board env
+backlight PWM. Every `hal_*.cc` file here compiles for **every** board env
 (it lives under `src/`, which PlatformIO includes unconditionally) and is
 selected at compile time by `build_flags` macros set per board in
 `boards/<env>/platformio.ini`.
@@ -10,7 +10,7 @@ selected at compile time by `build_flags` macros set per board in
 A board only needs to fill a small `Device*` struct (see `device.h`) in
 `_setup_gpio()` and call the matching `hal_*_init()`/`hal_*_poll()`/
 `hal_*_read()` functions — no board-specific driver code required for
-anything covered here. See `boards/_New-Device-Model/interface.cpp` for a
+anything covered here. See `boards/_New-Device-Model/interface.cc` for a
 commented worked example of every module below, and
 `boards/README.md` for the full new-board porting process.
 
@@ -27,7 +27,7 @@ commented worked example of every module below, and
 - `inputs/keyboard.*` — **intentionally empty.** TCA8418/I2C-custom/
   GPIO-matrix keyboards work differently enough from each other that a
   shared HAL isn't worth it; keyboard reading stays board-specific in each
-  `interface.cpp` (see `lilygo-t-lora-pager`, `lilygo-t-deck`,
+  `interface.cc` (see `lilygo-t-lora-pager`, `lilygo-t-deck`,
   `m5stack-cardputer` for reference implementations).
 - `power/pmic.*` — battery-charger IC.
 - `power/gauge.*` — fuel-gauge IC.
@@ -41,7 +41,7 @@ commented worked example of every module below, and
   the existing `HAS_*` convention (e.g. `-DPMIC_BQ25896`,
   `-DGAUGE_BQ27220`, `-DTOUCH_CTRL_GT911`).
 - To avoid pulling in a chip-specific library for boards that don't need
-  it, all library-specific `#include`s and code inside a `hal_*.cpp` file
+  it, all library-specific `#include`s and code inside a `hal_*.cc` file
   must sit behind the board's selection macro (`#ifdef PMIC_BQ25896 ...
   #endif`), never at file scope — PlatformIO's dependency finder (LDF)
   respects these guards when deciding which libraries to link. When a
@@ -53,7 +53,7 @@ commented worked example of every module below, and
   wrappers (`launcherGpioRead`, `launcherMillis`, ...) for anything else.
 - Boards using a higher-level abstraction that already covers input/power
   (e.g. M5Unified's `M5.Touch`/`M5.BtnA`/`M5.Power`) fall outside this HAL
-  by design — wire them up directly in the board's own `interface.cpp`
+  by design — wire them up directly in the board's own `interface.cc`
   instead of forcing them through `Device*`/`hal_*`.
 
 ## `inputs/buttons.*`
@@ -144,20 +144,20 @@ API:
 - `hal_touch_set_threshold(value)` — `TOUCH_CTRL_FT6X36`-only passthrough
   for boards that need a non-default touch-sensitivity register.
 - `hal_touch_disable_auto_sleep()` — `TOUCH_CTRL_CST8XX`-only passthrough.
-- `DeviceTouch.i2c_bus` (`void*`, cast to `TwoWire*` inside `touch.cpp`,
+- `DeviceTouch.i2c_bus` (`void*`, cast to `TwoWire*` inside `touch.cc`,
   `nullptr` = the global `Wire`) — for a board whose touch controller sits
   on a second I2C bus (e.g. `Wire1`). `void*` rather than `TwoWire*` so
   `device.h` — included by every board regardless of what sensors it has —
   stays Arduino-free.
-- `settings.cpp`'s touch-calibration screen (`HAS_RESISTIVE_TOUCH`) reaches
-  the XPT2046 driver via `extern CYD28_TouchR touch;`, which `touch.cpp`
+- `settings.cc`'s touch-calibration screen (`HAS_RESISTIVE_TOUCH`) reaches
+  the XPT2046 driver via `extern CYD28_TouchR touch;`, which `touch.cc`
   defines with external linkage specifically so that keeps working.
 
 ## `power/pmic.*`
 
 Battery-charger IC. Currently implements **`PMIC_BQ25896` only** (via
 `XPowersLib`). A board on a different charger (AXP2101, AXP192, SY6970,
-...) stays fully board-specific in its own `interface.cpp` until HAL
+...) stays fully board-specific in its own `interface.cc` until HAL
 support for that chip is added — don't force it through `DevicePmic`.
 
 - `hal_pmic_init(cfg, input_current_limit_ma = 3250)` — `Wire` must already
@@ -193,7 +193,7 @@ Battery level. Two sources, chosen at compile time:
   Tuned by build flags: `ANALOG_BAT_MULTIPLIER` (divider ratio, default
   `2.0`), `ANALOG_BAT_MIN_MV` (0%, default `3300`), `ANALOG_BAT_MAX_MV`
   (100%, default `4100`). No board code is needed -- the default
-  `getBattery()` in `core/utils.cpp` calls `hal_gauge_get_percent()`.
+  `getBattery()` in `core/utils.cc` calls `hal_gauge_get_percent()`.
   `hal_gauge_init()` may override the pin/ratio/range through `DeviceGauge`.
 
 - `hal_gauge_init(cfg)` -- BQ27220: sets the design capacity
@@ -232,10 +232,10 @@ exact same feel on purpose.
 
 ## Input task and the shared-SPI touchscreen
 
-`taskInputHandler()` (main.cpp) runs `InputHandler()` in its own task on every
+`taskInputHandler()` (main.cc) runs `InputHandler()` in its own task on every
 board, including the ones whose XPT2046 shares the display's SPI bus (the old
 `USE_TFT_eSPI_TOUCH` flag that moved those reads into the main loop is gone).
-The task holds a recursive mutex (`inputLock()`/`inputUnlock()`, mykeyboard.cpp)
+The task holds a recursive mutex (`inputLock()`/`inputUnlock()`, mykeyboard.cc)
 while it updates the input globals; `check()` and `_getKeyPress()` take the same
 mutex instead of suspending the task. The bus itself is protected by the SPI
 transaction lock -- `CYD28_TouchscreenR` and TFT_eSPI (`SUPPORT_TRANSACTIONS`)

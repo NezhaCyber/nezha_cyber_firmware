@@ -168,7 +168,7 @@ conflicts = [
     # SDD_REQ/SEL_REQ retries during anti-collision are unconditionally
     # disabled (rt=0, meaning a single-shot attempt) whenever devLimit != 0 -
     # i.e. exactly Bruce's own single-target read/emulate-read case
-    # (params.devLimit = 1 in ST25R3916.cpp). One missed/late response (see
+    # (params.devLimit = 1 in ST25R3916.cc). One missed/late response (see
     # the FDTMIN patch above) then fails activation outright with no recourse.
     # Retries cost only a few ms of delay and are otherwise unconditionally
     # safe, so always allow them instead of gating on devLimit.
@@ -185,7 +185,7 @@ conflicts = [
     # of ST25R3916 failing to activate a PN532 T4T target: once this call times out, devCnt stays
     # 0 for NFC-A and the multi-tech discovery (A|B|V|F) falls through to NFC-F, which a PN532
     # armed for T4T still answers (FeliCaParams/POL_REQ listening can't be disabled independently
-    # of Mode - see PN532.cpp), producing a wrong-protocol device that fails Activation instead of
+    # of Mode - see PN532.cc), producing a wrong-protocol device that fails Activation instead of
     # surfacing the real NFC-A timeout. Wrapping this call the same way as SDD/SEL fixed it.
     (
         ".pio/libdeps/*/NFC-RFAL-fork/src/rfal_nfca.cpp",

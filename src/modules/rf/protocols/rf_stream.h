@@ -17,7 +17,7 @@ bool rf_stream_has_encoder(const RfStreamCodec *codec);
 
 // Engine keystore storage primitive (implemented in rf_stream_support.c, backed
 // by the default keystore in rf_stream.c). Filled on demand from the single
-// KeeLoq /mfcodes reader by keeloq_engine_keystore_load() (rf_keeloq.cpp) while
+// KeeLoq /mfcodes reader by keeloq_engine_keystore_load() (rf_keeloq.cc) while
 // ProtoPirate is open.
 bool rf_stream_keystore_add_key(const char *name, uint64_t key, uint16_t type);
 void rf_stream_keystore_clear_keys(void);

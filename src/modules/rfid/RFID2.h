@@ -43,7 +43,7 @@ private:
     bool _use_i2c;
     I2CLease _i2cLease; // whichever bus (sys_i2c or i2c_bus) the module answered on
     MFRC522Driver *_driver = nullptr;
-    MFRC522DriverPinSimple ss_pin; // initialized from bruceConfigPins.PN532_bus.cs, see RFID2.cpp
+    MFRC522DriverPinSimple ss_pin; // initialized from bruceConfigPins.PN532_bus.cs, see RFID2.cc
 
     /////////////////////////////////////////////////////////////////////////////////////
     // Converters

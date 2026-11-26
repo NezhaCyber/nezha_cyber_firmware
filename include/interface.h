@@ -4,28 +4,28 @@
 
 /***************************************************************************************
 ** Function name: _setup_gpio()
-** Location: main.cpp
+** Location: main.cc
 ** Description:   initial setup for the device
 ***************************************************************************************/
 void _setup_gpio();
 
 /***************************************************************************************
 ** Function name: _post_setup_gpio()
-** Location: main.cpp
+** Location: main.cc
 ** Description:   second stage gpio setup to make a few functions work
 ***************************************************************************************/
 void _post_setup_gpio();
 
 /***************************************************************************************
 ** Function name: _pre_storage_gpio()
-** Location: main.cpp
+** Location: main.cc
 ** Description:   board gpio setup that must run after the first TFT use and before storage
 ***************************************************************************************/
 void _pre_storage_gpio();
 
 /***************************************************************************************
 ** Function name: getBattery()
-** location: display.cpp
+** location: display.cc
 ** Description:   Delivers the battery value from 1-100
 ***************************************************************************************/
 int getBattery();
@@ -33,7 +33,7 @@ int getBattery();
 
 /*********************************************************************
 ** Function: setBrightness
-** location: settings.cpp
+** location: settings.cc
 ** set brightness value
 **********************************************************************/
 void _setBrightness(uint8_t brightval);
@@ -48,28 +48,28 @@ void InputHandler(void);
 
 /*********************************************************************
 ** Function: powerOff
-** location: mykeyboard.cpp
+** location: mykeyboard.cc
 ** Turns off the device (or try to)
 **********************************************************************/
 void powerOff();
 
 /*********************************************************************
 ** Function: goToDeepSleep
-** location: mykeyboard.cpp
+** location: mykeyboard.cc
 ** Puts the device into DeepSleep
 **********************************************************************/
 void goToDeepSleep();
 
 /*********************************************************************
 ** Function: checkReboot
-** location: mykeyboard.cpp
+** location: mykeyboard.cc
 ** Btn logic to turnoff the device (name is odd btw)
 **********************************************************************/
 void checkReboot();
 
 /***************************************************************************************
 ** Function name: isCharging()
-** location: interface.cpp
+** location: interface.cc
 ** Description:   Determines if the device is charging
 ***************************************************************************************/
 bool isCharging();

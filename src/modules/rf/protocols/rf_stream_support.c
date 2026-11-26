@@ -247,7 +247,7 @@ RfStreamKeyArray_t *rf_stream_keystore_get_data(RfStreamKeystore *k) { return k 
 // Engine keystore storage primitive.
 //
 // The single default keystore (rf_stream_default_keystore()) is filled on
-// demand by keeloq_engine_keystore_load() (rf_keeloq.cpp), which reuses the one
+// demand by keeloq_engine_keystore_load() (rf_keeloq.cc), which reuses the one
 // KeeLoq /mfcodes reader. Star Line manufacturer ID, the KIA vehicle keys
 // (types 10..13) and the KeeLoq families therefore all share that one source.
 // ---------------------------------------------------------------------------

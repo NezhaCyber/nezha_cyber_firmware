@@ -175,7 +175,7 @@ typedef struct RfStreamEnvironment {
 RfStreamKeystore *rf_stream_environment_get_keystore(RfStreamEnvironment *e);
 // The single built-in keystore backing the default decode/encode environment.
 // Filled on demand from the KeeLoq /mfcodes reader by keeloq_engine_keystore_load()
-// (rf_keeloq.cpp) while ProtoPirate is open.
+// (rf_keeloq.cc) while ProtoPirate is open.
 RfStreamKeystore *rf_stream_default_keystore(void);
 
 typedef struct RfStreamEnvironment RfStreamEnvironment;

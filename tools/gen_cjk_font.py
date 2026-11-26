@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate and verify compact 1-bit PROGMEM CJK bitmap font tables for Bruce Firmware.
 
-Scans `src/core/lang_zh_cn.h`, `src/core/settings.cpp`, and `src/core/menu_items/ConfigMenu.cpp`
+Scans `src/core/lang_zh_cn.h`, `src/core/settings.cc`, and `src/core/menu_items/ConfigMenu.cc`
 for all non-ASCII Unicode codepoints, validates that `kZhCnTable[]` is strictly sorted in
 ASCII lexicographic order for binary search, and emits `src/core/cjk_font_data.h` containing
 12x12 (textSize 1) and 16x16 (textSize >= 2) 1-bit PROGMEM glyph bitmaps.
@@ -22,9 +22,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 LANG_HEADER = REPO_ROOT / "src" / "core" / "lang_zh_cn.h"
 OUT_HEADER = REPO_ROOT / "src" / "core" / "cjk_font_data.h"
 EXTRA_SCAN_FILES = [
-    REPO_ROOT / "src" / "core" / "settings.cpp",
-    REPO_ROOT / "src" / "core" / "menu_items" / "ConfigMenu.cpp",
-    REPO_ROOT / "src" / "core" / "i18n.cpp",
+    REPO_ROOT / "src" / "core" / "settings.cc",
+    REPO_ROOT / "src" / "core" / "menu_items" / "ConfigMenu.cc",
+    REPO_ROOT / "src" / "core" / "i18n.cc",
 ]
 
 FONT_CANDIDATES = [

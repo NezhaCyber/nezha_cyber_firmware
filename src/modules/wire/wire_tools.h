@@ -19,7 +19,7 @@ void jtag_scan_setup();
 // Logic analyzer: RMT edge capture on 1-4 GPIOs, on-device waveform viewer, CSV export,
 // SUMP/OLS ("PulseView") slave mode on the UART pins or the USB CDC port.
 // TODO(logic-analyzer): feature-complete but held back from this release — not exposed in
-// the Wire Tools menu or the serial CLI yet (see WireToolsMenu.cpp / wire_commands.cpp)
+// the Wire Tools menu or the serial CLI yet (see WireToolsMenu.cc / wire_commands.cc)
 void logic_analyzer_setup();
 // SUMP/OLS protocol server. `usb=true` drives the device's USB CDC port (suspending
 // the serial CLI task for the duration); otherwise it runs on bruceConfigPins.uart_bus
@@ -29,7 +29,7 @@ void sump_menu();
 // Multimeter: continuity tests only (pin-to-pin and pin-to-GND) with beeper feedback
 void continuity_tester_setup();
 
-// Non-UI primitives used by the serial commands (core/serial_commands/wire_commands.cpp)
+// Non-UI primitives used by the serial commands (core/serial_commands/wire_commands.cc)
 
 bool wire_uart_begin(uint32_t baud, int8_t rx, int8_t tx);
 void wire_uart_end();
