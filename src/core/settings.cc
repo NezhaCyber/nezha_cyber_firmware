@@ -365,17 +365,34 @@ void setUIColor() {
 **  Choose how the main menu presents the modules
 **********************************************************************/
 void setMainMenuStyleMenu() {
-    options = {
+    std::vector<Option> styleOptions = {
         {"Carousel",
          []() { bruceConfig.setMainMenuStyle(MAIN_MENU_CAROUSEL); },
          bruceConfig.mainMenuStyle == MAIN_MENU_CAROUSEL},
         {"Grid",
          []() { bruceConfig.setMainMenuStyle(MAIN_MENU_GRID); },
          bruceConfig.mainMenuStyle == MAIN_MENU_GRID    },
+        {"List",
+         []() { bruceConfig.setMainMenuStyle(MAIN_MENU_LIST); },
+         bruceConfig.mainMenuStyle == MAIN_MENU_LIST    },
+        {"Cards",
+         []() { bruceConfig.setMainMenuStyle(MAIN_MENU_CARDS); },
+         bruceConfig.mainMenuStyle == MAIN_MENU_CARDS   },
+        {"Dock",
+         []() { bruceConfig.setMainMenuStyle(MAIN_MENU_DOCK); },
+         bruceConfig.mainMenuStyle == MAIN_MENU_DOCK    },
+        {"Split",
+         []() { bruceConfig.setMainMenuStyle(MAIN_MENU_SPLIT); },
+         bruceConfig.mainMenuStyle == MAIN_MENU_SPLIT   },
+        {"Compact Grid",
+         []() { bruceConfig.setMainMenuStyle(MAIN_MENU_COMPACT); },
+         bruceConfig.mainMenuStyle == MAIN_MENU_COMPACT },
+        {"Back", []() {}                                },
     };
-    addOptionToMainMenu();
-
-    loopOptions(options, bruceConfig.mainMenuStyle);
+    int initialIdx = (bruceConfig.mainMenuStyle >= 0 && bruceConfig.mainMenuStyle < MAIN_MENU_STYLE_COUNT)
+                         ? bruceConfig.mainMenuStyle
+                         : 0;
+    loopOptions(styleOptions, MENU_TYPE_SUBMENU, "Menu Layout", initialIdx);
 }
 
 /*********************************************************************
