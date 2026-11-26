@@ -835,8 +835,8 @@ void BruceConfig::setMainMenuStyle(int value) {
 }
 
 void BruceConfig::validateMainMenuStyle() {
-    if (mainMenuStyle < MAIN_MENU_CAROUSEL || mainMenuStyle > MAIN_MENU_GRID)
-        mainMenuStyle = MAIN_MENU_CAROUSEL;
+    if (mainMenuStyle < MAIN_MENU_CAROUSEL || mainMenuStyle >= MAIN_MENU_STYLE_COUNT)
+        mainMenuStyle = MAIN_MENU_GRID;
 }
 
 void BruceConfig::setBadUSBBLEKeyboardLayout(int value) {

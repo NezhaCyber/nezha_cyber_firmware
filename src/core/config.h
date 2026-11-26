@@ -18,8 +18,16 @@
 enum EvilPortalPasswordMode { FULL_PASSWORD = 0, FIRST_LAST_CHAR = 1, HIDE_PASSWORD = 2, SAVE_LENGTH = 3 };
 
 // How the main menu presents the modules:
-// CAROUSEL shows one big icon at a time, GRID exposes every module as a selectable cell
-enum MainMenuStyle { MAIN_MENU_CAROUSEL = 0, MAIN_MENU_GRID = 1 };
+enum MainMenuStyle {
+    MAIN_MENU_CAROUSEL = 0,
+    MAIN_MENU_GRID = 1,
+    MAIN_MENU_LIST = 2,
+    MAIN_MENU_CARDS = 3,
+    MAIN_MENU_DOCK = 4,
+    MAIN_MENU_SPLIT = 5,
+    MAIN_MENU_COMPACT = 6,
+    MAIN_MENU_STYLE_COUNT = 7
+};
 
 class BruceConfig : public BruceTheme {
 public:

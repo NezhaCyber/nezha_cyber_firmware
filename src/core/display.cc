@@ -618,7 +618,7 @@ int loopOptions(
     s_submenuForceFull = true;
 
     bool useTapToSelect = menuType == MENU_TYPE_REGULAR || menuType == MENU_TYPE_SUBMENU ||
-                          (bruceConfig.mainMenuStyle == MAIN_MENU_GRID && menuType == MENU_TYPE_MAIN);
+                          (bruceConfig.mainMenuStyle != MAIN_MENU_CAROUSEL && menuType == MENU_TYPE_MAIN);
 
     bool prevTouchZoneOutsideFooterEnabled = touchZoneOutsideFooterEnabled;
     if (useTapToSelect) touchZoneOutsideFooterEnabled = false;
@@ -718,14 +718,16 @@ int loopOptions(
             EscPress = true;
             touchPoint.pressed = false;
         }
-        // Grid page-up/page-down tap zone (right edge strip) — needed because tap-to-select can
-        // only ever reach cells that are actually on screen, unlike Prev/Next which auto-scroll.
-        if (useTapToSelect && touchPoint.pressed && menuType == MENU_TYPE_MAIN && mainMenuGridColumns > 1 &&
-            gridPageTapHandler) {
-            int newIndex;
+        // Main-menu custom tap handler (page-up/down strip in Grid/List/Split/Compact, or hero/preview launch in Dock/Split)
+        if (useTapToSelect && touchPoint.pressed && menuType == MENU_TYPE_MAIN && gridPageTapHandler) {
+            int newIndex = index;
             if (gridPageTapHandler(touchPoint.x, touchPoint.y, index, newIndex)) {
-                index = newIndex;
-                redraw = true;
+                if (newIndex == index) {
+                    SelPress = true;
+                } else {
+                    index = newIndex;
+                    redraw = true;
+                }
                 touchPoint.pressed = false;
             }
         }
@@ -1382,11 +1384,14 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
             tft.fillRoundRect(rowX, rowY + 1, rowW, rowH - 2, 6, pri);
         }
 
-        uint16_t labelCol = !options[i].enabled ? 0x528A : (isSel ? onAccent : textNormal);
+        uint16_t labelCol = !options[i].enabled ? 0x528A : (isSel ? onAccent : (options[i].selected ? textBright : textNormal));
         String label = bruce_i18n::tr(options[i].label);
         int textY = rowY + (rowH - 16) / 2;
-        uiDrawText16(label, rowX + 10, textY, rowW - 24, labelCol, rowBg, 0);
+        uiDrawText16(label, rowX + 10, textY, rowW - (options[i].selected ? 32 : 24), labelCol, rowBg, 0);
 
+        if (options[i].selected) {
+            tft.fillCircle(rowX + rowW - (isSel ? 18 : 10), rowY + rowH / 2, 3, isSel ? onAccent : pri);
+        }
         if (isSel) {
             int cx = rowX + rowW - 9;
             int cy = rowY + rowH / 2;
