@@ -8,16 +8,18 @@
 #include "modules/others/flipper_tools.h"
 #include "modules/others/ibutton.h"
 #include "modules/others/mic.h"
+#include "modules/others/nezha_pet.h"
 #include "modules/others/qrcode_menu.h"
 #include "modules/others/shell_terminal.h"
-#include "modules/others/tururururu.h"
 #include "modules/others/u2f.h"
 // Removed: #include "modules/others/timer.h"
 
 void OthersMenu::optionsMenu() {
     options = {
+#ifndef LITE_VERSION
+        {"Nezha Pet",    nezha_pet_start              },
+#endif
         {"QRCodes",      qrcode_menu                  },
-        {"Megalodon",    shark_setup                  },
 
 #if defined(HAS_MICROPHONE)
         {"Microphone",   [this]() { micMenu(); }      }, //@deveclipse

@@ -20,7 +20,6 @@
 #include "modules/wifi/wifi_atks.h"
 
 #ifndef LITE_VERSION
-#include "modules/pwnagotchi/pwnagotchi.h"
 #include "modules/wifi/channel_analyzer.h"
 #if defined(CONFIG_IDF_TARGET_ESP32C5)
 #include "modules/wifi/dual_band_analyzer.h"
@@ -103,7 +102,6 @@ void WifiMenu::optionsMenu() {
                        }});
     options.push_back({"Wireguard", wg_setup});
     options.push_back({"Responder", responder});
-    options.push_back({"Nezhagotchi", brucegotchi_start});
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
     options.push_back({"WiFite", wifite_menu});
 #endif
