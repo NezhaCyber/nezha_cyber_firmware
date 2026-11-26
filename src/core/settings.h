@@ -26,6 +26,10 @@ void calibrateTouch();
 
 void setUIColor();
 
+void setNezhaThemeGallery();
+
+void setNezhaCrestMenu();
+
 void setMainMenuStyleMenu();
 
 void setLanguageMenu();

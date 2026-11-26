@@ -12,10 +12,14 @@
 #include "modules/rf/rf_utils.h"
 #include "modules/rf/rf_waterfall.h"
 #include "modules/rf/rf_protopirate.h"
+#include "modules/rf/rf_freq_analyzer.h"
 
 void RFMenu::optionsMenu() {
     options = {
         {"Scan/copy",       [=]() { RFScan(); }       },
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
+        {"Freq Analyzer",   rf_freq_analyzer          },
+#endif
 #if !defined(LITE_VERSION)
         {"ProtoPirate",     rf_protopirate            },
         {"Record RAW",      rf_raw_record             }, // Pablo-Ortiz-Lopez

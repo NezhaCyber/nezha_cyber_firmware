@@ -22,6 +22,7 @@ JsonDocument BruceConfig::toJson() const {
     setting["clock24hr"] = clock24hr;
     setting["soundEnabled"] = soundEnabled;
     setting["soundVolume"] = soundVolume;
+    setting["radarBeep"] = radarBeep;
     setting["wifiAtStartup"] = wifiAtStartup;
     setting["instantBoot"] = instantBoot;
     setting["keyboardLang"] = keyboardLang;
@@ -71,6 +72,7 @@ JsonDocument BruceConfig::toJson() const {
     setting["devMode"] = devMode;
     setting["colorInverted"] = colorInverted;
     setting["mainMenuStyle"] = mainMenuStyle;
+    setting["nezhaThemeStyle"] = nezhaThemeStyle;
 
     setting["badUSBBLEKeyboardLayout"] = badUSBBLEKeyboardLayout;
     setting["badUSBBLEKeyDelay"] = badUSBBLEKeyDelay;
@@ -203,6 +205,11 @@ void BruceConfig::fromFile(bool checkFS) {
     } else {
         count++;
         log_e("Fail");
+    }
+    if (!setting["radarBeep"].isNull()) {
+        radarBeep = setting["radarBeep"].as<int>();
+    } else {
+        radarBeep = 1;
     }
     if (!setting["wifiAtStartup"].isNull()) {
         wifiAtStartup = setting["wifiAtStartup"].as<int>();
@@ -400,6 +407,11 @@ void BruceConfig::fromFile(bool checkFS) {
         count++;
         log_e("Fail");
     }
+    if (!setting["nezhaThemeStyle"].isNull()) {
+        nezhaThemeStyle = setting["nezhaThemeStyle"].as<int>();
+    } else {
+        nezhaThemeStyle = 1;
+    }
 
     if (!setting["badUSBBLEKeyboardLayout"].isNull()) {
         badUSBBLEKeyboardLayout = setting["badUSBBLEKeyboardLayout"].as<int>();
@@ -499,6 +511,7 @@ void BruceConfig::validateConfig() {
     validateDevModeValue();
     validateColorInverted();
     validateMainMenuStyle();
+    validateNezhaThemeStyle();
     validateBadUSBBLEKeyboardLayout();
     validateBadUSBBLEKeyDelay();
     validateEvilEndpointCreds();
@@ -570,12 +583,22 @@ void BruceConfig::setSoundVolume(int value) {
     saveFile();
 }
 
+void BruceConfig::setRadarBeep(int value) {
+    radarBeep = value;
+    validateRadarBeepValue();
+    saveFile();
+}
+
 void BruceConfig::validateSoundEnabledValue() {
     if (soundEnabled > 1) soundEnabled = 1;
 }
 
 void BruceConfig::validateSoundVolumeValue() {
     if (soundVolume > 100) soundVolume = 100;
+}
+
+void BruceConfig::validateRadarBeepValue() {
+    radarBeep = (radarBeep != 0) ? 1 : 0;
 }
 
 void BruceConfig::setWifiAtStartup(int value) {
@@ -819,8 +842,18 @@ void BruceConfig::setMainMenuStyle(int value) {
 }
 
 void BruceConfig::validateMainMenuStyle() {
-    if (mainMenuStyle < MAIN_MENU_CAROUSEL || mainMenuStyle > MAIN_MENU_GRID)
-        mainMenuStyle = MAIN_MENU_CAROUSEL;
+    if (mainMenuStyle < MAIN_MENU_CAROUSEL || mainMenuStyle >= MAIN_MENU_STYLE_COUNT)
+        mainMenuStyle = MAIN_MENU_GRID;
+}
+
+void BruceConfig::setNezhaThemeStyle(int value) {
+    nezhaThemeStyle = value;
+    validateNezhaThemeStyle();
+    saveFile();
+}
+
+void BruceConfig::validateNezhaThemeStyle() {
+    if (nezhaThemeStyle < 0 || nezhaThemeStyle > 3) nezhaThemeStyle = 1;
 }
 
 void BruceConfig::setBadUSBBLEKeyboardLayout(int value) {

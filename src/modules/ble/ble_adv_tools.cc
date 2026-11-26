@@ -45,7 +45,7 @@ static FS *pickBleFs() {
     return nullptr;
 }
 
-static bool initBleReady(const char *devName = "Bruce-BLE") {
+static bool initBleReady(const char *devName = "Nezha-BLE") {
     if (!NimBLEDevice::isInitialized()) {
         if (!radioHasMemForBle() || !radioSafeBleInit(devName)) {
             displayError("Low RAM for BLE", true);
@@ -874,7 +874,7 @@ static void bleFileReceiveMode() {
         displayError("No storage found", true);
         return;
     }
-    if (!initBleReady("Bruce-FileShare")) return;
+    if (!initBleReady("Nezha-FileShare")) return;
 
     BleRxSession sess;
     sess.fs = fs;
@@ -906,7 +906,7 @@ static void bleFileReceiveMode() {
     NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
     adv->stop();
     adv->addServiceUUID(NUS_SVC_UUID);
-    adv->setName("Bruce-FileShare");
+    adv->setName("Nezha-FileShare");
     adv->start();
 
     drawMainBorderWithTitle("BLE Receive File");
@@ -924,7 +924,7 @@ static void bleFileReceiveMode() {
             tft.fillRect(x, top, w, tftHeight - top - BORDER_PAD_X - LH - 4, bruceConfig.bgColor);
             tft.setTextSize(1);
             tft.setTextColor(TFT_CYAN, bruceConfig.bgColor);
-            tft.drawString("Device: Bruce-FileShare (NUS)", x, top, 1);
+            tft.drawString("Device: Nezha-FileShare (NUS)", x, top, 1);
 
             int y = top + LH + 5;
             if (sess.complete) {
@@ -963,7 +963,7 @@ static void bleFileReceiveMode() {
             } else {
                 tft.setTextColor(sess.clientConnected ? TFT_GREEN : TFT_LIGHTGREY, bruceConfig.bgColor);
                 tft.drawString(
-                    sess.clientConnected ? "Peer connected - waiting file..." : "Waiting for sender (Bruce/Phone)...",
+                    sess.clientConnected ? "Peer connected - waiting file..." : "Waiting for sender (Nezha/Phone)...",
                     x,
                     y,
                     1
@@ -986,9 +986,9 @@ static void bleFileReceiveMode() {
 }
 
 static void bleFileSendDirect(FS &fs, const FilePickItem &item) {
-    if (!initBleReady("Bruce-Sender")) return;
+    if (!initBleReady("Nezha-Sender")) return;
 
-    displayInfo("Searching for Bruce-FileShare...");
+    displayInfo("Searching for Nezha-FileShare...");
     NimBLEScan *scan = NimBLEDevice::getScan();
     if (!scan) return;
     scan->setActiveScan(true);
@@ -999,7 +999,7 @@ static void bleFileSendDirect(FS &fs, const FilePickItem &item) {
         const NimBLEAdvertisedDevice *d = res.getDevice(i);
         if (!d || !d->isConnectable()) continue;
         String nm = String(d->getName().c_str());
-        bool isNus = d->isAdvertisingService(NimBLEUUID(NUS_SVC_UUID)) || nm == "Bruce-FileShare";
+        bool isNus = d->isAdvertisingService(NimBLEUUID(NUS_SVC_UUID)) || nm == "Nezha-FileShare";
         if (isNus) {
             ScannedBleDev s;
             s.addr = d->getAddress();
@@ -1128,7 +1128,7 @@ static void bleFileSendDirect(FS &fs, const FilePickItem &item) {
 }
 
 static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
-    if (!initBleReady("Bruce-FileShare")) return;
+    if (!initBleReady("Nezha-FileShare")) return;
 
     BleRxSession sess;
     sess.fs = &fs;
@@ -1160,7 +1160,7 @@ static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
     NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
     adv->stop();
     adv->addServiceUUID(NUS_SVC_UUID);
-    adv->setName("Bruce-FileShare");
+    adv->setName("Nezha-FileShare");
     adv->start();
 
     drawMainBorderWithTitle("BLE Share to Phone");
@@ -1172,7 +1172,7 @@ static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
     tft.setTextColor(TFT_CYAN, bruceConfig.bgColor);
     tft.drawString("File: " + item.name + " (" + String((unsigned)item.sizeBytes) + "B)", x, top, 1);
     tft.setTextColor(TFT_WHITE, bruceConfig.bgColor);
-    tft.drawString("1. Connect phone to Bruce-FileShare", x, top + LH + 6, 1);
+    tft.drawString("1. Connect phone to Nezha-FileShare", x, top + LH + 6, 1);
     tft.drawString("2. Subscribe NUS TX (6E400003)", x, top + 2 * LH + 10, 1);
     tft.drawString("3. Press SEL or send 'GET' on RX", x, top + 3 * LH + 14, 1);
     tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
@@ -1226,7 +1226,7 @@ static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
 void ble_file_transfer() {
     int mode = 0;
     std::vector<Option> m = {
-        {"Send File (Bruce->Bruce)", [&]() { mode = 1; }},
+        {"Send File (Nezha->Nezha)", [&]() { mode = 1; }},
         {"Share File to Phone (NUS)", [&]() { mode = 2; }},
         {"Receive File via BLE",     [&]() { mode = 3; }},
         {"Back",                     []() {}           },

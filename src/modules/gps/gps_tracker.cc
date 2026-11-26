@@ -166,7 +166,7 @@ void GPSTracker::add_initial_file_data(File file) {
     file.println("<?xml-stylesheet type=\"text/xsl\" href=\"details.xsl\"?>");
     file.println("<gpx");
     file.println("  version=\"1.1\"");
-    file.println("  creator=\"Bruce Firmware\"");
+    file.println("  creator=\"Nezha Cyber Firmware\"");
     file.println("  xmlns=\"http://www.topografix.com/GPX/1/1\"");
     file.println("  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
     file.println(
@@ -174,15 +174,15 @@ void GPSTracker::add_initial_file_data(File file) {
     );
     file.println(">");
     file.println("  <metadata>");
-    file.println("    <name>Bruce GPS Tracker</name>");
-    file.println("    <desc>GPS Tracker using Bruce Firmware</desc>");
-    file.println("    <link href=\"https://bruce.computer\">");
-    file.println("      <text>Bruce Website</text>");
+    file.println("    <name>Nezha GPS Tracker</name>");
+    file.println("    <desc>GPS Tracker using Nezha Cyber Firmware</desc>");
+    file.println("    <link href=\"https://github.com/ctkqiang/bruce_firmware\">");
+    file.println("      <text>Nezha Cyber</text>");
     file.println("    </link>");
     file.println("  </metadata>");
     file.println("  <trk>");
-    file.println("    <name>Bruce Route</name>");
-    file.println("    <desc>GPS route captured by Bruce firmware</desc>");
+    file.println("    <name>Nezha Route</name>");
+    file.println("    <desc>GPS route captured by Nezha Cyber firmware</desc>");
     file.println("    <trkseg>");
 }
 

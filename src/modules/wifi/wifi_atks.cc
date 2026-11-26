@@ -22,7 +22,7 @@
 #include <globals.h>
 #include <nvs_flash.h>
 
-#define WIFI_ATK_NAME "BruceAttack"
+#define WIFI_ATK_NAME "NezhaAttack"
 extern bool showHiddenNetworks;
 
 const uint8_t _default_target[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -736,7 +736,7 @@ const char Beacons[] PROGMEM = {"Mom Use This One\n"
                                 "Starbucks Wi-Fi\n"
 #endif
                                 "Text 64ALL for Password\n"
-                                "Yell BRUCE for Password\n"
+                                "Yell NEZHA for Password\n"
                                 "The Password Is 1234\n"
                                 "Free Public Wi-Fi\n"
                                 "No Free Wi-Fi Here\n"
@@ -868,7 +868,7 @@ void beaconAttack() {
     FS *fs;
 #if !defined(LITE_VERSION)
     if (BeaconMode == 4) {
-        singleSSID = keyboard("BruceBeacon", 26, "Base SSID:");
+        singleSSID = keyboard("NezhaBeacon", 26, "Base SSID:");
         if (singleSSID.length() == 0 || singleSSID == "\x1B") { return; }
     }
 #endif

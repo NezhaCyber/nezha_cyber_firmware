@@ -732,7 +732,7 @@ public:
 bool PN532KillerTools::enableBleDataTransfer() {
     if (bleDataTransferEnabled) return true;
 
-    BLEDevice::init("BRUCE-PN532-BLE");
+    BLEDevice::init("NEZHA-PN532-BLE");
     pServer = BLEDevice::createServer();
     if (!pServer) {
         displayError("BLE Server Fail");
@@ -925,7 +925,7 @@ void PN532KillerTools::udpWifiSelectMenu() {
     selOptions.push_back({"AP Mode", [&]() {
                               displayInfo("Starting AP...");
                               WiFi.mode(WIFI_AP);
-                              WiFi.softAP("BRUCE-UDP", "", 6);
+                              WiFi.softAP("NEZHA-UDP", "", 6);
                               delay(200);
                               enableUdpDataTransfer();
                           }});

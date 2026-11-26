@@ -18,8 +18,16 @@
 enum EvilPortalPasswordMode { FULL_PASSWORD = 0, FIRST_LAST_CHAR = 1, HIDE_PASSWORD = 2, SAVE_LENGTH = 3 };
 
 // How the main menu presents the modules:
-// CAROUSEL shows one big icon at a time, GRID exposes every module as a selectable cell
-enum MainMenuStyle { MAIN_MENU_CAROUSEL = 0, MAIN_MENU_GRID = 1 };
+enum MainMenuStyle {
+    MAIN_MENU_CAROUSEL = 0,
+    MAIN_MENU_GRID = 1,
+    MAIN_MENU_LIST = 2,
+    MAIN_MENU_CARDS = 3,
+    MAIN_MENU_DOCK = 4,
+    MAIN_MENU_SPLIT = 5,
+    MAIN_MENU_COMPACT = 6,
+    MAIN_MENU_STYLE_COUNT = 7
+};
 
 class BruceConfig : public BruceTheme {
 public:
@@ -54,6 +62,7 @@ public:
     bool clock24hr = true;
     int soundEnabled = 1;
     int soundVolume = 100;
+    int radarBeep = 1; // Default ON: tactical sonar/contact beep in Radar (toggleable in Audio Config)
     int wifiAtStartup = 0;
     int instantBoot = 0;
     String keyboardLang = "QWERTY"; // "QWERTY" | "AZERTY" | "QWERTZ"
@@ -62,7 +71,7 @@ public:
 #ifdef HAS_RGB_LED
     // Led
     int ledBright = 50;
-    uint32_t ledColor = 0x960064;
+    uint32_t ledColor = 0xFF2820; // Nezha Demon Child Crimson
     int ledBlinkEnabled = 1;
     int ledEffect = 0;
     int ledEffectSpeed = 5;
@@ -70,9 +79,9 @@ public:
 #endif
 
     // Wifi
-    Credential webUI = {"admin", "bruce"};
+    Credential webUI = {"admin", "nezha"};
     std::vector<String> webUISessions = {}; // FIFO queue of session tokens
-    WiFiCredential wifiAp = {"BruceNet", "brucenet"};
+    WiFiCredential wifiAp = {"NezhaNet", "nezhanet"};
     std::map<String, String> wifi = {};
     std::set<String> evilWifiNames = {};
     String wifiMAC = ""; //@IncursioHack
@@ -100,6 +109,7 @@ public:
 
     int colorInverted = DEFAULT_COLOR_INVERTED;
     int mainMenuStyle = MAIN_MENU_GRID;
+    int nezhaThemeStyle = 1; // 0=Minimal, 1=Motong Flame, 2=Lotus Seal, 3=Ice-Fire Twin
     int badUSBBLEKeyboardLayout = 0;
     uint16_t badUSBBLEKeyDelay = 10;
     bool badUSBBLEShowOutput = true;
@@ -107,10 +117,9 @@ public:
     std::vector<String> disabledMenus = {};
 
     std::vector<QrCodeEntry> qrCodes = {
-        {"Bruce AP",   "WIFI:T:WPA;S:BruceNet;P:brucenet;;"},
-        {"Bruce Wiki", "https://github.com/pr3y/Bruce/wiki"},
-        {"Bruce Site", "https://bruce.computer"            },
-        {"Rickroll",   "https://youtu.be/dQw4w9WgXcQ"      }
+        {"Nezha AP",   "WIFI:T:WPA;S:NezhaNet;P:nezhanet;;"          },
+        {"Nezha Repo", "https://github.com/ctkqiang/bruce_firmware"  },
+        {"Rickroll",   "https://youtu.be/dQw4w9WgXcQ"                }
     };
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -148,8 +157,10 @@ public:
     void setClock24Hr(bool value);
     void setSoundEnabled(int value);
     void setSoundVolume(int value);
+    void setRadarBeep(int value);
     void validateSoundEnabledValue();
     void validateSoundVolumeValue();
+    void validateRadarBeepValue();
     void setWifiAtStartup(int value);
     void validateWifiAtStartupValue();
     void setLanguage(const String &value);
@@ -210,6 +221,8 @@ public:
     void validateColorInverted();
     void setMainMenuStyle(int value);
     void validateMainMenuStyle();
+    void setNezhaThemeStyle(int value);
+    void validateNezhaThemeStyle();
     void setBadUSBBLEKeyboardLayout(int value);
     void validateBadUSBBLEKeyboardLayout();
     void setBadUSBBLEKeyDelay(uint16_t value);

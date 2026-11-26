@@ -710,14 +710,14 @@ public:
             else if (action == 4) {
                 JsonDocument catalogue;
                 if (!response(rf_protocol_catalog_json(), catalogue)) continue;
-                String text = "Shared Bruce beta + ProtoPirate protocols\nEmulation enabled by default\n\n";
+                String text = "Shared Nezha + ProtoPirate protocols\nEmulation enabled by default\n\n";
                 for (JsonObject p : catalogue["protocols"].as<JsonArray>())
                     text += String(p["name"] | "") + ((p["encoder"] | false) ? ": RX + encoder\n" : ": RX\n");
                 view("Protocol catalogue", text);
             } else
                 view(
                     "About / limitations",
-                    "Native Bruce UI and one shared RF engine.\nRocketGod ProtoPirate 4.0 / 4c9afe58\n\n"
+                    "Native Nezha UI and one shared RF engine.\nRocketGod ProtoPirate 4.0 / 4c9afe58\n\n"
                     "Same codecs are used by RF Scan, file handling and the JS app.\n"
                     "Sending always requires confirmation. Encoding does not prove receiver acceptance.\n"
                     "Custom radio profiles, encrypted ProtoPirate keystores, model database, remote analyzer "

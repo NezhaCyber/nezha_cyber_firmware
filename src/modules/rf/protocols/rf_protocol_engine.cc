@@ -248,7 +248,7 @@ String rf_protocol_catalog_json() {
     doc["version"] = "4.0-bruce.2-native";
     doc["emulationEnabled"] = true;
     doc["keyStoreLoaded"] = false;
-    doc["engine"] = "Bruce native RF";
+    doc["engine"] = "Nezha native RF";
     JsonArray protocols = doc["protocols"].to<JsonArray>();
     auto add = [&](const char *name) {
         JsonObject item = protocols.add<JsonObject>();

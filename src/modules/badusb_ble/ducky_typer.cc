@@ -677,7 +677,7 @@ void ducky_startKb(HIDInterface *&hid, bool ble, int functionId) {
             Serial.printf("[ducky_startKb] Active BLE instances: %d\n", activeBLEInstances);
 
             // Create HID service
-            hid = new BleKeyboard(deviceName, "BruceFW", 100);
+            hid = new BleKeyboard(deviceName, "NezhaFW", 100);
             Serial.println("[ducky_startKb] New BleKeyboard created");
 
             // Set hid_ble to point to the active instance

@@ -61,196 +61,6 @@
 #define MAX_TX_POWER ESP_PWR_LVL_P9
 #endif
 
-// ============================================================================
-// Samsung Device Detection (Ninja-jr)
-// ============================================================================
-// Samsung MAC OUIs (first 3 bytes of MAC address)
-// Used to automatically select the correct FastPair type:
-// - Samsung FastPair for Samsung devices
-// - Google FastPair for all other Android devices
-// ============================================================================
-
-static const char *SAMSUNG_MAC_OUIS[] = {
-    "00:02:78", "00:21:19", "00:26:37", "20:64:32", "38:AA:3C", "50:CC:F8",
-    "5C:0A:5B", "5C:A3:9D", "78:D6:F0", "84:0B:2D", "90:18:7C", "98:0C:82",
-    "A0:0B:BA", "A8:CA:B9", "B4:07:F9", "CC:3A:61", "DC:71:44", "FC:1F:19",
-    "04:D6:AA", "08:C5:E1", "14:49:E0", "24:18:1D", "28:C2:1F", "2C:0E:3D",
-    "30:07:4D", "30:AB:6A", "34:23:BA", "40:0E:85", "40:E9:9B", "4C:66:41",
-    "54:88:0E", "6C:C7:EC", "84:38:38", "88:32:9B", "8C:B8:4A", "8C:F5:A3",
-    "A8:DB:03", "AC:5F:3E", "B4:79:A7", "BC:8C:CD", "C0:97:27", "C0:BD:D1",
-    "C8:BA:94", "D0:22:BE", "D0:25:44", "E8:50:8B", "EC:1F:72", "EC:9B:F3",
-    "F0:25:B7", "F4:02:28", "F4:09:D8", "F8:04:2E",
-    "00:00:F0", "00:07:AB", "00:12:47", "00:12:FB", "00:13:77", "00:15:99",
-    "00:15:B9", "00:16:32", "00:16:6B", "00:16:6C", "00:16:DB", "00:17:C9",
-    "00:17:D5", "00:18:AF", "00:1A:8A", "00:1B:98", "00:1C:43", "00:1D:25",
-    "00:1D:F6", "00:1E:7D", "00:1E:E1", "00:1E:E2", "00:1F:CC", "00:1F:CD",
-    "00:21:4C", "00:21:D1", "00:21:D2", "00:23:39", "00:23:3A", "00:23:99",
-    "00:23:C2", "00:23:D6", "00:23:D7", "00:24:54", "00:24:90", "00:24:91",
-    "00:24:E9", "00:25:66", "00:25:67", "00:26:5D", "00:26:5F", "00:6F:64",
-    "00:73:E0", "00:7C:2D", "00:87:01", "00:B5:D0", "00:BF:61", "00:C3:F4",
-    "00:E0:64", "00:E3:B2", "00:F4:6F", "00:FA:21",
-    "04:18:0F", "04:1B:BA", "04:29:2E", "04:B1:A1", "04:B4:29", "04:B9:E3",
-    "04:BA:8D", "04:BD:BF", "04:FE:31",
-    "08:08:C2", "08:21:EF", "08:37:3D", "08:3D:88", "08:78:08", "08:8C:2C",
-    "08:AE:D6", "08:BF:A0", "08:D4:2B", "08:EC:A9", "08:EE:8B", "08:FC:88",
-    "08:FD:0E",
-    "0C:02:BD", "0C:14:20", "0C:2F:B0", "0C:71:5D", "0C:89:10", "0C:8D:CA",
-    "0C:A8:A7", "0C:B3:19", "0C:DF:A4", "0C:E0:DC",
-    "10:07:B6", "10:1D:C0", "10:29:AB", "10:2B:41", "10:30:47", "10:39:17",
-    "10:3B:59", "10:77:B1", "10:89:FB", "10:8E:E0", "10:92:66", "10:D3:8A",
-    "10:D5:42", "10:E4:C2", "10:EC:81",
-    "14:01:52", "14:1F:78", "14:32:D1", "14:56:8E", "14:89:FD", "14:96:E5",
-    "14:9F:3C", "14:A3:64", "14:B4:84", "14:BB:6E", "14:F4:2A",
-    "18:16:C9", "18:19:D6", "18:1E:B0", "18:21:95", "18:22:7E", "18:26:54",
-    "18:26:66", "18:3A:2D", "18:3F:47", "18:46:17", "18:4E:16", "18:4E:CB",
-    "18:54:CF", "18:5B:B3", "18:67:B0", "18:69:D4", "18:83:31", "18:89:5B",
-    "18:AB:1D", "18:CE:94", "18:E2:C2",
-    "1C:23:2C", "1C:3A:DE", "1C:5A:3E", "1C:62:B8", "1C:66:AA", "1C:76:F2",
-    "1C:86:9A", "1C:AF:05", "1C:AF:4A", "1C:E5:7F", "1C:E6:1D", "1C:F8:D0",
-    "20:13:E0", "20:2D:07", "20:32:6C", "20:55:31", "20:5E:F7", "20:6E:9C",
-    "20:D3:90", "20:D5:BF", "20:DB:AB",
-    "24:09:35", "24:11:53", "24:4B:03", "24:4B:81", "24:5A:B5", "24:68:B0",
-    "24:92:0E", "24:C6:13", "24:C6:96", "24:DB:ED", "24:F0:D3", "24:F5:AA",
-    "24:FC:E5",
-    "28:02:D8", "28:27:BF", "28:39:5E", "28:3D:C2", "28:83:35", "28:98:7B",
-    "28:BA:B5", "28:CC:01",
-    "2C:15:BF", "2C:40:53", "2C:44:01", "2C:99:75", "2C:AE:2B", "2C:BA:BA",
-    "30:19:66", "30:6A:85", "30:74:67", "30:96:FB", "30:C7:AE", "30:CB:F8",
-    "30:CD:A7", "30:D5:87", "30:D6:C9",
-    "34:14:5F", "34:2D:0D", "34:31:11", "34:82:C5", "34:8A:7B", "34:AA:8B",
-    "34:BE:00", "34:C3:AC", "34:F0:43",
-    "38:01:95", "38:0A:94", "38:0B:40", "38:16:D1", "38:2D:D1", "38:2D:E8",
-    "38:68:A4", "38:6A:77", "38:8A:06", "38:8F:30", "38:94:96", "38:9A:F6",
-    "38:D4:0B", "38:EC:E4",
-    "3C:05:18", "3C:19:5E", "3C:20:F6", "3C:57:6C", "3C:5A:37", "3C:62:00",
-    "3C:8B:FE", "3C:A1:0D", "3C:BB:FD", "3C:DC:BC", "3C:F7:A4",
-    "40:11:C3", "40:16:3B", "40:35:E6", "40:5E:F6", "40:D3:AE",
-    "44:16:FA", "44:4E:1A", "44:5C:E9", "44:6D:6C", "44:78:3E", "44:EA:30",
-    "44:F4:59",
-    "48:13:7E", "48:27:EA", "48:44:F7", "48:49:C7", "48:51:69", "48:61:EE",
-    "48:79:4D", "48:9D:D1", "48:BC:E1", "48:C7:96",
-    "4C:2E:5E", "4C:3C:16", "4C:66:A6", "4C:A5:6D", "4C:BC:A5", "4C:C9:5E",
-    "4C:DD:31",
-    "50:01:BB", "50:32:75", "50:3D:A1", "50:49:B0", "50:50:A4", "50:56:BF",
-    "50:77:05", "50:85:69", "50:92:B9", "50:9E:A7", "50:A4:C8", "50:B7:C3",
-    "50:C8:E5", "50:F0:D3", "50:F5:20", "50:FC:9F",
-    "54:21:9D", "54:3A:D6", "54:40:AD", "54:44:A3", "54:92:BE", "54:9B:12",
-    "54:B8:02", "54:BD:79", "54:D1:7D", "54:F2:01", "54:FA:3E", "54:FC:F0",
-    "58:20:71", "58:A6:39", "58:B1:0F", "58:C3:8B", "58:C5:CB",
-    "5C:10:C5", "5C:2E:59", "5C:3C:27", "5C:49:7D", "5C:51:81", "5C:86:5C",
-    "5C:99:60", "5C:AC:3D", "5C:C1:D7", "5C:CB:99", "5C:E8:EB", "5C:ED:F4",
-    "5C:F6:DC",
-    "60:3A:AF", "60:68:4E", "60:6B:BD", "60:77:E2", "60:8E:08", "60:8F:5C",
-    "60:A1:0A", "60:A4:D0", "60:AF:6D", "60:C5:AD", "60:D0:A9", "60:FF:12",
-    "64:03:7F", "64:07:F6", "64:17:CD", "64:1B:2F", "64:1C:AE", "64:1C:B0",
-    "64:5D:F4", "64:6C:B2", "64:77:91", "64:7B:CE", "64:89:F1", "64:B3:10",
-    "64:B5:F2", "64:B8:53", "64:D0:D6", "64:E7:D8",
-    "68:05:71", "68:27:37", "68:48:98", "68:4A:E9", "68:5A:CF", "68:72:C3",
-    "68:7D:6B", "68:BF:C4", "68:E7:C2", "68:EB:AE", "68:FC:CA",
-    "6C:00:6B", "6C:2F:2C", "6C:2F:8A", "6C:55:63", "6C:70:CB", "6C:83:36",
-    "6C:AC:C2", "6C:B7:F4", "6C:DD:BC", "6C:F3:73",
-    "70:09:71", "70:1F:3C", "70:28:8B", "70:2A:D5", "70:5A:AC", "70:B1:3D",
-    "70:CE:8C", "70:F9:27", "70:FD:46",
-    "74:19:0A", "74:45:8A", "74:9E:F5", "74:EB:80",
-    "78:00:9E", "78:1F:DB", "78:23:27", "78:25:AD", "78:37:16", "78:40:E4",
-    "78:46:D4", "78:47:1D", "78:52:1A", "78:59:5E", "78:9E:D0", "78:A8:73",
-    "78:AB:BB", "78:BD:BC", "78:C3:E9", "78:F2:38", "78:F7:BE",
-    "7C:0A:3F", "7C:0B:C6", "7C:1C:68", "7C:23:02", "7C:2E:DD", "7C:38:AD",
-    "7C:64:56", "7C:78:7E", "7C:89:56", "7C:8B:B5", "7C:91:22", "7C:C2:25",
-    "7C:F8:54", "7C:F9:0E",
-    "80:07:94", "80:18:A7", "80:19:70", "80:20:FD", "80:31:F0", "80:39:8C",
-    "80:47:86", "80:4E:70", "80:4E:81", "80:54:9C", "80:57:19", "80:65:6D",
-    "80:7B:3E", "80:86:D9", "80:8A:BD", "80:9F:F5", "80:CE:B9",
-    "84:11:9E", "84:22:89", "84:25:19", "84:25:DB", "84:2E:27", "84:37:D5",
-    "84:51:81", "84:55:A5", "84:5F:04", "84:98:66", "84:A4:66", "84:B5:41",
-    "84:C0:EF",
-    "88:29:9C", "88:75:98", "88:83:22", "88:9B:39", "88:9F:6F", "88:A3:03",
-    "88:AD:D2", "88:BD:45",
-    "8C:1A:BF", "8C:6A:3B", "8C:71:F8", "8C:77:12", "8C:79:F5", "8C:83:E1",
-    "8C:B0:E9", "8C:BF:A6", "8C:C8:CD", "8C:DE:E6", "8C:E5:C0", "8C:EA:48",
-    "90:00:DB", "90:06:28", "90:63:3B", "90:81:75", "90:97:F3", "90:B1:44",
-    "90:B6:22", "90:EE:C7", "90:F1:AA",
-    "94:01:C2", "94:2D:DC", "94:35:0A", "94:51:03", "94:52:44", "94:63:D1",
-    "94:76:B7", "94:7B:E7", "94:8B:C1", "94:B1:0A", "94:D7:71", "94:E1:29",
-    "98:06:3C", "98:0D:6F", "98:1D:FA", "98:2D:68", "98:39:8E", "98:52:B1",
-    "98:80:EE", "98:83:89", "98:B0:8B", "98:B8:BC", "98:D7:42",
-    "9C:02:98", "9C:25:95", "9C:2A:83", "9C:2E:7A", "9C:3A:AF", "9C:5F:B0",
-    "9C:65:B0", "9C:73:B1", "9C:8C:6E", "9C:A5:13", "9C:D3:5B", "9C:E0:63",
-    "9C:E6:E7",
-    "A0:07:98", "A0:10:81", "A0:21:95", "A0:27:B6", "A0:60:90", "A0:75:91",
-    "A0:82:1F", "A0:AC:69", "A0:B4:A5", "A0:CB:FD", "A0:D0:5B", "A0:D7:22",
-    "A0:D7:F3",
-    "A4:07:B6", "A4:30:7A", "A4:6C:F1", "A4:75:B9", "A4:84:31", "A4:9A:58",
-    "A4:9D:DD", "A4:C6:9A", "A4:D9:90", "A4:EB:D3",
-    "A8:06:00", "A8:16:D0", "A8:2B:B9", "A8:30:BC", "A8:34:6A", "A8:4B:4D",
-    "A8:51:5B", "A8:76:50", "A8:79:8D", "A8:7C:01", "A8:81:95", "A8:87:B3",
-    "A8:9F:BA", "A8:F2:74",
-    "AC:1E:92", "AC:36:13", "AC:5A:14", "AC:6C:90", "AC:80:FB", "AC:AF:B9",
-    "AC:C3:3A", "AC:EE:9E",
-    "B0:47:BF", "B0:4A:6A", "B0:6F:E0", "B0:99:D7", "B0:C4:E7", "B0:C5:59",
-    "B0:D0:9C", "B0:DF:3A", "B0:E4:5C", "B0:EC:71",
-    "B4:0B:1D", "B4:1A:1D", "B4:3A:28", "B4:40:DC", "B4:62:93", "B4:70:64",
-    "B4:74:43", "B4:9D:02", "B4:BF:F6", "B4:CE:40", "B4:EF:39",
-    "B8:57:D8", "B8:5A:73", "B8:5E:7B", "B8:6C:E8", "B8:B4:09", "B8:BB:AF",
-    "B8:BC:5B", "B8:C6:8E", "B8:D9:CE",
-    "BC:10:7B", "BC:14:85", "BC:20:A4", "BC:32:B2", "BC:44:86", "BC:45:5B",
-    "BC:47:60", "BC:52:74", "BC:54:51", "BC:72:B1", "BC:76:5E", "BC:79:AD",
-    "BC:7A:BF", "BC:7E:8B", "BC:85:1F", "BC:93:07", "BC:A5:8B", "BC:B1:F3",
-    "BC:D1:1F", "BC:E6:3F", "BC:F7:30",
-    "C0:11:73", "C0:17:4D", "C0:23:8D", "C0:3D:03", "C0:48:E6", "C0:65:99",
-    "C0:87:EB", "C0:89:97", "C0:BD:C8", "C0:D2:DD", "C0:D3:C0", "C0:DC:DA",
-    "C4:18:E9", "C4:1C:07", "C4:42:02", "C4:50:06", "C4:57:6E", "C4:5D:83",
-    "C4:62:EA", "C4:73:1E", "C4:7D:9F", "C4:88:E5", "C4:93:D9", "C4:AE:12",
-    "C8:12:0B", "C8:14:79", "C8:19:F7", "C8:38:70", "C8:41:8A", "C8:51:42",
-    "C8:7E:75", "C8:90:8A", "C8:A6:EF", "C8:A8:23", "C8:BD:4D", "C8:BD:69",
-    "C8:D7:B0",
-    "CC:05:1B", "CC:07:AB", "CC:21:19", "CC:46:4E", "CC:6E:A4", "CC:B1:1A",
-    "CC:E6:86", "CC:F8:26", "CC:F9:E8", "CC:FE:3C",
-    "D0:03:DF", "D0:04:B0", "D0:17:6A", "D0:1B:49", "D0:31:69", "D0:39:FA",
-    "D0:59:E4", "D0:66:7B", "D0:7F:A0", "D0:87:E2", "D0:B1:28", "D0:C1:B1",
-    "D0:C2:4E", "D0:D0:03", "D0:DF:C7", "D0:FC:CC",
-    "D4:11:A3", "D4:7A:E2", "D4:87:D8", "D4:88:90", "D4:8A:39", "D4:9D:C0",
-    "D4:AE:05", "D4:E6:B7", "D4:E8:B2",
-    "D8:08:31", "D8:0B:9A", "D8:31:CF", "D8:55:75", "D8:57:EF", "D8:5B:2A",
-    "D8:68:A0", "D8:68:C3", "D8:90:E8", "D8:A3:5C", "D8:C4:E9", "D8:E0:E1",
-    "DC:44:B6", "DC:66:72", "DC:69:E2", "DC:74:A8", "DC:89:83", "DC:CC:E6",
-    "DC:CF:96", "DC:DC:E2", "DC:F7:56",
-    "E0:03:6B", "E0:99:71", "E0:9D:13", "E0:AA:96", "E0:C3:77", "E0:CB:EE",
-    "E0:D0:83", "E0:DB:10",
-    "E4:12:1D", "E4:32:CB", "E4:40:E2", "E4:58:B8", "E4:58:E7", "E4:5D:75",
-    "E4:7C:F9", "E4:7D:BD", "E4:92:FB", "E4:B0:21", "E4:E0:C5", "E4:EC:E8",
-    "E4:F3:C4", "E4:F8:EF", "E4:FA:ED",
-    "E8:03:9A", "E8:11:32", "E8:3A:12", "E8:4E:84", "E8:6D:CB", "E8:7F:6B",
-    "E8:93:09", "E8:AA:CB", "E8:B4:C8", "E8:E5:D6",
-    "EC:10:7B", "EC:7C:B6", "EC:AA:25", "EC:E0:9B",
-    "F0:08:F1", "F0:39:65", "F0:5A:09", "F0:5B:7B", "F0:65:AE", "F0:6B:CA",
-    "F0:70:4F", "F0:72:8C", "F0:8A:76", "F0:CD:31", "F0:E7:7E", "F0:EE:10",
-    "F0:F5:64",
-    "F4:0E:22", "F4:2B:8C", "F4:42:8F", "F4:71:90", "F4:7B:5E", "F4:7D:EF",
-    "F4:9F:54", "F4:C2:48", "F4:D9:FB", "F4:F3:09", "F4:FE:FB",
-    "F8:3F:51", "F8:4E:58", "F8:5B:6E", "F8:77:B8", "F8:84:F2", "F8:8F:07",
-    "F8:D0:BD", "F8:E6:1A", "F8:F1:E6",
-    "FC:03:9F", "FC:19:10", "FC:42:03", "FC:64:3A", "FC:8F:90", "FC:A1:3E",
-    "FC:A6:21", "FC:AA:B6", "FC:C7:34", "FC:DE:90", "FC:F1:36",
-    "00:72:04", "08:15:2F", "44:8F:17",
-    "00:25:38", "18:BF:B3",
-    "FA:63:E1",
-    "00:0D:AE",
-    "74:5F:00",
-    "00:09:18",
-    "00:0D:E5",
-    "FC:00:12"
-};
-
-static int SAMSUNG_MAC_OUIS_COUNT = sizeof(SAMSUNG_MAC_OUIS) / sizeof(SAMSUNG_MAC_OUIS[0]);
-
-static bool isSamsungDevice(const String &mac) {
-    for (int i = 0; i < SAMSUNG_MAC_OUIS_COUNT; i++) {
-        if (mac.startsWith(SAMSUNG_MAC_OUIS[i])) return true;
-    }
-    return false;
-}
-
 struct WatchModel {
     uint8_t value;
 };
@@ -344,6 +154,31 @@ void generateRandomMac(uint8_t *mac) {
 
 BLEAdvertising *pAdvertising;
 
+static BLEAdvertisementData bleSpamBuildSamsungPacket(bool sendBuds) {
+    BLEAdvertisementData AdvData = BLEAdvertisementData();
+    if (sendBuds) {
+        uint32_t model = samsung_buds_models[random(samsung_buds_count)];
+        static const uint8_t kBudsTemplate[31] = {
+            27,   0xFF, 0x75, 0x00, 0x42, 0x09, 0x81, 0x02, 0x14, 0x15, 0x03, 0x21, 0x01, 0x09, 0x00, 0x00,
+            0x01, 0x00, 0x06, 0x3C, 0x94, 0x8E, 0x00, 0x00, 0x00, 0x00, 0xC7, 0x00, 0x10, 0xFF, 0x75
+        };
+        uint8_t Buds_Data[31];
+        memcpy(Buds_Data, kBudsTemplate, sizeof(Buds_Data));
+        Buds_Data[14] = (model >> 16) & 0xFF;
+        Buds_Data[15] = (model >> 8) & 0xFF;
+        Buds_Data[17] = model & 0xFF;
+        AdvData.addData(Buds_Data, sizeof(Buds_Data));
+    } else {
+        uint8_t model = watch_models[random(watch_models_count)].value;
+        uint8_t Watch_Data[15] = {
+            0x0E, 0xFF, 0x75, 0x00, 0x01, 0x00, 0x02, 0x00, 0x01, 0x01, 0xFF, 0x00, 0x00, 0x43, model
+        };
+        AdvData.addData(Watch_Data, sizeof(Watch_Data));
+        AdvData.setFlags(0x06);
+    }
+    return AdvData;
+}
+
 BLEAdvertisementData GetUniversalAdvertisementData(EBLEPayloadType Type, const String &customName = "") {
     BLEAdvertisementData AdvData = BLEAdvertisementData();
     uint8_t *AdvData_Raw = nullptr;
@@ -382,75 +217,7 @@ BLEAdvertisementData GetUniversalAdvertisementData(EBLEPayloadType Type, const S
             break;
         }
         case Samsung: {
-            BLEAdvertisementData AdvData = BLEAdvertisementData();
-            if (random(2) == 0) {
-                // Galaxy Watch packet
-                uint8_t model = watch_models[random(watch_models_count)].value;
-                uint8_t Samsung_Data[15] = {
-                    0x0E,
-                    0xFF,
-                    0x75,
-                    0x00,
-                    0x01,
-                    0x00,
-                    0x02,
-                    0x00,
-                    0x01,
-                    0x01,
-                    0xFF,
-                    0x00,
-                    0x00,
-                    0x43,
-                    (uint8_t)((model >> 0x00) & 0xFF)
-                };
-                AdvData.addData(Samsung_Data, 15);
-                AdvData.setFlags(0x06);
-            } else {
-                // Galaxy Buds packet (MarlinSchuck)
-                uint32_t model = samsung_buds_models[random(samsung_buds_count)];
-                uint8_t Buds_Data[31];
-                uint8_t bi = 0;
-                Buds_Data[bi++] = 27;
-                Buds_Data[bi++] = 0xFF;
-                Buds_Data[bi++] = 0x75;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x42;
-                Buds_Data[bi++] = 0x09;
-                Buds_Data[bi++] = 0x81;
-                Buds_Data[bi++] = 0x02;
-                Buds_Data[bi++] = 0x14;
-                Buds_Data[bi++] = 0x15;
-                Buds_Data[bi++] = 0x03;
-                Buds_Data[bi++] = 0x21;
-                Buds_Data[bi++] = 0x01;
-                Buds_Data[bi++] = 0x09;
-                Buds_Data[bi++] = (model >> 16) & 0xFF;
-                Buds_Data[bi++] = (model >> 8) & 0xFF;
-                Buds_Data[bi++] = 0x01;
-                Buds_Data[bi++] = model & 0xFF;
-                Buds_Data[bi++] = 0x06;
-                Buds_Data[bi++] = 0x3C;
-                Buds_Data[bi++] = 0x94;
-                Buds_Data[bi++] = 0x8E;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0xC7;
-                Buds_Data[bi++] = 0x00;
-                // Trailing truncated record (length=0x10 claimed, only 2 data
-                // bytes present) — ported from the Flipper Zero ble_spam app.
-                // Real Galaxy Buds advertise this stub second record; without
-                // it Samsung's scanner doesn't recognize the packet.
-                Buds_Data[bi++] = 0x10;
-                Buds_Data[bi++] = 0xFF;
-                Buds_Data[bi++] = 0x75;
-                AdvData.addData(Buds_Data, bi);
-                // Buds_Data already fills the full 31-byte legacy adv payload;
-                // there's no room left for a Flags AD element, so don't add one
-                // here (setFlags would just fail with "Data length exceeded").
-            }
-            return AdvData;
+            return bleSpamBuildSamsungPacket(random(2) != 0);
         }
         case Google: {
             const uint32_t model = android_models[rand() % android_models_count].value;
@@ -524,11 +291,51 @@ void ibeacon(const char *DeviceName, const char *BEACON_UUID, int ManufacturerId
     advertisementData.setManufacturerData(myBeacon.getData());
     pAdvertising->setAdvertisementData(advertisementData);
 
-    drawMainBorderWithTitle("iBeacon");
-    padprintln("");
-    padprintln("UUID:" + String(BEACON_UUID));
-    padprintln("");
-    padprintln("Press Any key to STOP.");
+    drawMainBorder(true);
+    {
+        uint16_t bg = bruceConfig.bgColor;
+        uint16_t pri = bruceConfig.priColor;
+        uint16_t surf = uiSurfaceColor();
+        uint16_t bdim = uiBorderDimColor();
+        uint16_t bright = uiTextBrightColor();
+        uint16_t muted = uiTextMutedColor();
+        bool compact = (tftHeight < 160);
+        int hy = STATUS_BAR_HEIGHT - 3;
+        int hh = compact ? 15 : 21;
+        tft.fillRect(0, hy, tftWidth, hh + 2, bg);
+        if (!compact) uiDrawText16("iBeacon", 10, hy + (hh - 16) / 2, tftWidth - 52, bright, bg, 0);
+        else {
+            tft.setTextSize(FP);
+            tft.setTextColor(bright, bg);
+            tft.drawString("iBeacon", 10, hy + (hh - LH * FP) / 2, 1);
+        }
+        tft.fillCircle(tftWidth - 28, hy + hh / 2, 3, TFT_GREEN);
+        tft.setTextSize(FP);
+        tft.setTextColor(muted, bg);
+        tft.drawRightString("TX", tftWidth - 8, hy + (hh - LH * FP) / 2, 1);
+        tft.drawFastHLine(6, hy + hh + 1, tftWidth - 12, bdim);
+
+        int cardX = 10;
+        int cardW = tftWidth - 20;
+        int cardY = hy + hh + (compact ? 8 : 18);
+        int cardH = compact ? 48 : 76;
+        tft.fillRoundRect(cardX, cardY, cardW, cardH, 7, surf);
+        tft.drawRoundRect(cardX, cardY, cardW, cardH, 7, bdim);
+        tft.setTextSize(FP);
+        tft.setTextColor(muted, surf);
+        tft.drawString("UUID", cardX + 10, cardY + 8, 1);
+        tft.setTextColor(pri, surf);
+        String uuidStr = String(BEACON_UUID);
+        int maxC = max(8, (cardW - 20) / (LW * FP));
+        if ((int)uuidStr.length() > maxC) {
+            tft.drawString(uuidStr.substring(0, maxC), cardX + 10, cardY + 22, 1);
+            tft.drawString(uuidStr.substring(maxC), cardX + 10, cardY + 22 + LH * FP + 3, 1);
+        } else {
+            tft.drawString(uuidStr, cardX + 10, cardY + 24, 1);
+        }
+        tft.setTextColor(muted, bg);
+        tft.drawCentreString(bruce_i18n::tr("Press Any key to STOP."), tftWidth / 2, tftHeight - 16, 1);
+    }
 
     // Main loop - with proper button handling
     bool running = true;
@@ -898,43 +705,212 @@ static uint32_t bleSpamAdjustMs(uint32_t ms, int direction) {
     return static_cast<uint32_t>(next);
 }
 
+// ============================================================================
+// Unified Industrial Hardware UI Helpers for BLE Spam
+// ============================================================================
+
+struct BleSpamTouchZoneGuard {
+    bool prev;
+    BleSpamTouchZoneGuard() : prev(touchZoneOutsideFooterEnabled) {
+#if defined(HAS_TOUCH)
+        touchZoneOutsideFooterEnabled = false;
+#endif
+    }
+    ~BleSpamTouchZoneGuard() { touchZoneOutsideFooterEnabled = prev; }
+};
+
+static inline bool bleSpamIsCompact() { return tftHeight < 160; }
+static inline int bleSpamHeaderY() { return STATUS_BAR_HEIGHT - 3; }
+static inline int bleSpamHeaderH() { return bleSpamIsCompact() ? 15 : 21; }
+static inline int bleSpamContentTop() { return bleSpamHeaderY() + bleSpamHeaderH() + 4; }
+
+#if defined(HAS_TOUCH)
+static void bleSpamDrawBackChevron(int cx, int cy, uint16_t col) {
+    tft.drawLine(cx + 3, cy - 4, cx - 2, cy, col);
+    tft.drawLine(cx + 2, cy - 4, cx - 3, cy, col);
+    tft.drawLine(cx - 2, cy, cx + 3, cy + 4, col);
+    tft.drawLine(cx - 3, cy, cx + 2, cy + 4, col);
+}
+#endif
+
+static bool bleSpamCheckTouchBack() {
+#if defined(HAS_TOUCH)
+    int hy = bleSpamHeaderY();
+    int hh = bleSpamHeaderH();
+    if (touchPoint.pressed && touchPoint.x < 42 && touchPoint.y >= hy - 4 && touchPoint.y <= hy + hh + 6) {
+        touchPoint.pressed = false;
+        return true;
+    }
+#endif
+    return false;
+}
+
+static void bleSpamDrawHeader(
+    const String &title, const String &rightBadge = "", bool clearScreen = true, bool showTxDot = false,
+    bool txOn = false
+) {
+    if (clearScreen) drawMainBorder(true);
+    uint16_t bg = bruceConfig.bgColor;
+    uint16_t bright = uiTextBrightColor();
+    uint16_t muted = uiTextMutedColor();
+    uint16_t bdim = uiBorderDimColor();
+
+    int hy = bleSpamHeaderY();
+    int hh = bleSpamHeaderH();
+    bool compact = bleSpamIsCompact();
+
+    tft.fillRect(0, hy, tftWidth, hh + 2, bg);
+
+    int titleX = 10;
+#if defined(HAS_TOUCH)
+    bleSpamDrawBackChevron(13, hy + hh / 2, muted);
+    titleX = 25;
+#endif
+
+    int rightReserve = (rightBadge.length() > 0 || showTxDot) ? 54 : 10;
+    int maxTitleW = tftWidth - titleX - rightReserve;
+    String trTitle = bruce_i18n::tr(title);
+    if (!compact) {
+        uiDrawText16(trTitle, titleX, hy + (hh - 16) / 2, maxTitleW, bright, bg, 0);
+    } else {
+        int th = (FP == 1 && bruce_i18n::containsNonAscii(trTitle)) ? 12 : (LH * FP);
+        tft.setTextSize(FP);
+        tft.setTextColor(bright, bg);
+        tft.drawString(bruce_i18n::utf8TruncateToWidth(trTitle, maxTitleW, FP), titleX, hy + (hh - th) / 2, 1);
+    }
+
+    if (rightBadge.length() > 0) {
+        tft.setTextSize(FP);
+        tft.setTextColor(showTxDot ? bruceConfig.priColor : muted, bg);
+        tft.drawRightString(rightBadge, tftWidth - 8, hy + (hh - LH * FP) / 2, 1);
+    }
+    if (showTxDot) {
+        int dotX = tftWidth - (rightBadge.length() > 0 ? (int)rightBadge.length() * LW * FP + 16 : 14);
+        tft.fillCircle(dotX, hy + hh / 2, compact ? 3 : 4, txOn ? TFT_GREEN : uiSurfaceHiColor());
+    }
+    tft.drawFastHLine(6, hy + hh + 1, tftWidth - 12, bdim);
+}
+
+static void bleSpamUpdateHeaderCounter(int current, int total) {
+    int hy = bleSpamHeaderY();
+    int hh = bleSpamHeaderH();
+    uint16_t bg = bruceConfig.bgColor;
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%d/%d", current, total);
+    tft.fillRect(tftWidth - 50, hy + 1, 44, hh - 2, bg);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextMutedColor(), bg);
+    tft.drawRightString(buf, tftWidth - 8, hy + (hh - LH * FP) / 2, 1);
+}
+
+static void bleSpamDrawFooterHint(const char *footer) {
+    if (footer == nullptr || bleSpamIsCompact()) return;
+    int fy = tftHeight - 15;
+    tft.fillRect(6, fy - 1, tftWidth - 12, 14, bruceConfig.bgColor);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
+    tft.drawCentreString(bruce_i18n::tr(footer), tftWidth / 2, fy + 1, 1);
+}
+
+static void bleSpamDrawRow(
+    int x, int y, int w, int h, const String &leftText, const String &rightText, bool selected, bool editing,
+    bool isAction = false
+) {
+    uint16_t bg = bruceConfig.bgColor;
+    uint16_t pri = bruceConfig.priColor;
+    uint16_t surf = uiSurfaceColor();
+    uint16_t surfHi = uiSurfaceHiColor();
+    uint16_t bright = uiTextBrightColor();
+    uint16_t muted = uiTextMutedColor();
+    uint16_t textNorm = blendColors(bg, bright, 200);
+    uint16_t onAccent = uiTextOnAccentColor(pri);
+    bool use16 = (h >= 21);
+
+    tft.fillRect(x, y, w, h, bg);
+
+    int radius = (h >= 24) ? 6 : 4;
+    if (isAction) {
+        uint16_t pillBg = selected ? pri : surf;
+        uint16_t pillFg = selected ? onAccent : pri;
+        tft.fillRoundRect(x, y + 1, w, h - 2, radius, pillBg);
+        if (!selected) tft.drawRoundRect(x, y + 1, w, h - 2, radius, pri);
+        String tr = bruce_i18n::tr(leftText);
+        if (use16) {
+            uiDrawText16(tr, x + w / 2, y + (h - 16) / 2, w - 16, pillFg, pillBg, 1);
+        } else {
+            tft.setTextSize(FP);
+            tft.setTextColor(pillFg, pillBg);
+            tft.drawCentreString(tr, x + w / 2, y + (h - LH * FP) / 2, 1);
+        }
+        return;
+    }
+
+    uint16_t rowBg = editing ? surfHi : (selected ? pri : bg);
+    if (editing) {
+        tft.fillRoundRect(x, y + 1, w, h - 2, radius, surfHi);
+        tft.drawRoundRect(x, y + 1, w, h - 2, radius, pri);
+    } else if (selected) {
+        tft.fillRoundRect(x, y + 1, w, h - 2, radius, pri);
+    }
+
+    String trLeft = bruce_i18n::tr(leftText);
+    String trRight = rightText.length() > 0 ? bruce_i18n::tr(rightText) : "";
+    if (editing && trRight.length() > 0) trRight = "< " + trRight + " >";
+
+    int rightW = 0;
+    if (trRight.length() > 0) {
+        int textPx = use16 ? uiMeasureText16(trRight) : bruce_i18n::utf8PixelWidth(trRight, FP);
+        rightW = textPx + 14;
+        int maxPillW = w * 58 / 100;
+        if (rightW > maxPillW) rightW = maxPillW;
+        int pillX = x + w - rightW - 4;
+        int pillY = y + 3;
+        int pillH = max(10, h - 6);
+        uint16_t valBg = editing ? pri : (selected ? blendColors(pri, onAccent, 32) : surf);
+        uint16_t valFg = editing ? onAccent : (selected ? onAccent : bright);
+        if (editing || !selected) {
+            tft.fillRoundRect(pillX, pillY, rightW, pillH, 4, valBg);
+        }
+        if (use16) {
+            uiDrawText16(trRight, pillX + rightW / 2, y + (h - 16) / 2, rightW - 6, valFg, valBg, 1);
+        } else {
+            tft.setTextSize(FP);
+            tft.setTextColor(valFg, valBg);
+            String fitted = bruce_i18n::utf8TruncateToWidth(trRight, rightW - 6, FP);
+            tft.drawCentreString(fitted, pillX + rightW / 2, y + (h - LH * FP) / 2, 1);
+        }
+    } else if (selected) {
+        int cx = x + w - 9;
+        int cy = y + h / 2;
+        tft.drawLine(cx - 2, cy - 3, cx + 1, cy, onAccent);
+        tft.drawLine(cx - 2, cy + 3, cx + 1, cy, onAccent);
+        rightW = 14;
+    }
+
+    uint16_t leftFg = editing ? bright : (selected ? onAccent : textNorm);
+    int leftMaxPx = w - 16 - rightW;
+    if (use16) {
+        uiDrawText16(trLeft, x + 10, y + (h - 16) / 2, leftMaxPx, leftFg, rowBg, 0);
+    } else {
+        int th = (FP == 1 && bruce_i18n::containsNonAscii(trLeft)) ? 12 : (LH * FP);
+        tft.setTextSize(FP);
+        tft.setTextColor(leftFg, rowBg);
+        tft.drawString(bruce_i18n::utf8TruncateToWidth(trLeft, leftMaxPx, FP), x + 8, y + (h - th) / 2, 1);
+    }
+}
+
 static BleSpamListMetrics bleSpamGetListMetrics(int footerLines) {
     BleSpamListMetrics metrics;
-    metrics.list_x = 10;
-    metrics.list_y = BORDER_PAD_Y + FM * LH + 4;
-    metrics.list_w = tftWidth - 20;
-    int footer_h = footerLines * (FP * LH + 4);
-    metrics.footer_y = tftHeight - footer_h - 10;
+    bool compact = bleSpamIsCompact();
+    metrics.list_x = 6;
+    metrics.list_y = bleSpamContentTop();
+    metrics.list_w = tftWidth - 15; // leaves clean channel for 2px right-edge scrollbar
+    int footer_h = (compact || footerLines <= 0) ? 3 : 16;
+    metrics.footer_y = tftHeight - footer_h;
     metrics.list_h = metrics.footer_y - metrics.list_y - 2;
-    metrics.row_h = max(12, FP * LH + 4);
+    metrics.row_h = compact ? 21 : 24;
     metrics.visible_rows = max(1, metrics.list_h / metrics.row_h);
     return metrics;
-}
-
-static String bleSpamTruncateText(const String &text, int maxWidth) {
-    if (bruce_i18n::containsNonAscii(text)) {
-        if (bruce_i18n::utf8PixelWidth(text, FP) <= maxWidth) return text;
-        int ellipsisW = bruce_i18n::utf8PixelWidth("...", FP);
-        if (maxWidth <= ellipsisW) return "...";
-        return bruce_i18n::utf8TruncateToWidth(text, maxWidth - ellipsisW, FP) + "...";
-    }
-    if (tft.textWidth(text.c_str()) <= maxWidth) return text;
-
-    String trimmed = text;
-    const String ellipsis = "...";
-    int maxTextWidth = maxWidth - tft.textWidth(ellipsis.c_str());
-    if (maxTextWidth <= 0) return ellipsis;
-
-    while (trimmed.length() > 0 && tft.textWidth(trimmed.c_str()) > maxTextWidth) {
-        trimmed.remove(trimmed.length() - 1);
-    }
-    return trimmed + ellipsis;
-}
-
-static String bleSpamMakeTitle(const String &title) {
-    tft.setTextSize(FP);
-    int maxWidth = tftWidth - 2 * BORDER_PAD_X;
-    return bleSpamTruncateText(bruce_i18n::tr(title), maxWidth);
 }
 
 static void bleSpamEnsureScroll(BleSpamListState &state, int itemCount, int visibleRows) {
@@ -950,41 +926,41 @@ static void bleSpamRenderList(
     const String &title, int itemCount, const BleSpamListState &state, const BleSpamListMetrics &metrics,
     const std::function<const char *(int)> &labelFn, const char *footer, bool fullRedraw
 ) {
-    if (fullRedraw) drawMainBorderWithTitle(bleSpamMakeTitle(title));
-
-    tft.setTextSize(FP);
-    tft.fillRect(metrics.list_x, metrics.list_y, metrics.list_w, metrics.list_h, bruceConfig.bgColor);
+    if (fullRedraw) {
+        bleSpamDrawHeader(title, "", true);
+        bleSpamDrawFooterHint(footer);
+    }
+    bleSpamUpdateHeaderCounter(state.cursor + 1, itemCount);
 
     uint16_t bgCol = bruceConfig.bgColor;
-    uint16_t pri = bruceConfig.priColor;
-    uint16_t onAccent = uiTextOnAccentColor(pri);
-    uint16_t textNorm = blendColors(bgCol, uiTextBrightColor(), 200);
-
     for (int row = 0; row < metrics.visible_rows; row++) {
         int idx = state.scroll + row;
         int row_y = metrics.list_y + row * metrics.row_h;
-        tft.fillRect(metrics.list_x, row_y, metrics.list_w, metrics.row_h, bgCol);
-
-        if (idx >= itemCount) continue;
-
-        bool selected = (idx == state.cursor);
-        uint16_t bg = selected ? pri : bgCol;
-        uint16_t fg = selected ? onAccent : textNorm;
-
-        if (selected) {
-            tft.fillRoundRect(metrics.list_x, row_y, metrics.list_w, metrics.row_h - 1, 4, pri);
+        if (idx >= itemCount) {
+            tft.fillRect(metrics.list_x, row_y, metrics.list_w, metrics.row_h, bgCol);
+            continue;
         }
-        tft.setTextColor(fg, bg);
-
-        String line = bruce_i18n::tr(String(labelFn(idx)));
-        line = bleSpamTruncateText(line, metrics.list_w - 14);
-        tft.drawString(line, metrics.list_x + 6, row_y + 2, 1);
+        bleSpamDrawRow(
+            metrics.list_x,
+            row_y,
+            metrics.list_w,
+            metrics.row_h,
+            String(labelFn(idx)),
+            "",
+            idx == state.cursor,
+            false
+        );
     }
 
-    if (footer != nullptr) {
-        tft.setTextColor(uiTextMutedColor(), bgCol);
-        tft.fillRect(8, metrics.footer_y, tftWidth - 16, FP * LH + 2, bgCol);
-        tft.drawCentreString(bruce_i18n::tr(footer), tftWidth / 2, metrics.footer_y + 2, 1);
+    // Slim 2px right-edge scrollbar matching drawSubmenu()
+    if (itemCount > metrics.visible_rows) {
+        int barX = tftWidth - 5;
+        int trackY = metrics.list_y + 2;
+        int trackH = metrics.visible_rows * metrics.row_h - 4;
+        tft.fillRect(barX, trackY, 2, trackH, uiBorderDimColor());
+        int thumbH = max(8, trackH * metrics.visible_rows / itemCount);
+        int thumbY = trackY + (trackH - thumbH) * state.cursor / max(1, itemCount - 1);
+        tft.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
     }
 }
 
@@ -1009,6 +985,31 @@ static int bleSpamListLoop(
             layoutDrawn = true;
             state.redraw = false;
         }
+
+        if (bleSpamCheckTouchBack()) return -1;
+#if defined(HAS_TOUCH)
+        if (touchPoint.pressed) {
+            int tx = touchPoint.x;
+            int ty = touchPoint.y;
+            touchPoint.pressed = false;
+            if (itemCount > metrics.visible_rows && tx >= tftWidth - 20 && ty >= metrics.list_y &&
+                ty < metrics.list_y + metrics.visible_rows * metrics.row_h) {
+                int midY = metrics.list_y + (metrics.visible_rows * metrics.row_h) / 2;
+                if (ty < midY) state.cursor = max(0, state.scroll - metrics.visible_rows);
+                else state.cursor = min(itemCount - 1, state.scroll + metrics.visible_rows);
+                bleSpamEnsureScroll(state, itemCount, metrics.visible_rows);
+                state.redraw = true;
+            } else if (ty >= metrics.list_y && ty < metrics.list_y + metrics.visible_rows * metrics.row_h) {
+                int tappedRow = (ty - metrics.list_y) / metrics.row_h;
+                int tappedIdx = state.scroll + tappedRow;
+                if (tappedIdx >= 0 && tappedIdx < itemCount) {
+                    if (tappedIdx == state.cursor) return state.cursor;
+                    state.cursor = tappedIdx;
+                    state.redraw = true;
+                }
+            }
+        }
+#endif
 
         if (EscPress && PrevPress) EscPress = false;
         if (check(EscPress)) return -1;
@@ -1361,24 +1362,8 @@ static bool bleSpamBuildAdvertisementData(
         }
 #endif
         case BLE_SPAM_ATTACK_ANDROID_ALERT: {
-            bool useSamsung = false;
-            if (deviceIndex == BLE_SPAM_ANDROID_RANDOM_IDX) {
-                int ouiCount = sizeof(SAMSUNG_MAC_OUIS) / sizeof(SAMSUNG_MAC_OUIS[0]);
-                char macBuf[18];
-                snprintf(
-                    macBuf,
-                    sizeof(macBuf),
-                    "%s:%02X:%02X:%02X",
-                    SAMSUNG_MAC_OUIS[random(ouiCount)],
-                    (unsigned)random(256),
-                    (unsigned)random(256),
-                    (unsigned)random(256)
-                );
-                useSamsung = (random(2) == 0) && isSamsungDevice(String(macBuf));
-            }
+            bool useSamsung = (deviceIndex == BLE_SPAM_ANDROID_RANDOM_IDX) && (random(2) == 0);
             advertisementData = GetUniversalAdvertisementData(useSamsung ? Samsung : Google);
-            // Samsung branch already sets its own flags (or intentionally omits
-            // them for the 31-byte Galaxy Buds packet, which has no room left).
             if (!useSamsung) advertisementData.setFlags(0x06);
             return true;
         }
@@ -1401,69 +1386,10 @@ static bool bleSpamBuildAdvertisementData(
         }
         case BLE_SPAM_ATTACK_SAMSUNG: {
             // Device list: 0=Galaxy Buds, 1=Galaxy Watch, 2=Generic Samsung, 3=Random/All
-            BLEAdvertisementData AdvData = BLEAdvertisementData();
-            bool sendBuds;
-            if (deviceIndex == BLE_SPAM_SAMSUNG_RANDOM_IDX || deviceIndex == 2) {
-                // Random/All or Generic — pick randomly each packet
-                sendBuds = (random(2) == 0);
-            } else if (deviceIndex == 0) {
-                sendBuds = true; // Galaxy Buds
-            } else {
-                sendBuds = false; // Galaxy Watch
-            }
-
-            if (sendBuds) {
-                uint32_t model = samsung_buds_models[random(samsung_buds_count)];
-                uint8_t Buds_Data[31];
-                uint8_t bi = 0;
-                Buds_Data[bi++] = 27;
-                Buds_Data[bi++] = 0xFF;
-                Buds_Data[bi++] = 0x75;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x42;
-                Buds_Data[bi++] = 0x09;
-                Buds_Data[bi++] = 0x81;
-                Buds_Data[bi++] = 0x02;
-                Buds_Data[bi++] = 0x14;
-                Buds_Data[bi++] = 0x15;
-                Buds_Data[bi++] = 0x03;
-                Buds_Data[bi++] = 0x21;
-                Buds_Data[bi++] = 0x01;
-                Buds_Data[bi++] = 0x09;
-                Buds_Data[bi++] = (model >> 16) & 0xFF;
-                Buds_Data[bi++] = (model >> 8) & 0xFF;
-                Buds_Data[bi++] = 0x01;
-                Buds_Data[bi++] = model & 0xFF;
-                Buds_Data[bi++] = 0x06;
-                Buds_Data[bi++] = 0x3C;
-                Buds_Data[bi++] = 0x94;
-                Buds_Data[bi++] = 0x8E;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0x00;
-                Buds_Data[bi++] = 0xC7;
-                Buds_Data[bi++] = 0x00;
-                // Trailing truncated record (length=0x10 claimed, only 2 data
-                // bytes present) — ported from the Flipper Zero ble_spam app.
-                // Real Galaxy Buds advertise this stub second record; without
-                // it Samsung's scanner doesn't recognize the packet.
-                Buds_Data[bi++] = 0x10;
-                Buds_Data[bi++] = 0xFF;
-                Buds_Data[bi++] = 0x75;
-                AdvData.addData(Buds_Data, bi);
-                // Buds_Data already fills the full 31-byte legacy adv payload;
-                // there's no room left for a Flags AD element, so don't add one
-                // here (setFlags would just fail with "Data length exceeded").
-            } else {
-                uint8_t model = watch_models[random(watch_models_count)].value;
-                uint8_t Watch_Data[15] = {
-                    0x0E, 0xFF, 0x75, 0x00, 0x01, 0x00, 0x02, 0x00, 0x01, 0x01, 0xFF, 0x00, 0x00, 0x43, model
-                };
-                AdvData.addData(Watch_Data, 15);
-                AdvData.setFlags(0x06);
-            }
-            advertisementData = AdvData;
+            bool sendBuds = (deviceIndex == BLE_SPAM_SAMSUNG_RANDOM_IDX || deviceIndex == 2)
+                                ? (random(2) == 0)
+                                : (deviceIndex == 0);
+            advertisementData = bleSpamBuildSamsungPacket(sendBuds);
             return true;
         }
         case BLE_SPAM_ATTACK_BLE_BEACON: {
@@ -1723,8 +1649,6 @@ static String bleSpamFormatMs(uint32_t ms) { return String(ms) + " ms"; }
 static void bleSpamRenderConfigRows(
     const BleSpamConfig &config, int cursor, const BleSpamEditState &editState, int startY, int rowH
 ) {
-    tft.setTextSize(FP);
-
     struct RowInfo {
         const char *label;
         String value;
@@ -1735,19 +1659,29 @@ static void bleSpamRenderConfigRows(
         {"MAC Rand", bleSpamMacRandLabel(config.mac_rand_mode)}
     };
 
+    int rowX = 8;
+    int rowW = tftWidth - 16;
     for (int i = 0; i < 4; i++) {
         int rowY = startY + i * rowH;
         bool selected = (cursor == i);
         bool editing = (editState.editing && editState.edit_row == i);
+        bleSpamDrawRow(rowX, rowY, rowW, rowH, rows[i].label, rows[i].value, selected, editing, false);
+    }
+}
 
-        tft.fillRect(10, rowY, tftWidth - 20, rowH, bruceConfig.bgColor);
-        uint16_t fg = selected ? TFT_YELLOW : bruceConfig.priColor;
-        tft.setTextColor(fg, bruceConfig.bgColor);
-        tft.drawString(bruce_i18n::tr(rows[i].label), 12, rowY + 2, 1);
-
-        String valueText = bruce_i18n::tr(rows[i].value);
-        if (editing) valueText = "[ " + valueText + " ]";
-        tft.drawRightString(valueText, tftWidth - 12, rowY + 2, 1);
+static void bleSpamStepConfigField(BleSpamConfig &config, int row, int dir, bool &changed) {
+    if (row == 0) {
+        config.adv_ms = bleSpamAdjustMs(config.adv_ms, dir);
+        changed = true;
+    } else if (row == 1) {
+        config.gap_ms = bleSpamAdjustMs(config.gap_ms, dir);
+        changed = true;
+    } else if (row == 2) {
+        config.tx_power = static_cast<BleSpamTxPower>((config.tx_power + (dir > 0 ? 3 : 1)) % 4);
+        changed = true;
+    } else if (row == 3) {
+        config.mac_rand_mode = static_cast<BleSpamMacRandMode>((config.mac_rand_mode + (dir > 0 ? 1 : 7)) % 8);
+        changed = true;
     }
 }
 
@@ -1758,36 +1692,66 @@ bleSpamConfigScreen(const BleSpamSelection &selection, BleSpamConfig &config, bo
     bool layoutDrawn = false;
     bool redrawRows = true;
 
+    bool compact = bleSpamIsCompact();
+    int rowStart = bleSpamContentTop() + (compact ? 1 : 4);
+    int rowH = compact ? 16 : 27;
+    int startBtnY = rowStart + rowH * 4 + (compact ? 3 : 10);
+    int startBtnH = compact ? 19 : 30;
+
     while (true) {
         if (!layoutDrawn) {
-            String title =
-                String(bleSpamGetDeviceName(selection.attack_type, selection.device_index)) + " > Config";
-            drawMainBorderWithTitle(bleSpamMakeTitle(title));
+            String title = String(bleSpamGetDeviceName(selection.attack_type, selection.device_index));
+            bleSpamDrawHeader(title, bruce_i18n::tr("Config"), true);
+            bleSpamDrawFooterHint("Click=Select  ESC=Back");
             layoutDrawn = true;
             redrawRows = true;
         }
 
         if (redrawRows) {
-            int rowStart = BORDER_PAD_Y + FM * LH + 10;
-            int footerH = FP * LH + 4;
-            int footerY = tftHeight - footerH - 8;
-            int available = footerY - rowStart - 4;
-            int rowH = max(1, min(FP * LH + 4, available / 5));
-            int startRowY = rowStart + rowH * 4;
-
             bleSpamRenderConfigRows(config, cursor, editState, rowStart, rowH);
-
-            tft.fillRect(10, startRowY, tftWidth - 20, rowH, bruceConfig.bgColor);
-            uint16_t startColor = (cursor == 4) ? TFT_YELLOW : bruceConfig.priColor;
-            tft.setTextColor(startColor, bruceConfig.bgColor);
-            tft.drawCentreString(bruce_i18n::tr("[ Start ]"), tftWidth / 2, startRowY + 2, 1);
-
-            tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-            tft.fillRect(8, footerY, tftWidth - 16, footerH, bruceConfig.bgColor);
-            tft.drawCentreString(bruce_i18n::tr("Click=Select  ESC=Back"), tftWidth / 2, footerY + 2, 1);
-
+            bleSpamDrawRow(8, startBtnY, tftWidth - 16, startBtnH, "Start", "", cursor == 4, false, true);
             redrawRows = false;
         }
+
+        if (bleSpamCheckTouchBack()) {
+            EscPress = true;
+        }
+#if defined(HAS_TOUCH)
+        if (touchPoint.pressed) {
+            int tx = touchPoint.x;
+            int ty = touchPoint.y;
+            touchPoint.pressed = false;
+            if (ty >= startBtnY && ty < startBtnY + startBtnH) {
+                if (editState.editing) {
+                    editState.editing = false;
+                    redrawRows = true;
+                } else {
+                    return true;
+                }
+            } else if (ty >= rowStart && ty < rowStart + rowH * 4) {
+                int r = (ty - rowStart) / rowH;
+                if (editState.editing && editState.edit_row == r) {
+                    if (tx < tftWidth / 2) {
+                        bleSpamStepConfigField(config, r, -1, configChanged);
+                    } else if (tx >= tftWidth * 2 / 3) {
+                        bleSpamStepConfigField(config, r, 1, configChanged);
+                    } else {
+                        editState.editing = false;
+                    }
+                    redrawRows = true;
+                } else {
+                    cursor = r;
+                    editState.editing = true;
+                    editState.edit_row = r;
+                    editState.adv_backup = config.adv_ms;
+                    editState.gap_backup = config.gap_ms;
+                    editState.tx_backup = config.tx_power;
+                    editState.mac_backup = config.mac_rand_mode;
+                    redrawRows = true;
+                }
+            }
+        }
+#endif
 
         if (EscPress && PrevPress) EscPress = false;
         if (check(EscPress)) {
@@ -1823,34 +1787,10 @@ bleSpamConfigScreen(const BleSpamSelection &selection, BleSpamConfig &config, bo
 
         if (editState.editing) {
             if (check(NextPress) || check(UpPress)) {
-                if (editState.edit_row == 0) {
-                    config.adv_ms = bleSpamAdjustMs(config.adv_ms, 1);
-                    configChanged = true;
-                } else if (editState.edit_row == 1) {
-                    config.gap_ms = bleSpamAdjustMs(config.gap_ms, 1);
-                    configChanged = true;
-                } else if (editState.edit_row == 2) {
-                    config.tx_power = static_cast<BleSpamTxPower>((config.tx_power + 3) % 4);
-                    configChanged = true;
-                } else if (editState.edit_row == 3) {
-                    config.mac_rand_mode = static_cast<BleSpamMacRandMode>((config.mac_rand_mode + 1) % 8);
-                    configChanged = true;
-                }
+                bleSpamStepConfigField(config, editState.edit_row, 1, configChanged);
                 redrawRows = true;
             } else if (check(PrevPress) || check(DownPress)) {
-                if (editState.edit_row == 0) {
-                    config.adv_ms = bleSpamAdjustMs(config.adv_ms, -1);
-                    configChanged = true;
-                } else if (editState.edit_row == 1) {
-                    config.gap_ms = bleSpamAdjustMs(config.gap_ms, -1);
-                    configChanged = true;
-                } else if (editState.edit_row == 2) {
-                    config.tx_power = static_cast<BleSpamTxPower>((config.tx_power + 1) % 4);
-                    configChanged = true;
-                } else if (editState.edit_row == 3) {
-                    config.mac_rand_mode = static_cast<BleSpamMacRandMode>((config.mac_rand_mode + 7) % 8);
-                    configChanged = true;
-                }
+                bleSpamStepConfigField(config, editState.edit_row, -1, configChanged);
                 redrawRows = true;
             }
         } else {
@@ -1871,116 +1811,151 @@ static void bleSpamRenderRunningScreen(
     const BleSpamEditState &editState, uint32_t displaySent, float displayPkt, bool blinkOn, bool fullRedraw,
     bool statsDirty, bool configDirty, bool blinkDirty
 ) {
-    static int statsY = 0;
-    static int configStartY = 0;
-    static int rowH = 0;
+    bool compact = bleSpamIsCompact();
+    int cardX = 8;
+    int cardW = tftWidth - 16;
+    int cardY = bleSpamContentTop() + (compact ? 0 : 2);
+    int cardH = compact ? 20 : 44;
+    int configStartY = cardY + cardH + (compact ? 3 : 6);
+    int rowH = compact ? 16 : 26;
+
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bdim = uiBorderDimColor();
+    uint16_t bright = uiTextBrightColor();
+    uint16_t muted = uiTextMutedColor();
+    uint16_t pri = bruceConfig.priColor;
 
     if (fullRedraw) {
         String title = bleSpamGetDeviceName(selection.attack_type, selection.device_index);
-        drawMainBorderWithTitle(bleSpamMakeTitle(title));
+        bleSpamDrawHeader(title, "TX", true, true, blinkOn);
 
-        statsY = BORDER_PAD_Y + FM * LH + 8;
-        int footerH = FP * LH + 4;
-        int footerY = tftHeight - footerH - 8;
-        int sepGap = 4;
-        int available = footerY - statsY - sepGap - 2;
-        rowH = max(1, min(FP * LH + 4, available / 6));
-        configStartY = statsY + rowH * 2 + sepGap;
-
-        tft.drawFastHLine(8, statsY + rowH * 2 - 2, tftWidth - 16, bruceConfig.priColor);
-        tft.drawFastHLine(8, configStartY + rowH * 4 - 2, tftWidth - 16, bruceConfig.priColor);
-
-        tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-        tft.fillRect(8, footerY, tftWidth - 16, footerH, bruceConfig.bgColor);
-        tft.drawCentreString("Click=Edit  ESC=Stop", tftWidth / 2, footerY + 2, 1);
+        // Elevated telemetry card
+        tft.fillRoundRect(cardX, cardY, cardW, cardH, compact ? 5 : 7, surf);
+        tft.drawRoundRect(cardX, cardY, cardW, cardH, compact ? 5 : 7, bdim);
+        if (!compact) {
+            int midX = cardX + cardW / 2;
+            tft.drawFastVLine(midX, cardY + 6, cardH - 12, bdim);
+            tft.setTextSize(FP);
+            tft.setTextColor(muted, surf);
+            tft.drawString(bruce_i18n::tr("Sent"), cardX + 10, cardY + 6, 1);
+            tft.drawString("PKT/S", midX + 10, cardY + 6, 1);
+        }
+        bleSpamDrawFooterHint("Click=Edit  ESC=Stop");
     }
 
     if (blinkDirty) {
-        tft.setTextSize(FP);
-        tft.setTextColor(TFT_MAGENTA, bruceConfig.bgColor);
-        int starX = tftWidth - 18;
-        int starY = BORDER_PAD_Y + 2;
-        tft.fillRect(starX - 2, starY - 2, 12, 12, bruceConfig.bgColor);
-        tft.drawString(blinkOn ? "*" : " ", starX, starY, 1);
+        int hy = bleSpamHeaderY();
+        int hh = bleSpamHeaderH();
+        int dotX = tftWidth - (2 * LW * FP + 16);
+        tft.fillCircle(dotX, hy + hh / 2, compact ? 3 : 4, blinkOn ? TFT_GREEN : uiSurfaceHiColor());
     }
 
     if (statsDirty) {
-        tft.setTextSize(FP);
-        tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-
-        tft.fillRect(10, statsY, tftWidth - 20, rowH * 2, bruceConfig.bgColor);
-        char buf[24];
-        snprintf(buf, sizeof(buf), "Sent:   %06lu", (unsigned long)displaySent);
-        tft.drawString(buf, 12, statsY + 2, 1);
-
-        snprintf(buf, sizeof(buf), "Pkt/s:  %.1f", displayPkt);
-        tft.drawString(buf, 12, statsY + rowH + 2, 1);
+        char sentBuf[20];
+        char rateBuf[20];
+        if (compact) {
+            snprintf(sentBuf, sizeof(sentBuf), "TX:%lu", (unsigned long)displaySent);
+            snprintf(rateBuf, sizeof(rateBuf), "%.1f/s", displayPkt);
+            tft.fillRect(cardX + 4, cardY + 3, cardW - 8, cardH - 6, surf);
+            tft.setTextSize(FP);
+            tft.setTextColor(bright, surf);
+            tft.drawString(sentBuf, cardX + 8, cardY + (cardH - LH * FP) / 2, 1);
+            tft.setTextColor(pri, surf);
+            tft.drawRightString(rateBuf, cardX + cardW - 8, cardY + (cardH - LH * FP) / 2, 1);
+        } else {
+            int midX = cardX + cardW / 2;
+            int colW = cardW / 2 - 14;
+            snprintf(sentBuf, sizeof(sentBuf), "%06lu", (unsigned long)displaySent);
+            snprintf(rateBuf, sizeof(rateBuf), "%.1f /s", displayPkt);
+            tft.fillRect(cardX + 8, cardY + 19, colW, 18, surf);
+            uiDrawText16(sentBuf, cardX + 10, cardY + 20, colW, bright, surf, 0);
+            tft.fillRect(midX + 8, cardY + 19, colW, 18, surf);
+            uiDrawText16(rateBuf, midX + 10, cardY + 20, colW, pri, surf, 0);
+        }
     }
 
     if (configDirty) {
-        BleSpamEditState viewEdit = editState;
-        int drawCursor = cursor;
-        bleSpamRenderConfigRows(config, drawCursor, viewEdit, configStartY, rowH);
+        bleSpamRenderConfigRows(config, cursor, editState, configStartY, rowH);
     }
 }
 
-static bool bleSpamStoppedPrompt(const BleSpamSelection &selection, uint32_t sentCount) {
+// Unified 2-option modal prompt (reused for Stopped screen & Saved-Name actions)
+static int bleSpamPrompt(
+    const String &title, const String &badge, const String &summaryLine, const char *opt0, const char *opt1
+) {
     int cursor = 0;
     bool redraw = true;
     bool layoutDrawn = false;
-    const char *options[] = {"Restart", "Back to Config"};
-    int optionCount = 2;
+    bool compact = bleSpamIsCompact();
+    bool hasSummary = summaryLine.length() > 0;
+
+    int cardY = bleSpamContentTop() + (compact ? 2 : 8);
+    int cardH = hasSummary ? (compact ? 24 : 38) : 0;
+    int listY = hasSummary ? (cardY + cardH + (compact ? 6 : 14)) : (bleSpamContentTop() + (compact ? 8 : 22));
+    int rowH = compact ? 22 : 30;
+    int rowGap = compact ? 4 : 8;
 
     while (true) {
         if (redraw) {
             if (!layoutDrawn) {
-                String title =
-                    String(bleSpamGetDeviceName(selection.attack_type, selection.device_index)) + " STOPPED";
-                drawMainBorderWithTitle(bleSpamMakeTitle(title));
-
-                tft.setTextSize(FP);
-                char buf[32];
-                snprintf(buf, sizeof(buf), "Sent: %06lu  Pkt/s: 0.0", (unsigned long)sentCount);
-                int statsY = BORDER_PAD_Y + FM * LH + 8;
-                tft.fillRect(10, statsY, tftWidth - 20, FP * LH + 6, bruceConfig.bgColor);
-                tft.drawString(buf, 12, statsY + 2, 1);
-
-                tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-                int footerY = tftHeight - FP * LH - 12;
-                tft.fillRect(8, footerY, tftWidth - 16, FP * LH + 4, bruceConfig.bgColor);
-                tft.drawCentreString("Click=Select  ESC=Back", tftWidth / 2, footerY + 2, 1);
+                bleSpamDrawHeader(title, badge, true);
+                if (hasSummary) {
+                    uint16_t surf = uiSurfaceColor();
+                    tft.fillRoundRect(10, cardY, tftWidth - 20, cardH, 7, surf);
+                    tft.drawRoundRect(10, cardY, tftWidth - 20, cardH, 7, uiBorderDimColor());
+                    if (!compact) {
+                        uiDrawText16(
+                            summaryLine, tftWidth / 2, cardY + (cardH - 16) / 2, tftWidth - 36,
+                            uiTextBrightColor(), surf, 1
+                        );
+                    } else {
+                        tft.setTextSize(FP);
+                        tft.setTextColor(uiTextBrightColor(), surf);
+                        tft.drawCentreString(summaryLine, tftWidth / 2, cardY + (cardH - LH * FP) / 2, 1);
+                    }
+                }
+                bleSpamDrawFooterHint("Click=Select  ESC=Back");
                 layoutDrawn = true;
             }
 
-            int rowH = max(12, FP * LH + 4);
-            int listY = BORDER_PAD_Y + FM * LH + 8 + rowH * 2;
-            for (int i = 0; i < optionCount; i++) {
-                int rowY = listY + i * rowH;
-                bool selected = (i == cursor);
-                uint16_t bg = selected ? bruceConfig.priColor : bruceConfig.bgColor;
-                uint16_t fg = selected ? bruceConfig.bgColor : bruceConfig.priColor;
-                tft.fillRect(10, rowY, tftWidth - 20, rowH, bg);
-                tft.setTextColor(fg, bg);
-                tft.drawString(String(selected ? "> " : "  ") + options[i], 12, rowY + 2, 1);
-            }
-
+            bleSpamDrawRow(10, listY, tftWidth - 20, rowH, opt0, "", cursor == 0, false, true);
+            bleSpamDrawRow(10, listY + rowH + rowGap, tftWidth - 20, rowH, opt1, "", cursor == 1, false, false);
             redraw = false;
         }
 
-        if (EscPress && PrevPress) EscPress = false;
-        if (check(EscPress)) return false;
+        if (bleSpamCheckTouchBack()) return -1;
+#if defined(HAS_TOUCH)
+        if (touchPoint.pressed) {
+            int ty = touchPoint.y;
+            touchPoint.pressed = false;
+            if (ty >= listY && ty < listY + rowH) return 0;
+            if (ty >= listY + rowH + rowGap && ty < listY + 2 * rowH + rowGap) return 1;
+        }
+#endif
 
-        if (check(NextPress) || check(DownPress)) {
-            cursor = (cursor + 1) % optionCount;
-            redraw = true;
-        } else if (check(PrevPress) || check(UpPress)) {
-            cursor = (cursor + optionCount - 1) % optionCount;
+        if (EscPress && PrevPress) EscPress = false;
+        if (check(EscPress)) return -1;
+        if (check(NextPress) || check(DownPress) || check(PrevPress) || check(UpPress)) {
+            cursor = 1 - cursor;
             redraw = true;
         } else if (check(SelPress)) {
-            return (cursor == 0);
+            return cursor;
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
+}
+
+static bool bleSpamStoppedPrompt(const BleSpamSelection &selection, uint32_t sentCount) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%s: %06lu", bruce_i18n::tr("Sent"), (unsigned long)sentCount);
+    int res = bleSpamPrompt(
+        String(bleSpamGetDeviceName(selection.attack_type, selection.device_index)),
+        "STOP",
+        String(buf),
+        "Restart",
+        "Back to Config"
+    );
+    return (res == 0);
 }
 
 static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &config) {
@@ -2008,6 +1983,11 @@ static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &c
         uint32_t displaySent = 0;
         float displayPkt = 0.0f;
 
+        bool compact = bleSpamIsCompact();
+        int cardH = compact ? 20 : 44;
+        int configStartY = bleSpamContentTop() + (compact ? 0 : 2) + cardH + (compact ? 3 : 6);
+        int rowH = compact ? 16 : 26;
+
         while (running) {
             bleSpamSendTick(runState, config, selection);
             bleSpamUpdateStats(runState);
@@ -2025,6 +2005,46 @@ static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &c
                 blinkDirty = true;
                 lastBlink = now;
             }
+
+            if (bleSpamCheckTouchBack()) EscPress = true;
+#if defined(HAS_TOUCH)
+            if (touchPoint.pressed) {
+                int tx = touchPoint.x;
+                int ty = touchPoint.y;
+                touchPoint.pressed = false;
+                if (ty >= configStartY && ty < configStartY + rowH * 4) {
+                    int r = (ty - configStartY) / rowH;
+                    bool dummyChanged = false;
+                    if (editState.editing && editState.edit_row == r) {
+                        if (tx < tftWidth / 2) {
+                            bleSpamStepConfigField(config, r, -1, dummyChanged);
+                            if (r == 3) runState.mac_initialized = false;
+                        } else if (tx >= tftWidth * 2 / 3) {
+                            bleSpamStepConfigField(config, r, 1, dummyChanged);
+                            if (r == 3) runState.mac_initialized = false;
+                        } else {
+                            if (r == 2) {
+                                bleSpamApplyTxPower(config.tx_power);
+                                runState.applied_power = config.tx_power;
+                            }
+                            if (r == 0 || r == 1) {
+                                runState.next_send_ms = millis() + config.adv_ms + config.gap_ms;
+                            }
+                            editState.editing = false;
+                        }
+                    } else {
+                        cursor = r;
+                        editState.editing = true;
+                        editState.edit_row = r;
+                        editState.adv_backup = config.adv_ms;
+                        editState.gap_backup = config.gap_ms;
+                        editState.tx_backup = config.tx_power;
+                        editState.mac_backup = config.mac_rand_mode;
+                    }
+                    configDirty = true;
+                }
+            }
+#endif
 
             if (EscPress && PrevPress) EscPress = false;
             if (check(EscPress)) {
@@ -2065,31 +2085,14 @@ static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &c
             }
 
             if (editState.editing) {
+                bool dummyChanged = false;
                 if (check(NextPress) || check(UpPress)) {
-                    if (editState.edit_row == 0) {
-                        config.adv_ms = bleSpamAdjustMs(config.adv_ms, 1);
-                    } else if (editState.edit_row == 1) {
-                        config.gap_ms = bleSpamAdjustMs(config.gap_ms, 1);
-                    } else if (editState.edit_row == 2) {
-                        config.tx_power = static_cast<BleSpamTxPower>((config.tx_power + 3) % 4);
-                    } else if (editState.edit_row == 3) {
-                        config.mac_rand_mode =
-                            static_cast<BleSpamMacRandMode>((config.mac_rand_mode + 1) % 8);
-                        runState.mac_initialized = false;
-                    }
+                    bleSpamStepConfigField(config, editState.edit_row, 1, dummyChanged);
+                    if (editState.edit_row == 3) runState.mac_initialized = false;
                     configDirty = true;
                 } else if (check(PrevPress) || check(DownPress)) {
-                    if (editState.edit_row == 0) {
-                        config.adv_ms = bleSpamAdjustMs(config.adv_ms, -1);
-                    } else if (editState.edit_row == 1) {
-                        config.gap_ms = bleSpamAdjustMs(config.gap_ms, -1);
-                    } else if (editState.edit_row == 2) {
-                        config.tx_power = static_cast<BleSpamTxPower>((config.tx_power + 1) % 4);
-                    } else if (editState.edit_row == 3) {
-                        config.mac_rand_mode =
-                            static_cast<BleSpamMacRandMode>((config.mac_rand_mode + 7) % 8);
-                        runState.mac_initialized = false;
-                    }
+                    bleSpamStepConfigField(config, editState.edit_row, -1, dummyChanged);
+                    if (editState.edit_row == 3) runState.mac_initialized = false;
                     configDirty = true;
                 }
             } else {
@@ -2130,40 +2133,7 @@ static void bleSpamRunScreen(const BleSpamSelection &selection, BleSpamConfig &c
 
 // Show a 2-option popup. Returns 0 for first option, 1 for second, -1 for ESC.
 static int bleSpamTwoOptionPrompt(const String &title, const char *opt0, const char *opt1) {
-    int cursor = 0;
-    bool redraw = true;
-    bool layoutDrawn = false;
-    while (true) {
-        if (redraw) {
-            if (!layoutDrawn) {
-                drawMainBorderWithTitle(bleSpamMakeTitle(title));
-                layoutDrawn = true;
-            }
-            int rowH = max(12, FP * LH + 4);
-            int startY = BORDER_PAD_Y + FM * LH + 16;
-            for (int i = 0; i < 2; i++) {
-                int rowY = startY + i * rowH;
-                bool sel = (i == cursor);
-                uint16_t bg = sel ? bruceConfig.priColor : bruceConfig.bgColor;
-                uint16_t fg = sel ? bruceConfig.bgColor : bruceConfig.priColor;
-                tft.fillRect(10, rowY, tftWidth - 20, rowH, bg);
-                tft.setTextColor(fg, bg);
-                tft.setTextSize(FP);
-                tft.drawString(String(sel ? "> " : "  ") + (i == 0 ? opt0 : opt1), 14, rowY + 2, 1);
-            }
-            redraw = false;
-        }
-        if (EscPress && PrevPress) EscPress = false;
-        if (check(EscPress)) return -1;
-        if (check(NextPress) || check(DownPress)) {
-            cursor = (cursor + 1) % 2;
-            redraw = true;
-        } else if (check(PrevPress) || check(UpPress)) {
-            cursor = (cursor + 1) % 2;
-            redraw = true;
-        } else if (check(SelPress)) return cursor;
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
+    return bleSpamPrompt(title, "", "", opt0, opt1);
 }
 
 // Handle device selection for types with custom name lists (Swift Pair and Beacon)
@@ -2222,6 +2192,7 @@ static bool bleSpamHandleCustomNameDevice(
 }
 
 static void bleSpamMenuUi() {
+    BleSpamTouchZoneGuard touchGuard;
     BleSpamConfig config = bleSpamLoadConfig();
     bool configChanged = false;
 
@@ -2256,7 +2227,7 @@ static void bleSpamMenuUi() {
         while (true) {
             int deviceCount = bleSpamGetDeviceCount(selection.attack_type);
             int deviceIndex = bleSpamListLoop(
-                String(bleSpamGetAttackLabel(attackIndex)) + " > Device",
+                String(bleSpamGetAttackLabel(attackIndex)),
                 deviceCount,
                 0,
                 [&](int idx) { return bleSpamGetDeviceName(selection.attack_type, idx); },

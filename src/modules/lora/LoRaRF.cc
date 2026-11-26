@@ -405,7 +405,7 @@ void lorachat() {
         JsonDocument doc;
         File file = LittleFS.open("/lora_settings.json", "w");
         doc["LoRa_Frequency"] = DEFAULT_LORA_FREQUENCY;
-        doc["LoRa_Name"] = "BruceTest";
+        doc["LoRa_Name"] = "NezhaTest";
         doc["LoRa_Radio"] = DEFAULT_LORA_RADIO;
         serializeJson(doc, file);
         file.close();

@@ -3,8 +3,9 @@
 #include "sd_functions.h"
 #include <ArduinoJson.h>
 
-#define DEFAULT_PRICOLOR 0xA80F
-#define DEFAULT_SECCOLOR 0xCB76
+// Default Nezha Demon Child (哪吒魔童) Crimson & Wind-Fire Gold palette
+#define DEFAULT_PRICOLOR 0xF945
+#define DEFAULT_SECCOLOR 0xFE60
 
 struct themeFiles {
     String wifi = "";
@@ -66,7 +67,7 @@ public:
 
     // Theme colors in RGB565 format
     uint16_t priColor = DEFAULT_PRICOLOR;
-    uint16_t secColor = DEFAULT_PRICOLOR - 0x2000;
+    uint16_t secColor = DEFAULT_SECCOLOR;
     uint16_t bgColor = 0x0000;
 
     // UI Color

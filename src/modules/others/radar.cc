@@ -1913,7 +1913,21 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
     uint32_t lastHudMs = 0;
     uint32_t lastFoxSampleMs = 0;
     uint32_t lastLocSyncMs = 0;
+    uint32_t lastContactBeepMs = 0;
+    uint32_t lastSweepBeepMs = 0;
+    size_t prevTargetCount = 0;
+    size_t prevAlertCount = 0;
     bool exitRadar = false;
+
+    auto radarEmitBeep = [&](unsigned int freq, unsigned long durMs) {
+        if (!bruceConfig.radarBeep || !bruceConfig.soundEnabled) return;
+#if defined(HAS_SPEAKER)
+        if (isAudioPlaying()) return;
+        playTone(freq, durMs, 2, PLAYBACK_ASYNC);
+#else
+        _tone(freq, durMs, PLAYBACK_ASYNC);
+#endif
+    };
 
     check(SelPress);
     check(EscPress);
@@ -2100,26 +2114,53 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                     memmove(ctx.foxHist, ctx.foxHist + 1, RADAR_HIST_LEN - 1);
                     ctx.foxHist[RADAR_HIST_LEN - 1] = curRssi;
                 }
-                if (ctx.geigerAudio && bruceConfig.soundEnabled) {
+                if (ctx.geigerAudio && bruceConfig.radarBeep && bruceConfig.soundEnabled) {
                     int pct = constrain((curRssi + 95) * 100 / 60, 0, 100);
-                    uint32_t interval = (uint32_t)constrain(920 - pct * 8, 120, 920);
+                    uint32_t interval = (uint32_t)constrain(920 - pct * 8, 140, 920);
                     if (now - ctx.lastGeigerMs >= interval) {
                         ctx.lastGeigerMs = now;
-                        unsigned int freq = 1400 + (unsigned int)pct * 22;
-                        _tone(freq, 22, PLAYBACK_ASYNC);
+                        unsigned int freq = 1200 + (unsigned int)pct * 16;
+                        radarEmitBeep(freq, 35);
                     }
                 }
             }
         }
 
-        // 5) Render active view
+        // 5) Render active view + tactical sonar/contact beep feedback
+        auto checkContactBeep = [&](const std::vector<RadarTarget> &list, bool sweepWrapped) {
+            if (!bruceConfig.radarBeep || !bruceConfig.soundEnabled) return;
+            size_t alerts = 0;
+            bool hasClose = false;
+            for (const auto &t : list) {
+                if (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) ++alerts;
+                if (t.distM <= 3.0f) hasClose = true;
+            }
+            if (alerts > prevAlertCount && (now - lastContactBeepMs >= 900)) {
+                lastContactBeepMs = now;
+                radarEmitBeep(2150, 60);
+            } else if (list.size() > prevTargetCount && (now - lastContactBeepMs >= 1100)) {
+                lastContactBeepMs = now;
+                radarEmitBeep(hasClose ? 1760 : 1520, 42);
+            } else if (sweepWrapped && !list.empty() && !ctx.hasLocked && (now - lastSweepBeepMs >= 2000)) {
+                lastSweepBeepMs = now;
+                radarEmitBeep(hasClose ? 1320 : 1080, 48);
+            }
+            prevTargetCount = list.size();
+            prevAlertCount = alerts;
+        };
+
         if (view == RadarView::SCOPE) {
             if (now - lastFrameMs >= 60) {
                 pruneStaleTargets(ctx);
                 std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
                 sweepRad += 0.16f;
-                if (sweepRad >= 2.0f * RADAR_PI) sweepRad -= 2.0f * RADAR_PI;
+                bool wrapped = false;
+                if (sweepRad >= 2.0f * RADAR_PI) {
+                    sweepRad -= 2.0f * RADAR_PI;
+                    wrapped = true;
+                }
                 drawRadarScope(scopeCx, scopeCy, scopeR, sweepRad, visible, ctx);
+                checkContactBeep(visible, wrapped);
                 lastFrameMs = now;
 
                 if (wideLayout && (now - lastHudMs >= 320 || lastHudMs == 0)) {
@@ -2137,6 +2178,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                     contentL, contentTop, contentW, contentH, mode, timeSliced, wifiScanning, bleScanning,
                     visible, ctx
                 );
+                checkContactBeep(visible, false);
             } else {
                 std::vector<RadarTarget> allList = snapshotTargets(ctx, mode, true);
                 drawFoxHuntOrSpectrum(contentL, contentTop, contentW, contentH, allList, ctx);
@@ -2154,6 +2196,9 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
 
         auto cycleFilter = [&](int dir) {
             stopAllScans();
+#if defined(HAS_SPEAKER)
+    if (isAudioPlaying()) stopAudioPlayback();
+#endif
             int next = ((int)mode + dir + 5) % 5;
             mode = static_cast<RadarMode>(next);
             nextIsBle = (mode == RadarMode::BLE_ONLY);
@@ -2185,6 +2230,9 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
             }
         } else if (check(SelPress)) {
             stopAllScans();
+#if defined(HAS_SPEAKER)
+    if (isAudioPlaying()) stopAudioPlayback();
+#endif
             std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
             bool hasTableSelection =
                 (view == RadarView::TABLE && !visible.empty() && ctx.tableCursor >= 0 &&
@@ -2198,6 +2246,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 ACT_TRIANGULATE,
                 ACT_UNLOCK,
                 ACT_GEIGER,
+                ACT_RADAR_BEEP,
                 ACT_CYCLE_VIEW,
                 ACT_CYCLE_FILTER,
                 ACT_LABELS,
@@ -2220,6 +2269,8 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 menuOpts.push_back({ctx.geigerAudio ? "Geiger Beep: ON" : "Geiger Beep: OFF",
                                     [&]() { act = ACT_GEIGER; }});
             }
+            menuOpts.push_back({bruceConfig.radarBeep ? "Radar Beep: ON" : "Radar Beep: OFF",
+                                [&]() { act = ACT_RADAR_BEEP; }});
             menuOpts.push_back({String("View: ") + viewName(view, ctx.hasLocked),
                                 [&]() { act = ACT_CYCLE_VIEW; }});
             menuOpts.push_back({modeLabel(mode), [&]() { act = ACT_CYCLE_FILTER; }});
@@ -2284,6 +2335,9 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 case ACT_GEIGER:
                     ctx.geigerAudio = !ctx.geigerAudio;
                     break;
+                case ACT_RADAR_BEEP:
+                    bruceConfig.setRadarBeep(!bruceConfig.radarBeep);
+                    break;
                 case ACT_CYCLE_VIEW:
                     view = static_cast<RadarView>(((int)view + 1) % 3);
                     break;
@@ -2339,6 +2393,9 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
     }
 
     stopAllScans();
+#if defined(HAS_SPEAKER)
+    if (isAudioPlaying()) stopAudioPlayback();
+#endif
     if (radarScan) {
         radarScan->setScanCallbacks(nullptr);
         radarScan->clearResults();

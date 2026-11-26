@@ -53,13 +53,18 @@ public:
     std::vector<MenuItemInterface *> getItems(void) { return _menuItems; }
     void hideAppsMenu();
 
-    // Grid layout rendering (bruceConfig.mainMenuStyle == MAIN_MENU_GRID)
+    // Launcher layout rendering for all MainMenuStyle variants
+    void drawActiveStyle(int index);
     void drawGrid(int index);
+    void drawList(int index);
+    void drawCards(int index);
+    void drawDock(int index);
+    void drawSplit(int index);
+    void drawCompactGrid(int index);
     int gridIndexOf(MenuItemInterface *item);
 
-    // Registered as gridPageTapHandler (see display.h) so loopOptions() can offer a page-up/down
-    // tap zone without depending on this header. Returns true and writes newIndex when (x, y)
-    // landed in the zone; currentIndex is used to keep roughly the same column on the new page.
+    // Registered as gridPageTapHandler (see display.h) so loopOptions() can delegate
+    // page-strip taps (Grid/List/Split/Compact) and hero/preview launch taps (Dock/Split).
     bool handleGridPageTap(int x, int y, int currentIndex, int &newIndex);
 
 private:
@@ -75,9 +80,17 @@ private:
         int labelSize = 1;
     };
 
-    void buildGridLayout(int itemCount);
-    void drawGridCell(int index, bool selected);
+    void buildGridLayout(int itemCount, bool compactTiles = false);
+    void drawGridCommon(int index, bool compactTiles);
+    void drawGridCell(int index, bool selected, bool compactTiles = false);
     void drawGridScrollBar();
+    bool updateLinearScroll(int style, int index, int itemCount, int visibleRows);
+    void drawLinearScrollBar(int barX, int trackY, int trackH, int visibleRows, int itemCount, int index);
+    void drawCompactFooterBar(int index, int itemCount);
+    void drawListRow(int index, int visibleSlot, int rowY, int rowH, bool selected);
+    void drawSplitRailRow(int index, int visibleSlot, int rowY, int rowH, int railX, int railW, bool selected);
+    void drawSplitPreview(int index, int itemCount, int paneX, int paneY, int paneW, int paneH);
+    void clearOptionRects();
 
     int _currentIndex = 0;
     int _totalItems = 0;
@@ -87,8 +100,20 @@ private:
     int _gridItemCount = 0;
     int _gridScroll = 0;
     int _gridLastIndex = -1;
+    int _lastStyle = -1;
     uint8_t _gridRotation = ROTATION;
     bool _gridRedrawAll = true;
+    int _launchRectX = 0;
+    int _launchRectY = 0;
+    int _launchRectW = 0;
+    int _launchRectH = 0;
+    int _pageStripX = 0;
+    int _pageStripY = 0;
+    int _pageStripW = 0;
+    int _pageStripH = 0;
+    int _pageStepRows = 1;
+    int _pageTotalRows = 1;
+    int _pageVisibleRows = 1;
 };
 extern MainMenu mainMenu;
 

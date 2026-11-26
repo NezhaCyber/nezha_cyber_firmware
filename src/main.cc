@@ -180,6 +180,7 @@ volatile int tftHeight = TFT_WIDTH;
 #include "core/bus_HAL.h"
 #include "core/display.h"
 #include "core/i18n.h"
+#include "core/nezha_splash.h"
 #include "core/led_control.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
@@ -287,38 +288,65 @@ void begin_tft() {
  **  Function: boot_screen
  **  Draw boot screen
  *********************************************************************/
+static int bootSplashBarY() {
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
+    if (tftHeight >= 200 && tftWidth >= NEZHA_SPLASH_W) return NEZHA_SPLASH_H + 64;
+#endif
+    return (tftHeight < 160) ? (tftHeight - 18) : (tftHeight - 28);
+}
+
 void boot_screen() {
-    uint16_t bg = bruceConfig.bgColor;
     uint16_t pri = bruceConfig.priColor;
-    uint16_t ink = uiTextBrightColor();
-    uint16_t muted = uiTextMutedColor();
-    bool compact = (tftHeight < 160);
+    uint16_t sec = bruceConfig.secColor;
+    uint16_t ink = 0xF7BE;
+    uint16_t muted = 0x8C71;
     int cx = tftWidth / 2;
-    int emblemY = compact ? (tftHeight / 2 - 22) : (tftHeight / 2 - 34);
-    int r = compact ? 14 : 20;
 
-    tft.fillScreen(bg);
-    // Minimal precision geometric emblem (clean hardware mark)
-    tft.drawCircle(cx, emblemY, r, uiBorderDimColor());
-    tft.drawLine(cx, emblemY - r - 3, cx + r, emblemY, pri);
-    tft.drawLine(cx + r, emblemY, cx, emblemY + r + 3, pri);
-    tft.drawLine(cx, emblemY + r + 3, cx - r, emblemY, pri);
-    tft.drawLine(cx - r, emblemY, cx, emblemY - r - 3, pri);
-    tft.fillCircle(cx, emblemY, compact ? 3 : 4, pri);
+    // Pure jet black so the Nezha Demon Child (哪吒魔童) emblem blends seamlessly
+    tft.fillScreen(TFT_BLACK);
 
-    int titleY = emblemY + r + (compact ? 10 : 16);
-    uiDrawText16(bruce_i18n::tr("Nezha Cyber"), cx, titleY, tftWidth - 20, ink, bg, 1);
+    int titleY = 0;
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
+    if (tftHeight >= 200 && tftWidth >= NEZHA_SPLASH_W) {
+        int imgX = (tftWidth - NEZHA_SPLASH_W) / 2;
+        int imgY = 8;
+        showJpeg(NEZHA_SPLASH_JPG, sizeof(NEZHA_SPLASH_JPG), imgX, imgY, false);
+        titleY = imgY + NEZHA_SPLASH_H + 10;
+    } else
+#endif
+    {
+        // Compact crisp Nezha Demon Child vector emblem (Qiankun ring + twin buns + forehead flame)
+        int cy = (tftHeight < 160) ? 34 : (tftHeight / 2 - 36);
+        int r = (tftHeight < 160) ? 16 : 22;
+        tft.drawCircle(cx, cy, r, sec);
+        tft.drawCircle(cx, cy, r - 1, sec);
+        tft.fillCircle(cx - r + 2, cy - r + 4, 6, 0x2104);
+        tft.drawCircle(cx - r + 2, cy - r + 4, 6, pri);
+        tft.fillCircle(cx + r - 2, cy - r + 4, 6, 0x2104);
+        tft.drawCircle(cx + r - 2, cy - r + 4, 6, pri);
+        // Forehead lotus flame mark
+        drawNezhaCrest(cx, cy, (tftHeight < 160) ? 8 : 10, pri, sec, max(1, bruceConfig.nezhaThemeStyle));
+        titleY = cy + r + 10;
+    }
+
+    uiDrawText16(bruce_i18n::tr("Nezha Cyber"), cx, titleY, tftWidth - 16, ink, TFT_BLACK, 1);
 
     tft.setTextSize(FP);
-    tft.setTextColor(muted, bg);
-    tft.drawCentreString(String(BRUCE_VERSION) + "  " + bruce_i18n::tr("CYBER SECURITY SUITE"), cx, titleY + 20, 1);
+    tft.setTextColor(sec, TFT_BLACK);
+    String sub = String(BRUCE_VERSION) + "  " + bruce_i18n::tr("My fate is mine!");
+    if (bruce_i18n::containsNonAscii(sub)) {
+        uiDrawText16(sub, cx, titleY + 18, tftWidth - 16, sec, TFT_BLACK, 1);
+    } else {
+        tft.setTextColor(muted, TFT_BLACK);
+        tft.drawCentreString(sub, cx, titleY + 21, 1);
+    }
 
-    // Subtle precision hairline progress rule
-    int barW = min(140, tftWidth - 60);
-    int barY = titleY + 34;
+    int barW = min(160, tftWidth - 56);
+    int barY = bootSplashBarY();
     if (barY + 3 < tftHeight) {
-        tft.fillRoundRect(cx - barW / 2, barY, barW, 2, 1, uiSurfaceHiColor());
-        tft.fillRoundRect(cx - barW / 2, barY, barW / 3, 2, 1, pri);
+        tft.fillRoundRect(cx - barW / 2, barY, barW, 3, 1, 0x2104);
+        tft.fillRoundRect(cx - barW / 2, barY, barW / 4, 3, 1, pri);
+        tft.fillRoundRect(cx - barW / 2 + barW / 4 - 2, barY, 10, 3, 1, sec);
     }
 }
 
@@ -374,19 +402,17 @@ void boot_screen_anim() {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     } else {
-        // Smooth crisp 900ms boot progress bar (skip instantly on any key/touch)
-        bool compact = (tftHeight < 160);
+        // Smooth crisp 1500ms boot progress bar (skip instantly on any key/touch)
         int cx = tftWidth / 2;
-        int r = compact ? 14 : 20;
-        int emblemY = compact ? (tftHeight / 2 - 22) : (tftHeight / 2 - 34);
-        int barW = min(140, tftWidth - 60);
-        int barY = emblemY + r + (compact ? 10 : 16) + 34;
-        while (millis() - (unsigned long)i < 900) {
+        int barW = min(160, tftWidth - 56);
+        int barY = bootSplashBarY();
+        const unsigned long splashDurMs = 1500;
+        while (millis() - (unsigned long)i < splashDurMs) {
             if (barY + 3 < tftHeight) {
-                int pct = (int)((millis() - (unsigned long)i) * 100 / 900);
-                int fillW = max(barW / 3, barW * pct / 100);
+                int pct = (int)((millis() - (unsigned long)i) * 100 / splashDurMs);
+                int fillW = max(barW / 5, barW * pct / 100);
                 if (fillW > barW) fillW = barW;
-                tft.fillRoundRect(cx - barW / 2, barY, fillW, 2, 1, bruceConfig.priColor);
+                tft.fillRoundRect(cx - barW / 2, barY, fillW, 3, 1, bruceConfig.priColor);
             }
             if (check(AnyKeyPress)) {
                 tft.fillScreen(bruceConfig.bgColor);
