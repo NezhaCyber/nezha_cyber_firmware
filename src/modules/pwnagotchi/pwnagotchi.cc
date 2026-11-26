@@ -373,23 +373,39 @@ void brucegotchi_start() {
     s.phaseStart = millis();
     s.reconIdx = 0;
 
+    bool prevTouchZone = touchZoneOutsideFooterEnabled;
+#if defined(HAS_TOUCH)
+    touchZoneOutsideFooterEnabled = false;
+#endif
+
     while (true) {
+#if defined(HAS_TOUCH)
+        if (touchPoint.pressed) {
+            int tx = touchPoint.x;
+            int ty = touchPoint.y;
+            touchPoint.pressed = false;
+            if (tx < 36 && ty < 30) {
+                EscPress = true;
+            } else if (ty >= 24 && ty < tftHeight - 24) {
+                SelPress = true;
+            }
+        }
+#endif
         // --- Global exit checks ---
         if (check(EscPress) || pwnagotchi_exit) break;
 
         // --- Menu trigger ---
         if (check(SelPress)) {
             String channel_status = use_all_channels ? "All Ch: ON" : "All Ch: OFF";
-            options = {
-                {"Find friends", yield},
-                {"Pwngrid spam", send_pwnagotchi_beacon_main},
-                {channel_status.c_str(), toggle_all_channels},
-                {"Main Menu", lambdaHelper(set_pwnagotchi_exit, true)},
+            std::vector<Option> petOpts = {
+                {"Find peers",     yield                                   },
+                {"NezhaGrid spam", send_pwnagotchi_beacon_main             },
+                {channel_status.c_str(), toggle_all_channels               },
+                {"Main Menu",      lambdaHelper(set_pwnagotchi_exit, true) },
             };
-            loopOptions(options);
-            tft.fillScreen(bruceConfig.bgColor);
-            drawTopCanvas();
-            drawBottomCanvas();
+            loopOptions(petOpts, MENU_TYPE_SUBMENU, "Nezhagotchi");
+            if (pwnagotchi_exit) break;
+            initUi();
             updateUi(true);
             s.phaseStart = millis();
             s.lastAdvertise = 0;
@@ -398,7 +414,7 @@ void brucegotchi_start() {
         // --- Handshake celebration ---
         if (num_HS > s.prevHS) {
             s.prevHS = num_HS;
-            setMood(0, "(0__0)", "Got handshake!");
+            setMood(11, "(^o^)", "Handshake captured!");
             updateUi(true);
             vTaskDelay(800 / portTICK_PERIOD_MS);
         }
@@ -421,6 +437,8 @@ void brucegotchi_start() {
     }
 
     // Cleanup — everything must be fully stopped
+    touchZoneOutsideFooterEnabled = prevTouchZone;
+    invalidateStatusBarCache();
     sniffer_wait_for_flush(2000);            // drain any pending handshake writes
     esp_wifi_set_promiscuous(false);         // stop promiscuous capture
     esp_wifi_set_promiscuous_rx_cb(nullptr); // remove sniffer callback
