@@ -137,6 +137,8 @@ void showDeviceInfo() {
     ScrollableTextArea area = ScrollableTextArea("DEVICE INFO");
 
     area.addLine(String(bruce_i18n::tr("Nezha Cyber")) + " v" + String(BRUCE_VERSION));
+    area.addLine(String(bruce_i18n::tr("Author")) + ": " + String(bruce_i18n::tr("Zhong Zhiqiang (ctkqiang)")));
+    area.addLine(bruce_i18n::tr("Standalone fork of Bruce Firmware"));
     area.addLine("EEPROM size: " + String(EEPROMSIZE));
     area.addLine("");
     area.addLine("[MEMORY]");

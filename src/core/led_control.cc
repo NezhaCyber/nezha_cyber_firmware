@@ -381,8 +381,7 @@ void setLedBrightness(int value) {
     FastLED.show();
 }
 
-#define BrucePurple 9830500 // Custom purple color for Bruce
-// TODO: 3852441 -> 3849837
+#define NezhaCrimson 0xFF2820 // Nezha Demon Child (哪吒魔童) signature crimson
 void setLedColorConfig() {
     ledPreviewMode(true);
 
@@ -393,7 +392,7 @@ void setLedColorConfig() {
 
     constexpr ColorMapping colorMappings[] = {
         {"OFF",        CRGB::Black    },
-        {"Default",    BrucePurple    },
+        {"Default",    NezhaCrimson   },
         {"White",      CRGB::White    },
         {"Red",        CRGB::Red      },
         {"Orange",     CRGB::OrangeRed},

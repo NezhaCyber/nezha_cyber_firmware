@@ -1,320 +1,131 @@
-![Bruce Main Menu](./media/pictures/bruce_banner.jpg)
+<p align="center">
+  <img src="./media/pictures/nezha_cyber_banner.jpg" alt="Nezha Cyber (哪吒网络安全) — 哪吒魔童" width="260" />
+</p>
 
-# :shark: Bruce
+<h1 align="center">🔥 Nezha Cyber (哪吒网络安全)</h1>
 
-Bruce is a versatile ESP32 firmware packed with offensive-security tools, built to make Red Team operations fast and portable.
+<p align="center">
+  <strong>Portable ESP32 Hardware Security, RF/Wireless Research &amp; 哪吒魔童 Cyber OS</strong><br />
+  <em>"My fate is mine, not heaven's!" — 我命由我不由天</em>
+</p>
 
-It also supports [M5Stack](https://shop.m5stack.com), [LILYGO](https://lilygo.cc) , [RockBase IoT](https://www.rockbaseiot.com) and [Elecrow](https://www.elecrow.com) products, and works great with the Cardputer, Sticks, M5Cores, T-Decks and T-Embeds.
+<p align="center">
+  <strong>English</strong> | <a href="./README_ZH.md">简体中文</a>
+</p>
 
-## :zap: Get Our Official DevKit!
+<p align="center">
+  <strong>Author &amp; Maintainer:</strong> 钟智强 (<a href="https://github.com/ctkqiang">ctkqiang</a>) ·
+  <strong>License:</strong> AGPL-3.0
+</p>
 
-# RF REAPER
+---
 
-**RF REAPER** is our custom PCB devkit, purpose-built for Bruce!
+## ⚡ About This Project & Standalone Fork Philosophy
 
-Every major feature works natively, right out of the box. Sub-GHz, NFC/RFID, IR, 2.4GHz(NRF), GPS-ready, and a microSD, all driven by a beefy ESP32-S3 (16MB Flash / 8MB PSRAM). Tons of GPIOs via the AW9523 expander plus Flipper Zero & iButton header compatibility mean you can hack, mod, and build on it endlessly. Want a specific function? Ask us with an issue, we'll check it.
+**Nezha Cyber (哪吒网络安全)** is an **independent, standalone fork of [Bruce Firmware](https://github.com/pr3y/Bruce)**, created and maintained by **钟智强 (ctkqiang)**.
 
-👉 **[Buy the RF REAPER and official boards](https://shop.bruce.computer)**
+We intentionally **preserve the full upstream Git commit history** and deeply respect the pioneering open-source work of the Bruce Firmware team and community. However, **Nezha Cyber diverges as a standalone project because our product philosophy is fundamentally different**:
 
-**Check our fully open-source hardware too:** https://bruce.computer/boards
+- **Craft-First Industrial Hardware OS**: Every screen—launcher, menus, keyboard, radar, BLE tools, theme studio, and settings—is engineered around a cohesive, high-contrast dark obsidian hardware interface with zero cluttered legacy UI.
+- **Native 哪吒魔童 (Nezha Demon Child) Brand Identity**: Built from the ground up around authentic Chinese mythological cybersecurity aesthetics—boot splash emblem, **20 curated 哪吒魔童 theme packs** (71 total palettes), **3 selectable Motong UI crests**, and live Theme Studio preview.
+- **Original Standalone Nezha Cyber Pet (哪吒宠物)**: Replaced legacy `Brucegotchi` / `PwnGrid` / `Megalodon` with a 100% original persistent **哪吒魔童** companion featuring 4 visual evolution realms and purely passive RF spirit patrol.
+- **Chinese & English First-Class Experience**: Built-in compact 12px/16px PROGMEM CJK bitmap font pipeline (`1,050+` translated UI strings) with instant EN / 简体中文 switching and full support for **4 MB Flash** boards (such as M5StickC Plus 1.1) alongside **16 MB + 8 MB PSRAM** flagship boards (LilyGO T-Deck / T-Deck Plus).
+- **Daily Flipper-Style Hardware Toolkit**: Expanded beyond red-team utilities into an everyday multi-tool featuring a Sub-GHz Frequency Analyzer, Universal IR Remote, GPIO Pin Controller & Voltage Monitor, RFC 6238 TOTP 2FA Authenticator, PWM Signal Generator, ITU Morse TX, Hardware TRNG Password Generator, and Polyhedral Dice Roller.
 
-More custom devkit boards coming soon! Stay across our communities!
+---
 
-## :building_construction: How to install
+## ✨ Flagship Features
 
-### The easiest way to install Bruce is using our official Web Flasher!
+### 🎨 哪吒魔童 Theme Studio & 7 Launcher Layouts
+- **Live Visual Theme Studio** (`Config → Display & UI → Nezha Themes`): Interactive full-screen gallery with live **哪吒魔童** medallion, color swatches, and 1-tap apply across **20 lore-accurate 哪吒魔童 packs** (71 total color palettes):
+  - *Nezha Motong (魔丸赤焰)* · *Hun Tian Ling (混天绫)* · *Wind-Fire Wheels (风火轮)* · *Qiankun Ring (乾坤圈)* · *Fire-Tipped Spear (火尖枪)* · *Lotus Rebirth (莲花化身)* · *Demon Orb Seal (魔丸封印)* · *Spirit Pearl AoBing (灵珠敖丙)* · *Ice & Fire Clash (冰火双生)* · *Dragon Palace Sea (东海龙宫)* · *Chentang Pass (陈塘关)* · *Heavenly Tribulation (天劫神雷)* · *Shanhe Scroll (山河社稷)* · *Taiyi Immortal (太乙仙风)* · *Shen Gongbao (申公豹)* · *Six-Arm Awakened (三头六臂)* · *Jade Void Palace (玉虚宫)* · *Demon Sea Rage (魔童闹海)* · *Nezha Crimson* · *Nezha Lotus*.
+- **Selectable UI Crests** (`Config → Display & UI → Theme Crest`): `Motong Flame (魔童烈焰)`, `Lotus Seal (莲花玄印)`, `Ice-Fire Twin (冰火双生)`, or `Minimal (极简硬件)`.
+- **7 Main Menu Layouts** (`Config → Display & UI → Menu Layout`): `Grid`, `Carousel`, `List`, `Cards`, `Dock`, `Split`, and `Compact Grid`—with full touch, trackball, keyboard, and 3-button navigation.
 
-### Check out: https://bruce.computer/flasher
+### 🐾 Original Nezha Cyber Pet (哪吒宠物)
+- Persistent NVS stats (`Level`, `XP`, `Spirit`, `Mood`, `Bond`, `Patrols`, `RF Absorbed`).
+- **4 Evolution Realms**: *Demon Orb (魔丸灵童)* → *Lotus Form (莲花化身)* → *Wind-Fire (风火少年)* → *Cyber Nezha (哪吒三太子)* with progressive visual aura, lotus pedestal, spinning Wind-Fire Wheels, and Qiankun Halo.
+- **5 Interactive Actions**: **Feed (喂食)** · **Train (修炼)** · **Pet (互动)** (or tap Nezha directly!) · **Patrol (巡查)** (passive ambient Wi-Fi RF sensing) · **Rest (打坐)**.
+- Runs natively on **both** LilyGO T-Deck (320×240) and M5StickC Plus 1.1 (240×135).
 
-Alternatively, you can download the latest binary from releases or actions and flash locally using esptool.py
+### 📡 Tactical Radar & RF / Wireless Security Suite
+- **Tactical Radar**: Real-time Wi-Fi & BLE spatial radar sweep with AirTag/SmartTag/Evil-Twin/Hack-Device threat flagging, global GPS/RF LocationState, and toggleable **Sonar Beep** (`Config → Audio Config → Radar Beep`, ON by default).
+- **Wi-Fi Tools**: AP/STA mode, Sniffer, Channel Analyzer, Jam Detect, Probe Monitor, LAN Port & Banner Audit, IDS Watchdog, Security Auditor, Evil Portal, NetCut, Responder, ARP Scanner, WireGuard, SSH/Telnet, SOCKS4 Proxy, WiFi Pass Recovery.
+- **BLE Tools**: Redesigned touch-scrollable BLE Spam Suite (iOS / Android / Samsung / Windows / All), BLE Scan, GATT Inspector & Notify Viewer, BLE File Transfer, BadBLE / BLE Keyboard.
+- **Sub-GHz RF (CC1101 / RF433)**: **Sub-GHz Frequency Analyzer** (315/433.92/868.35/915 MHz RSSI sweep + peak hold), Spectrum, Waterfall, Record/Replay, ProtoPirate, Custom SubGHz.
+- **IR / RFID / NFC / LoRa / FM / NRF24**: **Universal IR Remote** (TV / AC / Audio / Projector one-tap blaster), TV-B-Gone, Custom IR, PN532 / PN532Killer / Chameleon / Amiibolink, LoRa, FM Radio, 2.4G Spectrum.
 
+### 🛠️ Flipper-Style Daily Tools & Wire Tools
+- **Flipper Tools** (`Others → Flipper Tools`): RFC 6238 **TOTP 2FA Authenticator**, **PWM Signal Generator**, **ITU Morse Code TX**, **Hardware TRNG Password Generator**, and **Polyhedral Dice Roller**.
+- **Wire Tools**: **GPIO Pin Controller & Live ADC Voltage Monitor**, UART Terminal, I2C Scanner/Dump, SPI Flash JEDEC Console, JTAG Scanner, Continuity Multimeter.
+- **WebUI & Standalone Extras**: Modernized **Nezha Cyber WebUI** (`NezhaNet` / `nezhanet`), JS Interpreter, Phone Suite, QR Codes, BadUSB/HID, iButton, and Serial CLI.
+
+---
+
+## 🚀 Quick Build & Flash
+
+This repository includes an auto-detecting [Makefile](./Makefile) configured for **LilyGO T-Deck** (ESP32-S3, 16 MB Flash / 8 MB OPI PSRAM) and **M5StickC Plus 1.1** (ESP32, 4 MB Flash).
+
+### 1. Using `make` (Recommended)
 ```sh
-esptool.py --port /dev/ttyACM0 write_flash 0x00000 Bruce-<device>.bin
+# Auto-detect connected T-Deck or M5StickC Plus 1.1, compile, and flash
+make install
+
+# Target specific boards directly
+make tdeck            # LilyGO T-Deck (lilygo-t-deck)
+make tdeck-plus       # LilyGO T-Deck Plus (lilygo-t-deck-pro)
+make stickc-plus      # M5StickC Plus 1.1 (m5stack-cplus1_1)
+make cardputer        # M5Stack Cardputer (m5stack-cardputer)
+
+# Build merged binary only -> NezhaCyber-<ENV>.bin
+make build ENV=lilygo-t-deck
+make build ENV=m5stack-cplus1_1
+
+# Flash merged binary directly at 0x00000
+make flash-bin ENV=lilygo-t-deck
 ```
 
-**For m5stack devices**
+### 2. Using PlatformIO CLI Directly
+```sh
+pio run -e lilygo-t-deck
+pio run -e m5stack-cplus1_1
+```
 
-If you already use M5Launcher to manage your m5stack device, you can install it with OTA
+### 3. LilyGO T-Deck Bootloader Mode
+1. Connect T-Deck via USB-C and turn the power switch **OFF**.
+2. **Press and hold the Trackball button** (`GPIO0` / `BOOT`).
+3. Turn the power switch **ON** while holding the Trackball, then release.
+4. Run `make tdeck` (or `pio run -e lilygo-t-deck -t upload`).
 
-Or you can burn it directly from the [m5burner tool](https://docs.m5stack.com/en/download), just search for 'Bruce' (My official builds will be uploaded by "owner" and have photos.) on the device category you want to and click on burn
+### 4. Regenerating CJK Bitmap Fonts (Developers)
+Whenever you add or edit translations in [`src/core/lang_zh_cn.h`](./src/core/lang_zh_cn.h):
+```sh
+python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check
+```
 
-## :keyboard: Discord Server
+---
 
-Contact us in our [Discord Server](https://discord.gg/WJ9XF9czVT)!
+## 🧩 Supported Hardware
 
-## :bookmark_tabs: Wiki
+Primary verified targets for **Nezha Cyber**:
+- **LilyGO T-Deck / T-Deck Plus** (`ESP32-S3`, 320×240 IPS + Touch + Trackball + QWERTY + 8 MB OPI PSRAM)
+- **M5Stack M5StickC Plus 1.1** (`ESP32`, 240×135 TFT + 3 Buttons + 4 MB Flash full build)
 
-For more information on each function supported by Bruce, [read our wiki here](https://wiki.bruce.computer/).
-Also, [read our FAQ](https://wiki.bruce.computer/faq/)
+Also inherits board definitions across the wider ESP32 ecosystem from upstream Bruce Firmware: M5Stack Cardputer / M5StickC Plus2 / Core2 / CoreS3, LilyGO T-Embed / T-Embed CC1101 / T-Display-S3 / T-Watch-S3 / T-LoRa Pager, CYD-2432S028, Elecrow, Smoochiee, and ESP32-C5 boards (see [`boards/`](./boards/) and [`platformio.ini`](./platformio.ini)).
 
-## :computer: List of Features
+---
 
-<details>
-  <summary><h2>WiFi</h2></summary>
+## 🙏 Lineage, Upstream Credits & License
 
-- [x] Connect to WiFi
-- [x] WiFi AP
-- [x] Disconnect WiFi
-- [x] [WiFi Atks](https://wiki.bruce.computer/features/wifi/#wifi-atks)
-  - [x] [Beacon Spam](https://wiki.bruce.computer/features/wifi/#beacon-spam)
-  - [x] [Target Atk](https://wiki.bruce.computer/features/wifi/#target-atks)
-    - [x] Information
-    - [x] Target Deauth
-    - [x] EvilPortal + Deauth
-  - [x] Deauth Flood (More than one target)
-- [x] [Wardriving](https://wiki.bruce.computer/features/gps/#wardriving)
-- [x] [TelNet](https://wiki.bruce.computer/features/wifi/#telnet)
-- [x] [SSH](https://wiki.bruce.computer/features/wifi/#ssh)
-- [x] [RAW Sniffer](https://wiki.bruce.computer/features/wifi/#raw-sniffer)
-- [x] [TCP Client](https://wiki.bruce.computer/features/wifi/#client-tcp)
-- [x] [TCP Listener](https://wiki.bruce.computer/features/wifi/#listen-tcp)
-- [x] [Evil Portal](https://wiki.bruce.computer/features/wifi/#evil-portal)
-- [x] [Scan Hosts](https://wiki.bruce.computer/features/wifi/#scan-hosts) (with TCP Port scanning)
-- [x] [Responder](https://wiki.bruce.computer/features/wifi/#responder)
-- [x] [Arp Spoofing](https://wiki.bruce.computer/features/wifi/#arp-spoofing)
-- [x] [Arp Poisoning](https://wiki.bruce.computer/features/wifi/#arp-poisoning)
-- [x] [Wireguard Tunneling](https://wiki.bruce.computer/features/wifi/#wireguard-tunneling)
-- [x] Brucegotchi
-  - [x] Pwnagotchi friend
-  - [x] Pwngrid spam faces & names
-    - [x] [Optional] DoScreen a very long name and face
-    - [x] [Optional] Flood uniq peer identifiers
+**Nezha Cyber (哪吒网络安全)** is authored and maintained by **钟智强 ([ctkqiang](https://github.com/ctkqiang))**.
 
-</details>
+This project is an independent standalone fork originating from **[Bruce Firmware](https://github.com/pr3y/Bruce)**, preserving its full Git history and AGPL-3.0 copyleft lineage. Deep gratitude to the Bruce maintainers and upstream open-source ecosystem:
+- **[pr3y/Bruce](https://github.com/pr3y/Bruce)** and all upstream contributors (`@bmorcelli`, `@IncursioHack`, `@Luidiblu`, `@eadmaster`, `@rennancockles`, `@7h30th3r0n3`, `@Tawank`, `@geo-tp`, `@lshaf`, and the entire Bruce community).
+- Foundational open-source inspirations: [ESP32Marauder](https://github.com/justcallmekoko/ESP32Marauder), [Launcher](https://github.com/bmorcelli/Launcher), [Evil-M5Project](https://github.com/7h30th3r0n3/Evil-M5Project), and [M5Stick-Nemo](https://github.com/n0xa/m5stick-nemo).
+- Third-party library attributions and copyleft details: see [THIRD_PARTY.md](./THIRD_PARTY.md) and [LICENSE](./LICENSE).
 
-<details>
-  <summary><h2>BLE</h2></summary>
+---
 
-- [x] [BLE Scan](https://wiki.bruce.computer/features/ble/#ble-scan)
-- [x] Bad BLE - Run Ducky scripts, similar to [BadUsb](https://wiki.bruce.computer/features/ble/#badble)
-- [x] BLE Keyboard - Cardputer and T-Deck Only
-- [x] iOS Spam
-- [x] Windows Spam
-- [x] Samsung Spam
-- [x] Android Spam
-- [x] Spam All
-</details>
+## ⚠️ Legal Disclaimer
 
-<details>
-  <summary><h2>RF</h2></summary>
-
-- [x] Scan/Copy
-- [x] [Custom SubGhz](https://wiki.bruce.computer/features/rf/#replay-payloads-like-flipper)
-- [x] Spectrum
-- [x] Jammer Full (sends a full squared wave into output)
-- [x] Jammer Intermittent (sends PWM signal into output)
-- [x] Config
-  - [x] RF TX Pin
-  - [x] RF RX Pin
-  - [x] RF Module
-    - [x] RF433 T/R M5Stack
-    - [x] [CC1101 (Sub-Ghz)](https://wiki.bruce.computer/features/rf/#cc1101)
-  - [x] RF Frequency
-- [x] Replay
-</details>
-
-<details>
-  <summary><h2>RFID</h2></summary>
-
-- [x] Read tag
-- [x] Read 125kHz
-- [x] Clone tag
-- [x] Write NDEF records
-- [x] Amiibolink
-- [x] Chameleon
-- [x] Write data
-- [x] Erase data
-- [x] Save file
-- [x] Load file
-- [x] Config
-  - [x] [RFID Module](https://wiki.bruce.computer/features/rfid/#supported-modules)
-    - [x] PN532
-    - [x] PN532Killer
-- [ ] Emulate tag
-</details>
-
-<details>
-  <summary><h2>IR</h2></summary>
-
-- [x] TV-B-Gone
-- [x] IR Receiver
-- [x] [Custom IR (NEC, NECext, SIRC, SIRC15, SIRC20, Samsung32, RC5, RC5X, RC6)](https://wiki.bruce.computer/features/ir/#replay-payloads-like-flipper)
-- [x] Config - [X] Ir TX Pin - [X] Ir RX Pin
-</details>
-
-<details>
-  <summary><h2>FM</h2></summary>
-
-- [x] [Broadcast standard](https://wiki.bruce.computer/features/fm/#broadcast-standard)
-- [x] [Broadcast reserved](https://wiki.bruce.computer/features/fm/#broadcast-standard)
-- [x] [Broadcast stop](https://wiki.bruce.computer/features/fm/#broadcast-stop)
-- [ ] [FM Spectrum](https://wiki.bruce.computer/features/fm/#fm-spectrum)
-- [ ] [Hijack Traffic Announcements](https://wiki.bruce.computer/features/fm/#hijack-ta)
-- [ ] [Config](https://wiki.bruce.computer/features/fm/#bookmark_tabs-config)
-</details>
-
-<details>
-  <summary><h2>NRF24</h2></summary>
-
-- [x] [NRF24 Jammer](https://wiki.bruce.computer/features/nrf24/)
-- [x] 2.4G Spectrum
-- [ ] Mousejack
-</details>
-
-<details>
-  <summary><h2>Scripts</h2></summary>
-
-- [x] [JavaScript Interpreter](https://wiki.bruce.computer/features/js-interpreter/) [Credits to justinknight93](https://github.com/justinknight93/Doolittle)
-</details>
-
-<details>
-  <summary><h2>Others</h2></summary>
-
-- [x] Mic Spectrum
-- [x] [QRCodes](https://wiki.bruce.computer/features/others/#qrcodes)
-  - [x] Custom
-  - [x] PIX (Brazil bank transfer system)
-- [x] [SD Card Mngr](https://github.com/pr3y/Bruce/wiki/Others#sd-card-mngr)
-  - [x] View image (jpg)
-  - [x] File Info
-  - [x] [Wigle Upload](https://wiki.bruce.computer/features/gps/#how-to-use-wigle)
-  - [x] Play Audio
-  - [x] View File
-- [x] LittleFS Mngr
-- [x] [WebUI](https://wiki.bruce.computer/controlling-device/webui/)
-  - [x] Server Structure
-  - [x] Html
-  - [x] SDCard Mngr
-  - [x] Spiffs Mngr
-- [x] Megalodon
-- [x] [BADUsb (New features, LittleFS and SDCard)](https://wiki.bruce.computer/features/others/#badusb)
-- [x] USB Keyboard - Cardputer and T-Deck Only
-- [x] [iButton](https://wiki.bruce.computer/features/others/#ibutton)
-- [x] LED Control
-</details>
-
-<details>
-  <summary><h2>Wire Tools</h2></summary>
-
-- [x] UART Terminal
-  - [x] Baudrate presets + custom (300..5000000)
-  - [x] Custom RX/TX pins (Config > UART Pins)
-  - [x] Live send/receive terminal
-- [x] I2C Bus
-  - [x] Device scan (0x08-0x77)
-  - [x] Register read/write
-  - [x] 256-byte register dump
-- [x] SPI Bus
-  - [x] JEDEC flash detect
-  - [x] CS-framed HEX console (arbitrary transfers)
-- [x] JTAG Scanner
-  - [x] IDCODE read (TAP reset + DR shift, bit-banged TCK/TMS/TDI/TDO)
-- [x] Multimeter
-  - [x] Continuity: pin <-> pin (A driven LOW, B pulled up) with beeper
-  - [x] Continuity: pin -> GND (internal pull-up) with beeper
-  - [x] Held-pin detection (probe driven by another device, e.g. ADV Grove on CH9329)
-- [x] Serial control: `wire uart|i2c|spi|jtag|cont ...` commands over the serial CLI
-</details>
-
-<details>
-  <summary><h2>Clock</h2></summary>
-
-- [x] RTC Support
-- [x] NTP time adjust
-- [x] Manual adjust
-</details>
-
-<details>
-  <summary><h2>Connect (ESPNOW)</h2></summary>
-
-- [x] Send File
-- [x] Receive File
-- [x] Send Commands
-- [x] Receive Commands
-</details>
-
-<details>
-  <summary><h2>Config</h2></summary>
-
-- [x] Brightness
-- [x] Dim Time
-- [x] Orientation
-- [x] UI Color
-- [x] Boot Sound on/off
-- [x] Clock
-- [x] Sleep
-- [x] Restart
-</details>
-
-## Specific functions per Device, the ones not mentioned here are available to all.
-
-| Device                                                                                                                                                                                      | CC1101 | NRF24 | FM Radio |        PN532         | Mic  | BadUSB | RGB Led | Speaker | Fuel Gauge | LITE_VERSION |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----: | :---: | :------: | :------------------: | :--: | :----: | :-----: | :-----: | :--------: | :----------: |
-| [M5Stack Cardputer](https://shop.m5stack.com/products/m5stack-cardputer-kit-w-m5stamps) (and ADV)                                                                                           |  :ok:  | :ok:  |   :ok:   |         :ok:         | :ok: |  :ok:  |  :ok:   | NS4168  |    :x:     |     :x:      |
-| [M5Stack M5StickC PLUS2](https://shop.m5stack.com/products/m5stickc-plus2-esp32-mini-iot-development-kit)                                                                                   |  :ok:  | :ok:  |   :ok:   |         :ok:         | :ok: | :ok:¹  |   :x:   |  Tone   |    :x:     |     :x:      |
-| [M5Stack M5StickC PLUS](https://shop.m5stack.com/products/m5stickc-plus-esp32-pico-mini-iot-development-kit)                                                                                |  :ok:  | :ok:  |   :ok:   |         :ok:         | :ok: | :ok:¹  |   :x:   |  Tone   |    :x:     |     :x:²     |
-| [M5Stack M5Core BASIC](https://shop.m5stack.com/products/basic-core-iot-development-kit)                                                                                                    |  :ok:  | :ok:  |   :ok:   |         :ok:         | :ok: | :ok:¹  |   :x:   |  Tone   |    :x:     |     :x:      |
-| [M5Stack M5Core2](https://shop.m5stack.com/products/m5stack-core2-esp32-iot-development-kit-v1-1)                                                                                           |  :ok:  | :ok:  |   :ok:   |         :ok:         | :ok: | :ok:¹  |   :x:   |   :x:   |    :x:     |     :x:      |
-| [M5Stack M5CoreS3](https://shop.m5stack.com/products/m5stack-cores3-esp32s3-lotdevelopment-kit)/[SE](https://shop.m5stack.com/products/m5stack-cores3-se-iot-controller-w-o-battery-bottom) |  :ok:  | :ok:  |   :ok:   |         :ok:         | :x:  |  :ok:  |   :x:   |   :x:   |    :x:     |     :x:      |
-| [M5Stack StackChan](https://shop.m5stack.com/products/stackchan-kawaii-co-created-open-source-ai-desktop-robot) (CoreS3 on the robot body)                                                  |  :ok:  | :ok:  |   :ok:   |    ST25R3916 (I2C)   | :x:  |  :ok:  |   :x:   | AW88298 |    :x:     |     :x:      |
-| [JCZN CYD&#x2011;2432S028](https://www.aliexpress.us/item/3256804774970998.html)                                                                                                            |  :ok:  | :ok:  |   :ok:   |         :ok:         | :x:  | :ok:¹  |   :x:   |   :x:   |    :x:     |     :x:²     |
-| [Lilygo T&#x2011;Embed CC1101](https://lilygo.cc/products/t-embed-cc1101)                                                                                                                   |  :ok:  | :ok:  |   :ok:   |         :ok:         | :ok: |  :ok:  |  :ok:   |  :ok:   |    :ok:    |     :x:      |
-| [Lilygo T&#x2011;Embed](https://lilygo.cc/products/t-embed)                                                                                                                                 |  :ok:  | :ok:  |   :ok:   |         :ok:         | :ok: |  :ok:  |  :ok:   |  :ok:   |    :x:     |     :x:      |
-| [Lilygo T-Display-S3](https://lilygo.cc/products/t-display-s3)                                                                                                                              |  :ok:  | :ok:  |   :x:    |         :x:          | :x:  |  :ok:  |   :x:   |   :x:   |    :x:     |     :x:      |
-| [Lilygo T&#x2011;Deck](https://lilygo.cc/products/t-deck) ([and pro](https://lilygo.cc/products/t-deck-plus-1))                                                                             |  :ok:  |  :x:  |   :x:    |         :x:          | :x:  |  :ok:  |   :x:   |   :x:   |    :x:     |     :x:      |
-| [Lilygo T-Watch-S3](https://lilygo.cc/products/t-watch-s3)                                                                                                                                  |  :x:   |  :x:  |   :x:    |         :x:          | :x:  |  :ok:  |   :x:   |   :x:   |    :x:     |     :x:      |
-| [Lilygo T-LoRa Pager](https://lilygo.cc/products/t-lora-pager)                                                                                                                              |  :x:   |  :x:  |   :x:    |         :x:          | :x:  |  :ok:  |   :x:   |   :x:   |    :x:     |     :x:      |
-| [Smoochiee V2](https://www.pcbway.com/project/shareproject/Bruce_PCB_Smoochiee_d6a0284b.html)                                                                                               |  :ok:  | :ok:  |   :x:    |         :ok:         | :x:  |  :ok:  |   :x:   |   :x:   |    :x:     |     :x:      |
-| [ESP32-C5](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32c5/esp32-c5-devkitc-1/user_guide.html)                                                                           |  :ok:  | :ok:  |   :x:    |         :ok:         | :x:  |  :x:   |   :x:   |   :x:   |    :x:     |     :x:      |
-| [Bruce RF Reaper](https://www.elecrow.com/bruce-pcb-rf-reaper.html)                                                                                                                         |  :ok:  | :ok:  |   :x:    | :ok: but w/ ST25R3916 | :x:  |  :ok:  |  :ok:   |   :x:   |    :ok:    |     :x:      |
-| [Elecrow 24B](https://www.elecrow.com/2-4inch-esp32-miner-lcd-display-2pcs-cryptocurrency-solo-miner-with-1000kh-s-hashrate.html)                                                            |  :ok:  | :ok:  |   :ok:   |         :ok:         | :x:  | :ok:¹  |   :x:   |   :x:   |    :x:     |     :x:²     |
-| [Elecrow 3.5"](https://www.elecrow.com/esp-terminal-with-esp32-3-5-inch-parallel-480x320-tft-capacitive-touch-display-rgb-by-chip-ili9488.html)                                                                                                                                                        |  :ok:  | :ok:  |   :ok:   |         :ok:         | :x:  | :ok:¹  |   :x:   |   :x:   |    :x:     |     :x:²     |
-| [NM-CYD-C5 + RF HAT](https://rockbase.shop/products/nm-cyd-c5-colorful)                                                                                                                         |  :ok:  | :ok:  |   :x:    | :ok: | :x:  |  :ok:  |  :ok:   |   :x:   |    :ok:    |     :x:      |
-| [Waveshare ESP32-C5-Touch-LCD-3.5](https://github.com/waveshareteam/ESP32-C5-Touch-LCD-3.5) |  :x:  | :x:  |   :x:    | :ok: | :ok: |  :x:   |  :x:   |  :ok:   |    :ok:    |     :x:      |
-² CYD have a LITE_VERSION version for Launcher Compatibility
-¹ Core, CYD and StickCs Bad-USB: [here](https://wiki.bruce.computer/features/others/#badusb)
-
-_LITE_VERSION_: TelNet, SSH, WireGuard, ScanHosts, RawSniffer, Brucegotchi, BLEBacon, BLEScan and Interpreter are NOT available for M5Launcher Compatibility
-
-## :sparkles: Why and how does it look?
-
-Bruce stems from a keen observation within the community focused on devices like Flipper Zero. While these devices offered a glimpse into the world of offensive security, there was a palpable sense that something more could be achieved without being that overpriced, particularly with the robust and modular hardware ecosystem provided by ESP32 Devices, Lilygo and M5Stack products.
-
-![Bruce Main Menu](./media/pictures/pic1.png)
-![Bruce on M5Core](./media/pictures/core.png)
-![Bruce on Stick](./media/pictures/stick.png)
-![Bruce on CYD](./media/pictures/cyd.png)
-![Bruce on CYD with NM-RF-HAT](./media/pictures/bruce-cyd.png)
-
-Other media can be [found here](./media/).
-
-## :clap: Acknowledgements
-
-- [@bmorcelli](https://github.com/bmorcelli) for new core and a bunch of new features, also porting to many devices!
-- [@IncursioHack](https://github.com/IncursioHack) for adding RF and RFID modules features.
-- [@Luidiblu](https://github.com/Luidiblu) for logo and UI design assistance.
-- [@eadmaster](https://github.com/eadmaster) for adding a lot of features.
-- [@rennancockles](https://github.com/rennancockles) for a lot of RFID code, refactoring and others features.
-- [@7h30th3r0n3](https://github.com/7h30th3r0n3) refactoring and a lot of help with WiFi attacks.
-- [@Tawank](https://github.com/Tawank) refactoring interpreter among many other things
-- [@geo-tp](https://github.com/geo-tp) contributing with lots of PRs and Wire Tools code
-- @pablonymous RF functions to read RAW Data
-- [Smoochiee](https://github.com/smoochiee) for Bruce PCB design.
-- TH3_KR4K3N for Stick cplus extender PCB design.
-- Everyone who contributed in some way to the project, thanks :heart:
-
-Bruce also stands on the shoulders of other great open-source firmware projects,
-which inspired features and code across the project:
-
-- [ESP32Marauder](https://github.com/justcallmekoko/ESP32Marauder) by [@justcallmekoko](https://github.com/justcallmekoko) — WiFi/Bluetooth offensive toolkit.
-- [Launcher](https://github.com/bmorcelli/Launcher) by [@bmorcelli](https://github.com/bmorcelli) — the multi-app launcher/bootloader for the devices.
-- [Evil-M5Project](https://github.com/7h30th3r0n3/Evil-M5Project) by [@7h30th3r0n3](https://github.com/7h30th3r0n3) — WiFi attack suite for M5Stack.
-- [M5Stick-Nemo](https://github.com/n0xa/m5stick-nemo) by [@n0xa](https://github.com/n0xa) — multi-tool firmware for M5Stick devices.
-
-Bruce builds on many free-software libraries, and parts of the RF and NFC/RFID
-modules are derived from other projects. See [THIRD_PARTY.md](./THIRD_PARTY.md)
-for third-party attribution and copyleft-compliance details.
-
-## :construction: Disclaimer
-
-Bruce is a tool for cyber offensive and red team operations, distributed under the terms of the Affero General Public License (AGPL). It is intended for legal and authorized security testing purposes only. Use of this software for any malicious or unauthorized activities is strictly prohibited. By downloading, installing, or using Bruce, you agree to comply with all applicable laws and regulations. This software is provided free of charge, and we do not accept payments for copies or modifications. The developers of Bruce assume no liability for any misuse of the software. Use at your own risk.
+**Nezha Cyber (哪吒网络安全)** is released under the **GNU Affero General Public License v3.0 (AGPL-3.0)** strictly for **authorized security research, education, hardware debugging, and personal laboratory testing**. Any unauthorized or malicious use against systems you do not own or have explicit written permission to test is strictly prohibited. The author (**钟智强 / ctkqiang**) and upstream contributors assume no liability for misuse.
