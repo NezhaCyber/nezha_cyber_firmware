@@ -164,7 +164,7 @@ jobs:
             --notes-out RELEASE_NOTES.md
 
       - name: Publish to GitHub Releases
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.verify.outputs.tag }}
           name: "🔥 Nezha Cyber (哪吒网络安全) ${{ needs.verify.outputs.tag }}"
