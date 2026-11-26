@@ -1544,25 +1544,26 @@ void drawStatusBar(bool force) {
     }
 
     // Left badge: live clock or Nezha Cyber brand with 哪吒魔童 crest
+    int crestR = (hudH >= 20) ? 5 : 4;
     if (clock_set) {
         int cx = 8;
         if (nStyle > 0) {
-            drawNezhaCrest(10, hudH / 2, 4, pri, sec, nStyle);
-            cx = 18;
+            drawNezhaCrest(10, hudH / 2, crestR, pri, sec, nStyle);
+            cx = 19;
         }
         int badgeY = (hudH - LH * FP) / 2;
         setTftDisplay(cx, badgeY, textBright, FP, barBg);
         tft.print(timeStr);
     } else {
         if (nStyle > 0) {
-            drawNezhaCrest(10, hudH / 2, 4, pri, sec, nStyle);
+            drawNezhaCrest(10, hudH / 2, crestR, pri, sec, nStyle);
         } else {
             tft.fillCircle(10, hudH / 2, 2, pri);
         }
         String brand = bruce_i18n::tr("Nezha Cyber");
         int badgeH = (FP == 1 && bruce_i18n::containsNonAscii(brand)) ? 12 : (LH * FP);
         int badgeY = (hudH - badgeH) / 2;
-        setTftDisplay(18, badgeY, textBright, FP, barBg);
+        setTftDisplay(19, badgeY, textBright, FP, barBg);
         tft.print(brand);
     }
 

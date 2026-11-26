@@ -438,9 +438,9 @@ void setNezhaThemeGallery() {
 
         tft.fillScreen(bg);
 
-        // Top Header Bar
-        int hy = compact ? 0 : (STATUS_BAR_HEIGHT - 3);
-        int hh = compact ? 18 : 21;
+        // Top Header Bar (edge-to-edge full-screen, zero dead gap)
+        int hy = 0;
+        int hh = compact ? 18 : 24;
         int tx = 8;
 #if defined(HAS_TOUCH)
         if (!compact) {
@@ -452,7 +452,9 @@ void setNezhaThemeGallery() {
             tx = 24;
         }
 #endif
-        uiDrawText16(bruce_i18n::tr("Nezha Themes"), tx, hy + (compact ? 1 : 2), tftWidth - tx - 56, bright, bg, 0);
+        drawNezhaCrest(tx + 4, hy + hh / 2, compact ? 4 : 5, pri, sec, p.crestStyle);
+        tx += compact ? 12 : 14;
+        uiDrawText16(bruce_i18n::tr("Nezha Themes"), tx, hy + (hh - 16) / 2, tftWidth - tx - 56, bright, bg, 0);
 
         char cnt[16];
         snprintf(cnt, sizeof(cnt), "%02d/%02d", i + 1, NEZHA_THEME_COUNT);
@@ -478,8 +480,8 @@ void setNezhaThemeGallery() {
         tft.fillRoundRect(cardX, cardY, cardW, cardH, compact ? 6 : 8, surf);
         tft.drawRoundRect(cardX, cardY, cardW, cardH, compact ? 6 : 8, pri);
 
-        // Left: Live 哪吒魔童 Medallion in this theme's exact colors
-        int medW = compact ? 66 : 104;
+        // Left: Live 哪吒魔童 Medallion rendered in this theme's exact palette
+        int medW = compact ? 66 : 108;
         int medX = cardX + (compact ? 4 : 8);
         int medY = cardY + (compact ? 4 : 8);
         int medH = cardH - (compact ? 8 : 16);
@@ -487,43 +489,63 @@ void setNezhaThemeGallery() {
         tft.drawRoundRect(medX, medY, medW, medH, 6, brd);
 
         int mx = medX + medW / 2;
-        int my = medY + medH / 2 + (compact ? 2 : 3);
-        int mr = compact ? 17 : 26;
+        int my = medY + medH / 2 + (compact ? 2 : 4);
+        int mr = compact ? 16 : 26;
 
         // Qiankun Ring Halo
-        tft.drawCircle(mx, my, mr, sec);
-        if (!compact) tft.drawCircle(mx, my, mr - 1, blendColors(bg, sec, 180));
-        // Hun Tian Ling Ribbon Arcs
-        tft.drawLine(mx - mr - (compact ? 5 : 9), my + (compact ? 5 : 9), mx - mr + 3, my - 2, pri);
-        tft.drawLine(mx + mr + (compact ? 5 : 9), my + (compact ? 5 : 9), mx + mr - 3, my - 2, pri);
-        tft.drawLine(mx - mr - (compact ? 4 : 8), my + (compact ? 7 : 11), mx - mr + 4, my, sec);
-        tft.drawLine(mx + mr + (compact ? 4 : 8), my + (compact ? 7 : 11), mx + mr - 4, my, sec);
-        // Twin Hair Buns
-        int bunR = compact ? 5 : 7;
+        tft.drawCircle(mx, my, mr + (compact ? 3 : 6), sec);
+        if (!compact) tft.drawCircle(mx, my, mr + 5, blendColors(bg, sec, 180));
+        // Sweeping Hun Tian Ling Ribbon Arcs
+        tft.drawLine(mx - mr - (compact ? 6 : 11), my + (compact ? 6 : 12), mx - mr + 2, my - 2, pri);
+        tft.drawLine(mx + mr + (compact ? 6 : 11), my + (compact ? 6 : 12), mx + mr - 2, my - 2, pri);
+        tft.drawLine(mx - mr - (compact ? 5 : 10), my + (compact ? 8 : 14), mx - mr + 3, my, sec);
+        tft.drawLine(mx + mr + (compact ? 5 : 10), my + (compact ? 8 : 14), mx + mr - 3, my, sec);
+        // Twin Demon-Child Hair Buns + Red Ties
+        int bunR = compact ? 5 : 8;
         int bunDx = (mr * 3) / 4;
         int bunDy = (mr * 3) / 4;
+        tft.fillCircle(mx - bunDx, my - bunDy, bunR + 1, pri);
+        tft.fillCircle(mx + bunDx, my - bunDy, bunR + 1, pri);
         tft.fillCircle(mx - bunDx, my - bunDy, bunR, 0x18C4);
-        tft.drawCircle(mx - bunDx, my - bunDy, bunR, pri);
         tft.fillCircle(mx + bunDx, my - bunDy, bunR, 0x18C4);
-        tft.drawCircle(mx + bunDx, my - bunDy, bunR, pri);
-        // Center 哪吒魔童 Crest
-        drawNezhaCrest(mx, my, compact ? 9 : 13, pri, sec, p.crestStyle);
+        tft.fillRoundRect(mx - bunDx - 3, my - bunDy + bunR - 2, 8, 2, 1, pri);
+        tft.fillRoundRect(mx + bunDx - 5, my - bunDy + bunR - 2, 8, 2, 1, pri);
+        // Stylized 哪吒魔童 Face Silhouette + Layered Bangs + Crest
+        int faceR = compact ? 11 : 17;
+        tft.fillCircle(mx, my, faceR + 1, 0x18C4);
+        tft.fillCircle(mx, my + 1, faceR - 1, 0xFED6);
+        tft.fillRect(mx - faceR + 1, my - faceR, (faceR - 1) * 2, compact ? 5 : 7, 0x18C4);
+        tft.fillTriangle(mx - faceR + 2, my - (compact ? 6 : 10), mx - (compact ? 5 : 8), my - (compact ? 1 : 2), mx - 2, my - (compact ? 6 : 10), 0x18C4);
+        tft.fillTriangle(mx + faceR - 2, my - (compact ? 6 : 10), mx + (compact ? 5 : 8), my - (compact ? 1 : 2), mx + 2, my - (compact ? 6 : 10), 0x18C4);
+        // Smoky eyes in theme primary
+        int ex = compact ? 4 : 6;
+        int ey = my + (compact ? 2 : 3);
+        tft.fillRoundRect(mx - ex - 3, ey - 2, 6, 4, 1, 0x18C4);
+        tft.fillRoundRect(mx + ex - 3, ey - 2, 6, 4, 1, 0x18C4);
+        tft.fillCircle(mx - ex, ey, compact ? 1 : 2, pri);
+        tft.fillCircle(mx + ex, ey, compact ? 1 : 2, pri);
+        tft.drawPixel(mx - ex - 1, ey - 1, TFT_WHITE);
+        tft.drawPixel(mx + ex - 1, ey - 1, TFT_WHITE);
+        // Signature Forehead Crest
+        drawNezhaCrest(mx, my - (compact ? 4 : 6), compact ? 4 : 6, pri, sec, p.crestStyle);
+        // Confident Demon-Child grin
+        tft.drawLine(mx - (compact ? 3 : 4), my + (compact ? 7 : 10), mx + (compact ? 3 : 5), my + (compact ? 6 : 9), 0x18C4);
 
         // Right: Live Theme Details & Swatches
         int rx = medX + medW + (compact ? 6 : 10);
         int rw = cardX + cardW - rx - (compact ? 5 : 8);
-        int ry = medY + (compact ? 1 : 4);
+        int ry = medY + (compact ? 1 : 6);
 
         uiDrawText16(bruce_i18n::tr(p.name), rx, ry, rw, bright, surf, 0);
-        ry += compact ? 17 : 20;
+        ry += compact ? 16 : 22;
 
         uiDrawText16(bruce_i18n::tr(p.motto), rx, ry, rw, sec, surf, 0);
-        ry += compact ? 18 : 24;
+        ry += compact ? 17 : 26;
 
         // 3 Live Color Swatches (PRI / SEC / BG)
         int swGap = 4;
         int swW = (rw - swGap * 2) / 3;
-        int swH = compact ? 14 : 18;
+        int swH = compact ? 14 : 20;
         uint16_t swCols[3] = {pri, sec, bg};
         const char *swLbls[3] = {"PRI", "SEC", "BG"};
         for (int s = 0; s < 3; s++) {
@@ -534,24 +556,24 @@ void setNezhaThemeGallery() {
             tft.setTextColor(uiTextOnAccentColor(swCols[s]), swCols[s]);
             tft.drawCentreString(swLbls[s], sx + swW / 2, ry + (swH - LH * FP) / 2, 1);
         }
-        ry += swH + (compact ? 6 : 10);
+        ry += swH + (compact ? 5 : 12);
 
-        // Live UI Pill + Progress Preview
+        // Live UI Progress Preview (non-compact)
         if (!compact) {
-            int barH = 6;
+            int barH = 7;
             tft.fillRoundRect(rx, ry, rw, barH, 3, bg);
             tft.fillRoundRect(rx + 1, ry + 1, (rw - 2) * 2 / 3, barH - 2, 2, pri);
             tft.fillRoundRect(rx + 1 + (rw - 2) * 2 / 3 - 4, ry + 1, 10, barH - 2, 2, sec);
-            ry += barH + 10;
+            ry += barH + 12;
         }
 
         const char *badgeKey = justApplied ? "Applied!" : (isActive ? "Active" : "Tap Apply");
-        int pillH = compact ? 16 : 20;
+        int pillH = compact ? 16 : 22;
         uint16_t pillFill = (justApplied || isActive) ? pri : bg;
         uint16_t pillFg = (justApplied || isActive) ? onAcc : muted;
         tft.fillRoundRect(rx, ry, rw, pillH, 4, pillFill);
         tft.drawRoundRect(rx, ry, rw, pillH, 4, (justApplied || isActive) ? pri : brd);
-        uiDrawText16(bruce_i18n::tr(badgeKey), rx + 2, ry + (pillH - 16) / 2, rw - 4, pillFg, pillFill, 1);
+        uiDrawText16(bruce_i18n::tr(badgeKey), rx + rw / 2, ry + (pillH - 16) / 2, rw - 4, pillFg, pillFill, 1);
 
         // Bottom 3-Button Tactile Dock: < Prev | Apply | Next >
         int margin = compact ? 4 : 8;
@@ -566,7 +588,7 @@ void setNezhaThemeGallery() {
             uint16_t bBrd = primary ? pri : brd;
             tft.fillRoundRect(bx, dockY, btnW, dockH, 5, bFill);
             tft.drawRoundRect(bx, dockY, btnW, dockH, 5, bBrd);
-            uiDrawText16(bruce_i18n::tr(btnKeys[b]), bx + 2, dockY + (dockH - 16) / 2, btnW - 4, bFg, bFill, 1);
+            uiDrawText16(bruce_i18n::tr(btnKeys[b]), bx + btnW / 2, dockY + (dockH - 16) / 2, btnW - 4, bFg, bFill, 1);
         }
     };
 
@@ -607,8 +629,7 @@ void setNezhaThemeGallery() {
             int ty = touchPoint.y;
             touchPoint.Clear();
 
-            int hy = compact ? 0 : (STATUS_BAR_HEIGHT - 3);
-            if (!compact && tx < 42 && ty >= hy - 4 && ty <= hy + 26) {
+            if (!compact && tx < 42 && ty <= 28) {
                 break;
             }
 
@@ -629,7 +650,7 @@ void setNezhaThemeGallery() {
                     justApplied = false;
                     dirty = true;
                 }
-            } else if (ty > hy + 24) {
+            } else if (ty > 28) {
                 // Tap preview card directly to Apply
                 applyPack(idx);
                 justApplied = true;

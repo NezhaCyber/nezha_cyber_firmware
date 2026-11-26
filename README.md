@@ -56,7 +56,7 @@ We intentionally **preserve the full upstream Git commit history** and deeply re
 - **IR / RFID / NFC / LoRa / FM / NRF24**: **Universal IR Remote** (TV / AC / Audio / Projector one-tap blaster), TV-B-Gone, Custom IR, PN532 / PN532Killer / Chameleon / Amiibolink, LoRa, FM Radio, 2.4G Spectrum.
 
 ### 🛠️ Flipper-Style Daily Tools & Wire Tools
-- **Flipper Tools** (`Others → Flipper Tools`): RFC 6238 **TOTP 2FA Authenticator**, **PWM Signal Generator**, **ITU Morse Code TX**, **Hardware TRNG Password Generator**, and **Polyhedral Dice Roller**.
+- **Flipper Tools** (`Others → Flipper Tools`): **Live 2.4 GHz Wi-Fi Thermal Waterfall**, **Pocket GPIO Oscilloscope & Logic Plotter**, **Nezha Pentatonic Cyber Synth & FX Pad**, **Offline mbedTLS Cyber Crypto Lab** (SHA-256 / SHA-1 / MD5 / Base64 / TRNG), RFC 6238 **TOTP 2FA Authenticator**, **PWM Signal Generator**, **ITU Morse Code TX**, **Hardware TRNG Password Generator**, and **Polyhedral Dice Roller**.
 - **Wire Tools**: **GPIO Pin Controller & Live ADC Voltage Monitor**, UART Terminal, I2C Scanner/Dump, SPI Flash JEDEC Console, JTAG Scanner, Continuity Multimeter.
 - **WebUI & Standalone Extras**: Modernized **Nezha Cyber WebUI** (`NezhaNet` / `nezhanet`), JS Interpreter, Phone Suite, QR Codes, BadUSB/HID, iButton, and Serial CLI.
 

@@ -289,10 +289,7 @@ void begin_tft() {
  **  Draw boot screen
  *********************************************************************/
 static int bootSplashBarY() {
-#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
-    if (tftHeight >= 200 && tftWidth >= NEZHA_SPLASH_W) return NEZHA_SPLASH_H + 64;
-#endif
-    return (tftHeight < 160) ? (tftHeight - 18) : (tftHeight - 28);
+    return (tftHeight < 180) ? (tftHeight - 14) : (tftHeight - 18);
 }
 
 void boot_screen() {
@@ -309,24 +306,39 @@ void boot_screen() {
 #if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
     if (tftHeight >= 200 && tftWidth >= NEZHA_SPLASH_W) {
         int imgX = (tftWidth - NEZHA_SPLASH_W) / 2;
-        int imgY = 8;
+        int imgY = 4;
         showJpeg(NEZHA_SPLASH_JPG, sizeof(NEZHA_SPLASH_JPG), imgX, imgY, false);
-        titleY = imgY + NEZHA_SPLASH_H + 10;
+        titleY = imgY + NEZHA_SPLASH_H + 5;
     } else
 #endif
     {
-        // Compact crisp Nezha Demon Child vector emblem (Qiankun ring + twin buns + forehead flame)
-        int cy = (tftHeight < 160) ? 34 : (tftHeight / 2 - 36);
-        int r = (tftHeight < 160) ? 16 : 22;
-        tft.drawCircle(cx, cy, r, sec);
-        tft.drawCircle(cx, cy, r - 1, sec);
-        tft.fillCircle(cx - r + 2, cy - r + 4, 6, 0x2104);
-        tft.drawCircle(cx - r + 2, cy - r + 4, 6, pri);
-        tft.fillCircle(cx + r - 2, cy - r + 4, 6, 0x2104);
-        tft.drawCircle(cx + r - 2, cy - r + 4, 6, pri);
-        // Forehead lotus flame mark
-        drawNezhaCrest(cx, cy, (tftHeight < 160) ? 8 : 10, pri, sec, max(1, bruceConfig.nezhaThemeStyle));
-        titleY = cy + r + 10;
+        // Compact crisp 哪吒魔童 vector emblem (Qiankun ring + ribbons + twin buns + chibi face + lotus flame)
+        int cy = (tftHeight < 160) ? 31 : (tftHeight / 2 - 36);
+        int r = (tftHeight < 160) ? 15 : 22;
+        // Qiankun Ring Halo & Hun Tian Ling ribbon curves
+        tft.drawCircle(cx, cy, r + 2, sec);
+        tft.drawCircle(cx, cy, r + 1, sec);
+        tft.drawLine(cx - r - 9, cy + 7, cx - r + 2, cy - 1, pri);
+        tft.drawLine(cx + r + 9, cy + 7, cx + r - 2, cy - 1, pri);
+        tft.drawLine(cx - r - 8, cy + 9, cx - r + 3, cy + 1, sec);
+        tft.drawLine(cx + r + 8, cy + 9, cx + r - 3, cy + 1, sec);
+        // Twin Demon-Child hair buns
+        int bunR = (tftHeight < 160) ? 5 : 7;
+        tft.fillCircle(cx - r + 2, cy - r + 3, bunR + 1, pri);
+        tft.fillCircle(cx + r - 2, cy - r + 3, bunR + 1, pri);
+        tft.fillCircle(cx - r + 2, cy - r + 3, bunR, 0x18C4);
+        tft.fillCircle(cx + r - 2, cy - r + 3, bunR, 0x18C4);
+        // Chibi head + bangs + smoky eyes + forehead lotus flame
+        int fr = r - 4;
+        tft.fillCircle(cx, cy, fr + 1, 0x18C4);
+        tft.fillCircle(cx, cy + 1, fr - 1, 0xFED6);
+        tft.fillRect(cx - fr + 1, cy - fr, (fr - 1) * 2, 5, 0x18C4);
+        tft.fillCircle(cx - 4, cy + 2, 2, 0x18C4);
+        tft.fillCircle(cx + 4, cy + 2, 2, 0x18C4);
+        tft.drawPixel(cx - 4, cy + 2, pri);
+        tft.drawPixel(cx + 4, cy + 2, pri);
+        drawNezhaCrest(cx, cy - 4, (tftHeight < 160) ? 4 : 6, pri, sec, max(1, bruceConfig.nezhaThemeStyle));
+        titleY = cy + r + 8;
     }
 
     uiDrawText16(bruce_i18n::tr("Nezha Cyber"), cx, titleY, tftWidth - 16, ink, TFT_BLACK, 1);
@@ -341,12 +353,11 @@ void boot_screen() {
         tft.drawCentreString(sub, cx, titleY + 21, 1);
     }
 
-    int barW = min(160, tftWidth - 56);
+    int barW = min(200, tftWidth - 48);
     int barY = bootSplashBarY();
-    if (barY + 3 < tftHeight) {
-        tft.fillRoundRect(cx - barW / 2, barY, barW, 3, 1, 0x2104);
-        tft.fillRoundRect(cx - barW / 2, barY, barW / 4, 3, 1, pri);
-        tft.fillRoundRect(cx - barW / 2 + barW / 4 - 2, barY, 10, 3, 1, sec);
+    int barH = (tftHeight < 180) ? 4 : 5;
+    if (barY + barH < tftHeight) {
+        tft.fillRoundRect(cx - barW / 2, barY, barW, barH, 2, 0x18C3);
     }
 }
 
@@ -402,24 +413,187 @@ void boot_screen_anim() {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     } else {
-        // Smooth crisp 1500ms boot progress bar (skip instantly on any key/touch)
-        int cx = tftWidth / 2;
-        int barW = min(160, tftWidth - 56);
-        int barY = bootSplashBarY();
-        const unsigned long splashDurMs = 1500;
-        while (millis() - (unsigned long)i < splashDurMs) {
-            if (barY + 3 < tftHeight) {
-                int pct = (int)((millis() - (unsigned long)i) * 100 / splashDurMs);
-                int fillW = max(barW / 5, barW * pct / 100);
-                if (fillW > barW) fillW = barW;
-                tft.fillRoundRect(cx - barW / 2, barY, fillW, 3, 1, bruceConfig.priColor);
+        // ====================================================================
+        // 5-Second Animated 哪吒魔童 (Nezha Demon Child) Cyber Boot Sequence
+        // Instantly skippable on any key / trackball / touch press!
+        // ====================================================================
+        const unsigned long splashDurMs = 5000;
+        const bool compact = (tftHeight < 180);
+        const int cx = tftWidth / 2;
+        const int barW = min(200, tftWidth - 48);
+        const int barX = cx - barW / 2;
+        const int barY = compact ? (tftHeight - 14) : (tftHeight - 18);
+        const int barH = compact ? 4 : 5;
+        const int tickerY = compact ? (barY - 12) : (barY - 15);
+        const uint16_t pri = bruceConfig.priColor;
+        const uint16_t sec = bruceConfig.secColor;
+        const uint16_t sparkCyan = 0x3EBF;
+
+        // Flanking safe zone widths (zero overlap with center 160x144 JPEG or vector emblem)
+        const int safeLeftMax = compact ? 64 : max(24, (tftWidth - 166) / 2);
+        const int safeRightMin = tftWidth - safeLeftMax;
+        const int sparkTop = 10;
+        const int sparkBot = compact ? 88 : 154;
+
+        struct BootSpark {
+            int16_t baseX;
+            int16_t lastX;
+            int16_t lastY;
+            float y;
+            float speed;
+            float phase;
+            uint16_t col;
+            uint8_t size;
+        };
+
+        constexpr int kSparkCount = 16;
+        BootSpark sparks[kSparkCount];
+        for (int s = 0; s < kSparkCount; s++) {
+            bool rightSide = (s & 1) != 0;
+            int span = max(8, safeLeftMax - 14);
+            int bx = rightSide ? (safeRightMin + 6 + ((s * 17) % span)) : (8 + ((s * 19) % span));
+            sparks[s].baseX = (int16_t)bx;
+            sparks[s].lastX = -1;
+            sparks[s].lastY = -1;
+            sparks[s].y = (float)(sparkTop + ((s * 23) % max(12, sparkBot - sparkTop)));
+            sparks[s].speed = 1.4f + (s % 4) * 0.55f;
+            sparks[s].phase = s * 0.72f;
+            sparks[s].col = (s % 3 == 0) ? pri : ((s % 3 == 1) ? sec : sparkCyan);
+            sparks[s].size = (s % 4 == 0) ? 2 : 1;
+        }
+
+        static const char *kBootStages[] = {
+            "IGNITING WIND-FIRE CORE...",
+            "ARMING RF & SUB-GHZ ARRAY...",
+            "SYNCING BLE & WIFI RADAR...",
+            "AWAKENING NEZHA MOTONG...",
+            "LOADING CYBER ARSENAL...",
+            "MY FATE IS MINE! READY"
+        };
+        constexpr int kStageCount = 6;
+        int lastStage = -1;
+        int lastPct = -1;
+        uint16_t frame = 0;
+        bool playedStartChime = false;
+        bool playedEndChime = false;
+
+        // Clear progress bar track
+        if (barY + barH < tftHeight) {
+            tft.fillRoundRect(barX, barY, barW, barH, 2, 0x18C3);
+        }
+
+        while (true) {
+            unsigned long elapsed = millis() - (unsigned long)i;
+            if (elapsed >= splashDurMs) break;
+
+            if (!playedStartChime) {
+                playedStartChime = true;
+#if !defined(LITE_VERSION)
+                if (bruceConfig.soundEnabled) {
+                    _tone(523, 35);
+                    _tone(659, 35);
+                    _tone(784, 45);
+                }
+#endif
             }
+
+            int pct = (int)((elapsed * 100UL) / splashDurMs);
+            if (pct > 100) pct = 100;
+            frame++;
+
+            // 1. Animated Pulsing Qiankun Corner Brackets (4 corners)
+            uint16_t cornerCol = ((frame / 6) & 1) ? pri : sec;
+            int cLen = compact ? 10 : 14;
+            // Top-left & Top-right
+            tft.drawFastHLine(4, 4, cLen, cornerCol);
+            tft.drawFastVLine(4, 4, cLen, cornerCol);
+            tft.drawFastHLine(tftWidth - 4 - cLen, 4, cLen, cornerCol);
+            tft.drawFastVLine(tftWidth - 5, 4, cLen, cornerCol);
+            // Bottom-left & Bottom-right
+            tft.drawFastHLine(4, tftHeight - 5, cLen, cornerCol);
+            tft.drawFastVLine(4, tftHeight - 4 - cLen, cLen, cornerCol);
+            tft.drawFastHLine(tftWidth - 4 - cLen, tftHeight - 5, cLen, cornerCol);
+            tft.drawFastVLine(tftWidth - 5, tftHeight - 4 - cLen, cLen, cornerCol);
+
+            // 2. Swirling Wind-Fire Ember Sparks along both black flanks
+            for (int s = 0; s < kSparkCount; s++) {
+                if (sparks[s].lastX >= 0) {
+                    tft.fillCircle(sparks[s].lastX, sparks[s].lastY, sparks[s].size, TFT_BLACK);
+                }
+                sparks[s].y -= sparks[s].speed;
+                if (sparks[s].y < sparkTop) {
+                    sparks[s].y = (float)sparkBot;
+                }
+                float sway = sinf(frame * 0.14f + sparks[s].phase) * (compact ? 3.5f : 6.0f);
+                int nx = (int)roundf(sparks[s].baseX + sway);
+                int ny = (int)roundf(sparks[s].y);
+                // Keep strictly inside flanking lanes
+                bool rightSide = (s & 1) != 0;
+                if (rightSide) nx = constrain(nx, safeRightMin + 3, tftWidth - 8);
+                else nx = constrain(nx, 8, safeLeftMax - 3);
+                sparks[s].lastX = (int16_t)nx;
+                sparks[s].lastY = (int16_t)ny;
+                tft.fillCircle(nx, ny, sparks[s].size, sparks[s].col);
+            }
+
+            // 3. Dual-Side Live Cyber Reactor Equalizer Bars (non-compact T-Deck)
+            if (!compact) {
+                for (int b = 0; b < 5; b++) {
+                    int by = 46 + b * 14;
+                    int lv = 6 + (int)(fabsf(sinf(frame * 0.22f + b * 0.85f)) * 18.0f);
+                    tft.fillRect(10, by, 26, 4, TFT_BLACK);
+                    tft.fillRoundRect(10, by, lv, 4, 1, (b & 1) ? sec : pri);
+                    tft.fillRect(tftWidth - 36, by, 26, 4, TFT_BLACK);
+                    tft.fillRoundRect(tftWidth - 10 - lv, by, lv, 4, 1, (b & 1) ? sec : pri);
+                }
+            }
+
+            // 4. Dynamic Boot Subsystem Ticker
+            int stage = min(kStageCount - 1, (pct * kStageCount) / 100);
+            if (stage != lastStage) {
+                lastStage = stage;
+                tft.fillRect(18, tickerY, tftWidth - 36, 11, TFT_BLACK);
+                tft.setTextSize(FP);
+                tft.setTextColor((stage == kStageCount - 1) ? sec : 0xAD55, TFT_BLACK);
+                tft.drawCentreString(kBootStages[stage], cx, tickerY + 1, 1);
+            }
+
+            // 5. Animated Dual-Tone Wind-Fire Progress Bar + Percentage
+            if (pct != lastPct && barY + barH < tftHeight) {
+                lastPct = pct;
+                int fillW = max(8, (barW * pct) / 100);
+                if (fillW > barW) fillW = barW;
+                tft.fillRoundRect(barX, barY, fillW, barH, 2, pri);
+                int tipW = min(14, fillW);
+                tft.fillRoundRect(barX + fillW - tipW, barY, tipW, barH, 2, sec);
+                if (fillW > 4) {
+                    tft.fillRect(barX + fillW - 3, barY + 1, 2, max(1, barH - 2), TFT_WHITE);
+                }
+                if (!compact) {
+                    char pBuf[8];
+                    snprintf(pBuf, sizeof(pBuf), "%d%%", pct);
+                    tft.fillRect(barX + barW + 4, barY - 2, 32, 10, TFT_BLACK);
+                    tft.setTextSize(FP);
+                    tft.setTextColor(sec, TFT_BLACK);
+                    tft.drawString(pBuf, barX + barW + 6, barY - 1, 1);
+                }
+            }
+
+            if (pct >= 96 && !playedEndChime) {
+                playedEndChime = true;
+#if !defined(LITE_VERSION)
+                if (bruceConfig.soundEnabled) {
+                    _tone(1046, 55);
+                }
+#endif
+            }
+
             if (check(AnyKeyPress)) {
                 tft.fillScreen(bruceConfig.bgColor);
                 delay(10);
                 return;
             }
-            vTaskDelay(pdMS_TO_TICKS(16));
+            vTaskDelay(pdMS_TO_TICKS(32));
         }
     }
 
