@@ -130,19 +130,18 @@ int MainMenu::gridIndexOf(MenuItemInterface *item) {
 **  falls back to the minimum size, with paging, once even one column can't make cells that big.
 **********************************************************************/
 void MainMenu::buildGridLayout(int itemCount) {
-    // Responsive card minimums: yields 4x3 cyber cards on T-Deck (320x240)
-    // and 3x2 spacious cyber cards on M5StickC Plus 1.1 (240x135).
+    // Open hardware launcher proportions: 4x3 on T-Deck (320x240), 3x2 on M5StickC Plus 1.1 (240x135)
     const bool compactScreen = (tftHeight < 160);
     const int MIN_CELL_W = 64 * FP;
-    const int MIN_CELL_H = (compactScreen ? 46 : 54) * FP;
-    const int PAGE_TAP_W = 12;
+    const int MIN_CELL_H = (compactScreen ? 46 : 56) * FP;
+    const int PAGE_TAP_W = 10;
 
     if (itemCount < 1) itemCount = 1;
 
     int areaX = 6;
-    int areaY = STATUS_BAR_HEIGHT - 1;
+    int areaY = STATUS_BAR_HEIGHT - 2;
     int areaW = tftWidth - areaX - PAGE_TAP_W - 2;
-    int areaH = tftHeight - areaY - 5;
+    int areaH = tftHeight - areaY - 4;
 
     int maxCols = max(1, min(itemCount, areaW / MIN_CELL_W));
     int bestCols = 1;
@@ -156,7 +155,6 @@ void MainMenu::buildGridLayout(int itemCount) {
         }
     }
 
-    // Prefer a full-width multi-column deck when items overflow onto multiple pages
     int maxVisibleRows = max(1, areaH / MIN_CELL_H);
     if (bestCols * maxVisibleRows < itemCount && maxCols > bestCols) {
         bestCols = maxCols;
@@ -170,11 +168,11 @@ void MainMenu::buildGridLayout(int itemCount) {
     if (_grid.visibleRows > _grid.rows) _grid.visibleRows = _grid.rows;
     _grid.cellH = areaH / _grid.visibleRows;
 
-    _grid.labelSize = (_grid.cellW >= 11 * LW * FM && _grid.cellH >= 74) ? FM : FP;
-    int labelReserve = (_grid.labelSize == 1) ? 14 : (LH * _grid.labelSize + 4);
-    _grid.iconBox = _grid.cellH - labelReserve - 12;
-    if (_grid.iconBox > _grid.cellW - 14) _grid.iconBox = _grid.cellW - 14;
-    if (_grid.iconBox < 16) _grid.iconBox = 16;
+    _grid.labelSize = FP;
+    int labelReserve = 14;
+    _grid.iconBox = _grid.cellH - labelReserve - 14;
+    if (_grid.iconBox > _grid.cellW - 18) _grid.iconBox = _grid.cellW - 18;
+    if (_grid.iconBox < 18) _grid.iconBox = 18;
 
     _grid.x = areaX + (areaW - _grid.cols * _grid.cellW) / 2;
     _grid.y = areaY + (areaH - _grid.visibleRows * _grid.cellH) / 2;
@@ -254,62 +252,57 @@ void MainMenu::drawGridCell(int index, bool selected) {
     options[index].w = _grid.cellW;
     options[index].h = _grid.cellH;
 
-    int cardX = x + 2;
-    int cardY = y + 2;
-    int cardW = _grid.cellW - 4;
-    int cardH = _grid.cellH - 4;
+    int cardX = x + 3;
+    int cardY = y + 3;
+    int cardW = _grid.cellW - 6;
+    int cardH = _grid.cellH - 6;
 
     uint16_t bg = bruceConfig.bgColor;
     uint16_t pri = bruceConfig.priColor;
-    uint16_t cardBg = selected ? uiSurfaceHiColor() : uiSurfaceColor();
-    uint16_t borderCol = selected ? pri : uiBorderDimColor();
-    uint16_t iconCol = selected ? uiTextBrightColor() : pri;
-    uint16_t textCol = selected ? uiTextBrightColor() : bruceConfig.secColor;
+    uint16_t textBright = uiTextBrightColor();
+    uint16_t textMuted = uiTextMutedColor();
+    uint16_t cellBg = selected ? uiSurfaceHiColor() : bg;
+    uint16_t iconCol = selected ? pri : blendColors(bg, textBright, 200);
+    uint16_t textCol = selected ? textBright : textMuted;
 
+    // Open borderless canvas for unselected apps; crisp elevated graphite tile + 2px accent ring for active focus
     tft.fillRect(x, y, _grid.cellW, _grid.cellH, bg);
-    tft.fillRoundRect(cardX, cardY, cardW, cardH, 5, cardBg);
-    tft.drawRoundRect(cardX, cardY, cardW, cardH, 5, borderCol);
-
     if (selected) {
-        tft.fillRect(cardX + 6, cardY + 1, cardW - 12, 2, pri);
-        tft.fillRect(cardX + cardW / 2 - 5, cardY + cardH - 2, 10, 1, pri);
+        tft.fillRoundRect(cardX, cardY, cardW, cardH, 8, cellBg);
+        tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, pri);
+        tft.drawRoundRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2, 7, pri);
     }
 
     MenuItemInterface *item = static_cast<MenuItemInterface *>(options[index].hoverPointer);
     if (item) {
         int iconCenterY = cardY + 5 + _grid.iconBox / 2;
-        item->drawIconInBox(cardX + cardW / 2, iconCenterY, _grid.iconBox, iconCol, cardBg);
+        item->drawIconInBox(cardX + cardW / 2, iconCenterY, _grid.iconBox, iconCol, cellBg);
     }
 
     tft.setTextSize(_grid.labelSize);
-    tft.setTextColor(textCol, cardBg);
+    tft.setTextColor(textCol, cellBg);
     String label = bruce_i18n::tr(options[index].label);
     String fitted = bruce_i18n::utf8TruncateToWidth(label, cardW - 6, _grid.labelSize);
     int labelH = (_grid.labelSize == 1 && bruce_i18n::containsNonAscii(fitted)) ? 12 : (LH * _grid.labelSize);
-    tft.drawCentreString(
-        fitted,
-        cardX + cardW / 2,
-        cardY + cardH - labelH - 3,
-        1
-    );
+    tft.drawCentreString(fitted, cardX + cardW / 2, cardY + cardH - labelH - 4, 1);
 }
 
 /*********************************************************************
 **  Function: drawGridScrollBar
-**  Sleek rounded scrollbar on the right indicating off-screen rows
+**  Minimal 2px scrollbar on the right indicating off-screen rows
 **********************************************************************/
 void MainMenu::drawGridScrollBar() {
-    int barX = tftWidth - 7;
-    int trackY = _grid.y + 2;
-    int trackH = _grid.visibleRows * _grid.cellH - 4;
+    int barX = tftWidth - 5;
+    int trackY = _grid.y + 4;
+    int trackH = _grid.visibleRows * _grid.cellH - 8;
 
-    tft.fillRect(barX - 1, trackY, 5, trackH, bruceConfig.bgColor);
+    tft.fillRect(barX - 1, trackY, 4, trackH, bruceConfig.bgColor);
     if (_grid.rows <= _grid.visibleRows) return;
 
-    tft.fillRoundRect(barX, trackY, 3, trackH, 1, uiSurfaceColor());
-    int thumbH = max(8, trackH * _grid.visibleRows / _grid.rows);
+    tft.fillRect(barX, trackY, 2, trackH, uiBorderDimColor());
+    int thumbH = max(10, trackH * _grid.visibleRows / _grid.rows);
     int thumbY = trackY + (trackH - thumbH) * _gridScroll / (_grid.rows - _grid.visibleRows);
-    tft.fillRoundRect(barX, thumbY, 3, thumbH, 1, bruceConfig.priColor);
+    tft.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
 }
 
 /*********************************************************************
