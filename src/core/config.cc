@@ -72,6 +72,7 @@ JsonDocument BruceConfig::toJson() const {
     setting["devMode"] = devMode;
     setting["colorInverted"] = colorInverted;
     setting["mainMenuStyle"] = mainMenuStyle;
+    setting["nezhaThemeStyle"] = nezhaThemeStyle;
 
     setting["badUSBBLEKeyboardLayout"] = badUSBBLEKeyboardLayout;
     setting["badUSBBLEKeyDelay"] = badUSBBLEKeyDelay;
@@ -406,6 +407,11 @@ void BruceConfig::fromFile(bool checkFS) {
         count++;
         log_e("Fail");
     }
+    if (!setting["nezhaThemeStyle"].isNull()) {
+        nezhaThemeStyle = setting["nezhaThemeStyle"].as<int>();
+    } else {
+        nezhaThemeStyle = 1;
+    }
 
     if (!setting["badUSBBLEKeyboardLayout"].isNull()) {
         badUSBBLEKeyboardLayout = setting["badUSBBLEKeyboardLayout"].as<int>();
@@ -505,6 +511,7 @@ void BruceConfig::validateConfig() {
     validateDevModeValue();
     validateColorInverted();
     validateMainMenuStyle();
+    validateNezhaThemeStyle();
     validateBadUSBBLEKeyboardLayout();
     validateBadUSBBLEKeyDelay();
     validateEvilEndpointCreds();
@@ -837,6 +844,16 @@ void BruceConfig::setMainMenuStyle(int value) {
 void BruceConfig::validateMainMenuStyle() {
     if (mainMenuStyle < MAIN_MENU_CAROUSEL || mainMenuStyle >= MAIN_MENU_STYLE_COUNT)
         mainMenuStyle = MAIN_MENU_GRID;
+}
+
+void BruceConfig::setNezhaThemeStyle(int value) {
+    nezhaThemeStyle = value;
+    validateNezhaThemeStyle();
+    saveFile();
+}
+
+void BruceConfig::validateNezhaThemeStyle() {
+    if (nezhaThemeStyle < 0 || nezhaThemeStyle > 3) nezhaThemeStyle = 1;
 }
 
 void BruceConfig::setBadUSBBLEKeyboardLayout(int value) {

@@ -71,7 +71,7 @@ public:
 #ifdef HAS_RGB_LED
     // Led
     int ledBright = 50;
-    uint32_t ledColor = 0x960064;
+    uint32_t ledColor = 0xFF2820; // Nezha Demon Child Crimson
     int ledBlinkEnabled = 1;
     int ledEffect = 0;
     int ledEffectSpeed = 5;
@@ -109,6 +109,7 @@ public:
 
     int colorInverted = DEFAULT_COLOR_INVERTED;
     int mainMenuStyle = MAIN_MENU_GRID;
+    int nezhaThemeStyle = 1; // 0=Minimal, 1=Motong Flame, 2=Lotus Seal, 3=Ice-Fire Twin
     int badUSBBLEKeyboardLayout = 0;
     uint16_t badUSBBLEKeyDelay = 10;
     bool badUSBBLEShowOutput = true;
@@ -220,6 +221,8 @@ public:
     void validateColorInverted();
     void setMainMenuStyle(int value);
     void validateMainMenuStyle();
+    void setNezhaThemeStyle(int value);
+    void validateNezhaThemeStyle();
     void setBadUSBBLEKeyboardLayout(int value);
     void validateBadUSBBLEKeyboardLayout();
     void setBadUSBBLEKeyDelay(uint16_t value);

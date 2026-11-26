@@ -67,9 +67,11 @@ void ConfigMenu::displayUIMenu() {
             {"Brightness",  [this]() { setBrightnessMenu(); }               },
             {"Dim Time",    [this]() { setDimmerTimeMenu(); }               },
             {"Orientation", [this]() { lambdaHelper(gsetRotation, true)(); }},
-            {"Menu Layout", [this]() { setMainMenuStyleMenu(); }            },
-            {"UI Color",    [this]() { setUIColor(); }                      },
-            {"UI Theme",    [this]() { setTheme(); }                        },
+            {"Menu Layout",  [this]() { setMainMenuStyleMenu(); }            },
+            {"Nezha Themes", [this]() { setNezhaThemeGallery(); }            },
+            {"Theme Crest",  [this]() { setNezhaCrestMenu(); }               },
+            {"UI Color",     [this]() { setUIColor(); }                      },
+            {"UI Theme",     [this]() { setTheme(); }                        },
 #if defined(HAS_RESISTIVE_TOUCH)
             {"Calibrate Touch", []() { calibrateTouch(); }                  },
 #endif

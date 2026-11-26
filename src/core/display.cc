@@ -1433,7 +1433,9 @@ struct StatusBarCache {
     bool clockSet = false;
     bool border = false;
     bool isZh = false;
+    uint8_t nezhaStyle = 0xFF;
     uint16_t priColor = 0;
+    uint16_t secColor = 0;
     uint16_t bgColor = 0;
     int16_t w = 0;
     int16_t h = 0;
@@ -1441,6 +1443,28 @@ struct StatusBarCache {
 };
 StatusBarCache s_statusBarCache;
 } // namespace
+
+void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t style) {
+    if (r < 3) r = 3;
+    if (style == 2) {
+        // Lotus Seal (莲花玄印): 3-petal lotus silhouette
+        tft.fillTriangle(cx - r, cy + r / 2, cx - r / 2, cy - r / 2, cx, cy + r / 2, pri);
+        tft.fillTriangle(cx + r, cy + r / 2, cx + r / 2, cy - r / 2, cx, cy + r / 2, pri);
+        tft.fillTriangle(cx - r / 2, cy + r / 2, cx, cy - r, cx + r / 2, cy + r / 2, sec);
+        tft.drawFastHLine(cx - r + 1, cy + r / 2 + 1, (r - 1) * 2 + 1, pri);
+    } else if (style == 3) {
+        // Ice-Fire Twin (冰火双生): split Demon-Orb & Spirit-Pearl diamond
+        tft.fillTriangle(cx, cy - r, cx - r + 1, cy, cx, cy + r, pri);
+        tft.fillTriangle(cx, cy - r, cx + r - 1, cy, cx, cy + r, sec);
+        tft.drawPixel(cx, cy, TFT_WHITE);
+    } else {
+        // Motong Flame (魔童烈焰): iconic Nezha forehead lotus-flame mark
+        tft.fillTriangle(cx, cy - r, cx - r + 1, cy + 1, cx + r - 1, cy + 1, pri);
+        tft.fillTriangle(cx, cy + r, cx - r + 2, cy, cx + r - 2, cy, pri);
+        int ir = max(1, r / 2);
+        tft.fillTriangle(cx, cy - ir, cx - ir, cy + 1, cx + ir, cy + 1, sec);
+    }
+}
 
 void invalidateStatusBarCache() { s_statusBarCache.valid = false; }
 
@@ -1471,11 +1495,14 @@ void drawStatusBar(bool force) {
     }
 
     bool isZh = bruce_i18n::isChinese();
+    uint8_t nStyle = (uint8_t)bruceConfig.nezhaThemeStyle;
     if (!force && s_statusBarCache.valid && s_statusBarCache.bat == bat &&
         s_statusBarCache.charging == charging && s_statusBarCache.iconMask == iconMask &&
         s_statusBarCache.clockSet == clock_set && s_statusBarCache.border == bruceConfig.theme.border &&
-        s_statusBarCache.isZh == isZh &&
-        s_statusBarCache.priColor == bruceConfig.priColor && s_statusBarCache.bgColor == bruceConfig.bgColor &&
+        s_statusBarCache.isZh == isZh && s_statusBarCache.nezhaStyle == nStyle &&
+        s_statusBarCache.priColor == bruceConfig.priColor &&
+        s_statusBarCache.secColor == bruceConfig.secColor &&
+        s_statusBarCache.bgColor == bruceConfig.bgColor &&
         s_statusBarCache.w == tftWidth && s_statusBarCache.h == tftHeight &&
         (!clock_set || strncmp(s_statusBarCache.timeBuf, timeStr, sizeof(s_statusBarCache.timeBuf)) == 0)) {
         return;
@@ -1488,7 +1515,9 @@ void drawStatusBar(bool force) {
     s_statusBarCache.clockSet = clock_set;
     s_statusBarCache.border = bruceConfig.theme.border;
     s_statusBarCache.isZh = isZh;
+    s_statusBarCache.nezhaStyle = nStyle;
     s_statusBarCache.priColor = bruceConfig.priColor;
+    s_statusBarCache.secColor = bruceConfig.secColor;
     s_statusBarCache.bgColor = bruceConfig.bgColor;
     s_statusBarCache.w = tftWidth;
     s_statusBarCache.h = tftHeight;
@@ -1499,26 +1528,41 @@ void drawStatusBar(bool force) {
 
     uint16_t bg = bruceConfig.bgColor;
     uint16_t pri = bruceConfig.priColor;
+    uint16_t sec = bruceConfig.secColor;
     uint16_t barBg = (bg == 0x0000) ? 0x0841 : uiSurfaceColor();
     uint16_t borderDim = uiBorderDimColor();
     uint16_t textBright = uiTextBrightColor();
     int hudH = STATUS_BAR_HEIGHT - 6;
 
-    // Clean minimal hardware status bar with single neutral 1px hairline separator
+    // Clean minimal hardware status bar with optional 哪吒魔童 Hun Tian Ling accent hairline
     tft.fillRect(0, 0, tftWidth, hudH, barBg);
     tft.drawFastHLine(0, hudH, tftWidth, borderDim);
+    if (nStyle > 0) {
+        int accentW = tftWidth / 4;
+        tft.drawFastHLine(0, hudH, accentW, pri);
+        tft.drawFastHLine(accentW, hudH, max(10, accentW / 3), sec);
+    }
 
-    // Left badge: live clock or clean brand wordmark with subtle status dot
+    // Left badge: live clock or Nezha Cyber brand with 哪吒魔童 crest
     if (clock_set) {
+        int cx = 8;
+        if (nStyle > 0) {
+            drawNezhaCrest(10, hudH / 2, 4, pri, sec, nStyle);
+            cx = 18;
+        }
         int badgeY = (hudH - LH * FP) / 2;
-        setTftDisplay(8, badgeY, textBright, FP, barBg);
+        setTftDisplay(cx, badgeY, textBright, FP, barBg);
         tft.print(timeStr);
     } else {
-        tft.fillCircle(10, hudH / 2, 2, pri);
+        if (nStyle > 0) {
+            drawNezhaCrest(10, hudH / 2, 4, pri, sec, nStyle);
+        } else {
+            tft.fillCircle(10, hudH / 2, 2, pri);
+        }
         String brand = bruce_i18n::tr("Nezha Cyber");
         int badgeH = (FP == 1 && bruce_i18n::containsNonAscii(brand)) ? 12 : (LH * FP);
         int badgeY = (hudH - badgeH) / 2;
-        setTftDisplay(17, badgeY, textBright, FP, barBg);
+        setTftDisplay(18, badgeY, textBright, FP, barBg);
         tft.print(brand);
     }
 

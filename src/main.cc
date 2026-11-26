@@ -297,6 +297,7 @@ static int bootSplashBarY() {
 
 void boot_screen() {
     uint16_t pri = bruceConfig.priColor;
+    uint16_t sec = bruceConfig.secColor;
     uint16_t ink = 0xF7BE;
     uint16_t muted = 0x8C71;
     int cx = tftWidth / 2;
@@ -314,34 +315,38 @@ void boot_screen() {
     } else
 #endif
     {
-        // Compact crisp Nezha vector emblem (twin buns + crimson ribbons + Qiankun gold ring + forehead flame)
+        // Compact crisp Nezha Demon Child vector emblem (Qiankun ring + twin buns + forehead flame)
         int cy = (tftHeight < 160) ? 34 : (tftHeight / 2 - 36);
         int r = (tftHeight < 160) ? 16 : 22;
-        tft.drawCircle(cx, cy, r, 0xFD20);
-        tft.drawCircle(cx, cy, r - 1, 0xFD20);
+        tft.drawCircle(cx, cy, r, sec);
+        tft.drawCircle(cx, cy, r - 1, sec);
         tft.fillCircle(cx - r + 2, cy - r + 4, 6, 0x2104);
-        tft.drawCircle(cx - r + 2, cy - r + 4, 6, 0xF8E4);
+        tft.drawCircle(cx - r + 2, cy - r + 4, 6, pri);
         tft.fillCircle(cx + r - 2, cy - r + 4, 6, 0x2104);
-        tft.drawCircle(cx + r - 2, cy - r + 4, 6, 0xF8E4);
-        // Crimson forehead flame mark
-        tft.fillTriangle(cx, cy - 9, cx - 5, cy + 1, cx + 5, cy + 1, 0xF8E4);
-        tft.fillTriangle(cx, cy + 9, cx - 5, cy + 1, cx + 5, cy + 1, 0xF8E4);
-        tft.fillTriangle(cx, cy - 4, cx - 2, cy + 1, cx + 2, cy + 1, 0xFE60);
+        tft.drawCircle(cx + r - 2, cy - r + 4, 6, pri);
+        // Forehead lotus flame mark
+        drawNezhaCrest(cx, cy, (tftHeight < 160) ? 8 : 10, pri, sec, max(1, bruceConfig.nezhaThemeStyle));
         titleY = cy + r + 10;
     }
 
     uiDrawText16(bruce_i18n::tr("Nezha Cyber"), cx, titleY, tftWidth - 16, ink, TFT_BLACK, 1);
 
     tft.setTextSize(FP);
-    tft.setTextColor(muted, TFT_BLACK);
-    String sub = String(BRUCE_VERSION) + "  " + bruce_i18n::tr("CYBER SECURITY SUITE");
-    tft.drawCentreString(sub, cx, titleY + 21, 1);
+    tft.setTextColor(sec, TFT_BLACK);
+    String sub = String(BRUCE_VERSION) + "  " + bruce_i18n::tr("My fate is mine!");
+    if (bruce_i18n::containsNonAscii(sub)) {
+        uiDrawText16(sub, cx, titleY + 18, tftWidth - 16, sec, TFT_BLACK, 1);
+    } else {
+        tft.setTextColor(muted, TFT_BLACK);
+        tft.drawCentreString(sub, cx, titleY + 21, 1);
+    }
 
     int barW = min(160, tftWidth - 56);
     int barY = bootSplashBarY();
     if (barY + 3 < tftHeight) {
         tft.fillRoundRect(cx - barW / 2, barY, barW, 3, 1, 0x2104);
-        tft.fillRoundRect(cx - barW / 2, barY, barW / 5, 3, 1, pri);
+        tft.fillRoundRect(cx - barW / 2, barY, barW / 4, 3, 1, pri);
+        tft.fillRoundRect(cx - barW / 2 + barW / 4 - 2, barY, 10, 3, 1, sec);
     }
 }
 

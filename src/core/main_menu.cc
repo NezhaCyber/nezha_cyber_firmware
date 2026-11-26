@@ -403,6 +403,9 @@ void MainMenu::drawGridCell(int index, bool selected, bool compactTiles) {
         tft.fillRoundRect(cardX, cardY, cardW, cardH, 8, cellBg);
         tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, pri);
         tft.drawRoundRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2, 7, pri);
+        if (bruceConfig.nezhaThemeStyle > 0 && cardW >= 46) {
+            drawNezhaCrest(cardX + cardW - 9, cardY + 9, 3, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
+        }
     }
 
     if (item) {
@@ -869,6 +872,9 @@ void MainMenu::drawSplitPreview(int index, int itemCount, int paneX, int paneY, 
 
     tft.fillRoundRect(paneX, paneY, paneW, paneH, compactScreen ? 7 : 10, surf);
     tft.drawRoundRect(paneX, paneY, paneW, paneH, compactScreen ? 7 : 10, bdim);
+    if (bruceConfig.nezhaThemeStyle > 0) {
+        drawNezhaCrest(paneX + 11, paneY + (compactScreen ? 9 : 12), compactScreen ? 3 : 4, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
+    }
 
     char cnt[12];
     snprintf(cnt, sizeof(cnt), "%d/%d", index + 1, itemCount);

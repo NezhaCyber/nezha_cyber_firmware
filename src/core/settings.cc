@@ -8,6 +8,9 @@
 #include "modules/bjs_interpreter/interpreter.h"
 #endif
 #include "modules/ble_api/ble_api.hpp"
+#if !defined(LITE_VERSION)
+#include "modules/others/audio.h"
+#endif
 #include "modules/others/qrcode_menu.h"
 #include "modules/rf/rf_utils.h" // for initRfModule
 #include "mykeyboard.h"
@@ -358,6 +361,292 @@ void setUIColor() {
         int selectedOption = loopOptions(options, idx);
         if (selectedOption == -1 || selectedOption == options.size() - 1) return;
     }
+}
+
+/*********************************************************************
+**  Function: setNezhaCrestMenu
+**  Choose the 哪吒魔童 UI motif / crest style across HUD & Launcher
+**********************************************************************/
+void setNezhaCrestMenu() {
+    std::vector<Option> crestOptions = {
+        {"Motong Flame",  []() { bruceConfig.setNezhaThemeStyle(1); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 1},
+        {"Lotus Seal",    []() { bruceConfig.setNezhaThemeStyle(2); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 2},
+        {"Ice-Fire Twin", []() { bruceConfig.setNezhaThemeStyle(3); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 3},
+        {"Minimal",       []() { bruceConfig.setNezhaThemeStyle(0); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 0},
+        {"Back",          []() {}                                                                                                  },
+    };
+    int initialIdx = (bruceConfig.nezhaThemeStyle == 0) ? 3 : (bruceConfig.nezhaThemeStyle - 1);
+    loopOptions(crestOptions, MENU_TYPE_SUBMENU, "Theme Crest", initialIdx);
+}
+
+/*********************************************************************
+**  Function: setNezhaThemeGallery
+**  Live interactive 20-pack 哪吒魔童 (Nezha Demon Child) Theme Studio
+**********************************************************************/
+void setNezhaThemeGallery() {
+    int idx = 0;
+    for (int i = 0; i < NEZHA_THEME_COUNT; i++) {
+        if (bruceConfig.priColor == NEZHA_THEME_PACKS[i].priColor &&
+            bruceConfig.secColor == NEZHA_THEME_PACKS[i].secColor &&
+            bruceConfig.bgColor == NEZHA_THEME_PACKS[i].bgColor) {
+            idx = i;
+            break;
+        }
+    }
+
+    const bool compact = (tftHeight < 180);
+#if defined(HAS_TOUCH)
+    bool prevTouchZone = touchZoneOutsideFooterEnabled;
+    touchZoneOutsideFooterEnabled = false;
+#endif
+
+    auto applyPack = [&](int i) {
+        const auto &p = NEZHA_THEME_PACKS[i];
+        uint16_t sec = p.secColor;
+        uint16_t bg = p.bgColor;
+        bruceConfig.removeTheme();
+        bruceConfig.themePath = "";
+        bruceConfig.theme.fs = 0;
+        bruceConfig.nezhaThemeStyle = p.crestStyle;
+        bruceConfig.setUiColor(p.priColor, &sec, &bg);
+#ifdef HAS_RGB_LED
+        bruceConfig.ledColor = p.ledRgb;
+        ledSetup();
+#endif
+        bruceConfig.saveFile();
+        invalidateStatusBarCache();
+#if !defined(LITE_VERSION)
+        if (bruceConfig.soundEnabled) {
+            _tone(780, 40);
+            _tone(1040, 55);
+        }
+#endif
+    };
+
+    auto drawGallery = [&](int i, bool justApplied) {
+        const auto &p = NEZHA_THEME_PACKS[i];
+        uint16_t bg = p.bgColor;
+        uint16_t pri = p.priColor;
+        uint16_t sec = p.secColor;
+        uint16_t surf = (bg == 0x0000) ? 0x10A2 : blendColors(bg, TFT_WHITE, 26);
+        uint16_t brd = blendColors(bg, TFT_WHITE, 64);
+        uint16_t bright = 0xF7BE;
+        uint16_t muted = blendColors(bg, TFT_WHITE, 145);
+        uint16_t onAcc = uiTextOnAccentColor(pri);
+
+        bool isActive = (bruceConfig.priColor == pri && bruceConfig.secColor == sec && bruceConfig.bgColor == bg);
+
+        tft.fillScreen(bg);
+
+        // Top Header Bar
+        int hy = compact ? 0 : (STATUS_BAR_HEIGHT - 3);
+        int hh = compact ? 18 : 21;
+        int tx = 8;
+#if defined(HAS_TOUCH)
+        if (!compact) {
+            int cy = hy + hh / 2;
+            tft.drawLine(16, cy - 4, 11, cy, muted);
+            tft.drawLine(15, cy - 4, 10, cy, muted);
+            tft.drawLine(11, cy, 16, cy + 4, muted);
+            tft.drawLine(10, cy, 15, cy + 4, muted);
+            tx = 24;
+        }
+#endif
+        uiDrawText16(bruce_i18n::tr("Nezha Themes"), tx, hy + (compact ? 1 : 2), tftWidth - tx - 56, bright, bg, 0);
+
+        char cnt[16];
+        snprintf(cnt, sizeof(cnt), "%02d/%02d", i + 1, NEZHA_THEME_COUNT);
+        tft.setTextSize(FP);
+        tft.setTextColor(sec, bg);
+        tft.drawRightString(cnt, tftWidth - 8, hy + (hh - LH * FP) / 2, 1);
+
+        // Hun Tian Ling dual-tone accent underline
+        int lineY = hy + hh + 1;
+        tft.drawFastHLine(6, lineY, tftWidth - 12, brd);
+        tft.drawFastHLine(6, lineY, (tftWidth - 12) / 3, pri);
+        tft.drawFastHLine(6 + (tftWidth - 12) / 3, lineY, 24, sec);
+
+        // Bottom 3-Button Dock geometry
+        int dockH = compact ? 22 : 26;
+        int dockY = tftHeight - dockH - (compact ? 3 : 6);
+
+        // Main Live Preview Card
+        int cardX = compact ? 4 : 8;
+        int cardY = lineY + (compact ? 4 : 7);
+        int cardW = tftWidth - cardX * 2;
+        int cardH = dockY - cardY - (compact ? 4 : 7);
+        tft.fillRoundRect(cardX, cardY, cardW, cardH, compact ? 6 : 8, surf);
+        tft.drawRoundRect(cardX, cardY, cardW, cardH, compact ? 6 : 8, pri);
+
+        // Left: Live 哪吒魔童 Medallion in this theme's exact colors
+        int medW = compact ? 66 : 104;
+        int medX = cardX + (compact ? 4 : 8);
+        int medY = cardY + (compact ? 4 : 8);
+        int medH = cardH - (compact ? 8 : 16);
+        tft.fillRoundRect(medX, medY, medW, medH, 6, bg);
+        tft.drawRoundRect(medX, medY, medW, medH, 6, brd);
+
+        int mx = medX + medW / 2;
+        int my = medY + medH / 2 + (compact ? 2 : 3);
+        int mr = compact ? 17 : 26;
+
+        // Qiankun Ring Halo
+        tft.drawCircle(mx, my, mr, sec);
+        if (!compact) tft.drawCircle(mx, my, mr - 1, blendColors(bg, sec, 180));
+        // Hun Tian Ling Ribbon Arcs
+        tft.drawLine(mx - mr - (compact ? 5 : 9), my + (compact ? 5 : 9), mx - mr + 3, my - 2, pri);
+        tft.drawLine(mx + mr + (compact ? 5 : 9), my + (compact ? 5 : 9), mx + mr - 3, my - 2, pri);
+        tft.drawLine(mx - mr - (compact ? 4 : 8), my + (compact ? 7 : 11), mx - mr + 4, my, sec);
+        tft.drawLine(mx + mr + (compact ? 4 : 8), my + (compact ? 7 : 11), mx + mr - 4, my, sec);
+        // Twin Hair Buns
+        int bunR = compact ? 5 : 7;
+        int bunDx = (mr * 3) / 4;
+        int bunDy = (mr * 3) / 4;
+        tft.fillCircle(mx - bunDx, my - bunDy, bunR, 0x18C4);
+        tft.drawCircle(mx - bunDx, my - bunDy, bunR, pri);
+        tft.fillCircle(mx + bunDx, my - bunDy, bunR, 0x18C4);
+        tft.drawCircle(mx + bunDx, my - bunDy, bunR, pri);
+        // Center 哪吒魔童 Crest
+        drawNezhaCrest(mx, my, compact ? 9 : 13, pri, sec, p.crestStyle);
+
+        // Right: Live Theme Details & Swatches
+        int rx = medX + medW + (compact ? 6 : 10);
+        int rw = cardX + cardW - rx - (compact ? 5 : 8);
+        int ry = medY + (compact ? 1 : 4);
+
+        uiDrawText16(bruce_i18n::tr(p.name), rx, ry, rw, bright, surf, 0);
+        ry += compact ? 17 : 20;
+
+        uiDrawText16(bruce_i18n::tr(p.motto), rx, ry, rw, sec, surf, 0);
+        ry += compact ? 18 : 24;
+
+        // 3 Live Color Swatches (PRI / SEC / BG)
+        int swGap = 4;
+        int swW = (rw - swGap * 2) / 3;
+        int swH = compact ? 14 : 18;
+        uint16_t swCols[3] = {pri, sec, bg};
+        const char *swLbls[3] = {"PRI", "SEC", "BG"};
+        for (int s = 0; s < 3; s++) {
+            int sx = rx + s * (swW + swGap);
+            tft.fillRoundRect(sx, ry, swW, swH, 4, swCols[s]);
+            tft.drawRoundRect(sx, ry, swW, swH, 4, brd);
+            tft.setTextSize(FP);
+            tft.setTextColor(uiTextOnAccentColor(swCols[s]), swCols[s]);
+            tft.drawCentreString(swLbls[s], sx + swW / 2, ry + (swH - LH * FP) / 2, 1);
+        }
+        ry += swH + (compact ? 6 : 10);
+
+        // Live UI Pill + Progress Preview
+        if (!compact) {
+            int barH = 6;
+            tft.fillRoundRect(rx, ry, rw, barH, 3, bg);
+            tft.fillRoundRect(rx + 1, ry + 1, (rw - 2) * 2 / 3, barH - 2, 2, pri);
+            tft.fillRoundRect(rx + 1 + (rw - 2) * 2 / 3 - 4, ry + 1, 10, barH - 2, 2, sec);
+            ry += barH + 10;
+        }
+
+        const char *badgeKey = justApplied ? "Applied!" : (isActive ? "Active" : "Tap Apply");
+        int pillH = compact ? 16 : 20;
+        uint16_t pillFill = (justApplied || isActive) ? pri : bg;
+        uint16_t pillFg = (justApplied || isActive) ? onAcc : muted;
+        tft.fillRoundRect(rx, ry, rw, pillH, 4, pillFill);
+        tft.drawRoundRect(rx, ry, rw, pillH, 4, (justApplied || isActive) ? pri : brd);
+        uiDrawText16(bruce_i18n::tr(badgeKey), rx + 2, ry + (pillH - 16) / 2, rw - 4, pillFg, pillFill, 1);
+
+        // Bottom 3-Button Tactile Dock: < Prev | Apply | Next >
+        int margin = compact ? 4 : 8;
+        int gap = compact ? 4 : 6;
+        int btnW = (tftWidth - margin * 2 - gap * 2) / 3;
+        const char *btnKeys[3] = {"< Prev", "Apply", "Next >"};
+        for (int b = 0; b < 3; b++) {
+            int bx = margin + b * (btnW + gap);
+            bool primary = (b == 1);
+            uint16_t bFill = primary ? pri : surf;
+            uint16_t bFg = primary ? onAcc : bright;
+            uint16_t bBrd = primary ? pri : brd;
+            tft.fillRoundRect(bx, dockY, btnW, dockH, 5, bFill);
+            tft.drawRoundRect(bx, dockY, btnW, dockH, 5, bBrd);
+            uiDrawText16(bruce_i18n::tr(btnKeys[b]), bx + 2, dockY + (dockH - 16) / 2, btnW - 4, bFg, bFill, 1);
+        }
+    };
+
+    bool dirty = true;
+    bool justApplied = false;
+    SelPress = EscPress = PrevPress = NextPress = UpPress = DownPress = false;
+#if defined(HAS_TOUCH)
+    touchPoint.Clear();
+#endif
+
+    while (true) {
+        if (dirty) {
+            drawGallery(idx, justApplied);
+            dirty = false;
+        }
+
+        if (check(EscPress)) break;
+
+        if (check(PrevPress) || check(UpPress)) {
+            idx = (idx + NEZHA_THEME_COUNT - 1) % NEZHA_THEME_COUNT;
+            justApplied = false;
+            dirty = true;
+        }
+        if (check(NextPress) || check(DownPress)) {
+            idx = (idx + 1) % NEZHA_THEME_COUNT;
+            justApplied = false;
+            dirty = true;
+        }
+        if (check(SelPress)) {
+            applyPack(idx);
+            justApplied = true;
+            dirty = true;
+        }
+
+#if defined(HAS_TOUCH)
+        if (touchPoint.pressed) {
+            int tx = touchPoint.x;
+            int ty = touchPoint.y;
+            touchPoint.Clear();
+
+            int hy = compact ? 0 : (STATUS_BAR_HEIGHT - 3);
+            if (!compact && tx < 42 && ty >= hy - 4 && ty <= hy + 26) {
+                break;
+            }
+
+            int dockH = compact ? 22 : 26;
+            int dockY = tftHeight - dockH - (compact ? 3 : 6);
+            if (ty >= dockY - 4) {
+                int third = tftWidth / 3;
+                if (tx < third) {
+                    idx = (idx + NEZHA_THEME_COUNT - 1) % NEZHA_THEME_COUNT;
+                    justApplied = false;
+                    dirty = true;
+                } else if (tx < third * 2) {
+                    applyPack(idx);
+                    justApplied = true;
+                    dirty = true;
+                } else {
+                    idx = (idx + 1) % NEZHA_THEME_COUNT;
+                    justApplied = false;
+                    dirty = true;
+                }
+            } else if (ty > hy + 24) {
+                // Tap preview card directly to Apply
+                applyPack(idx);
+                justApplied = true;
+                dirty = true;
+            }
+        }
+#endif
+        delay(15);
+    }
+
+#if defined(HAS_TOUCH)
+    touchZoneOutsideFooterEnabled = prevTouchZone;
+    touchPoint.Clear();
+#endif
+    SelPress = EscPress = PrevPress = NextPress = UpPress = DownPress = false;
+    tft.fillScreen(bruceConfig.bgColor);
+    invalidateStatusBarCache();
 }
 
 /*********************************************************************
@@ -1890,34 +2179,41 @@ void setBuzzerPinMenu() {
 **  Menu to change Theme
 **********************************************************************/
 void setTheme() {
-    FS *fs = &LittleFS;
+    FS *fs = nullptr;
     options = {
+        {"Nezha Themes",
+         [&]() {
+             setNezhaThemeGallery();
+             fs = nullptr;
+         }                                     },
         {"Little FS", [&]() { fs = &LittleFS; }},
         {"Default",
          [&]() {
              bruceConfig.removeTheme();
              bruceConfig.themePath = "";
              bruceConfig.theme.fs = 0;
-             bruceConfig.secColor = DEFAULT_SECCOLOR;
-             bruceConfig.bgColor = TFT_BLACK;
-             bruceConfig.setUiColor(DEFAULT_PRICOLOR);
+             bruceConfig.nezhaThemeStyle = 1;
+             uint16_t sec = DEFAULT_SECCOLOR;
+             uint16_t bg = TFT_BLACK;
+             bruceConfig.setUiColor(DEFAULT_PRICOLOR, &sec, &bg);
 #ifdef HAS_RGB_LED
              bruceConfig.ledBright = 50;
-             bruceConfig.ledColor = 0x960064;
+             bruceConfig.ledColor = 0xFF2820;
              bruceConfig.ledEffect = 0;
              bruceConfig.ledEffectSpeed = 5;
              bruceConfig.ledEffectDirection = 1;
              ledSetup();
 #endif
              bruceConfig.saveFile();
+             invalidateStatusBarCache();
              fs = nullptr;
          }                                     },
         {"Main Menu", [&]() { fs = nullptr; }  }
     };
     if (setupSdCard()) {
-        options.insert(options.begin(), {"SD Card", [&]() { fs = &SD; }});
+        options.insert(options.begin() + 1, {"SD Card", [&]() { fs = &SD; }});
     }
-    loopOptions(options);
+    loopOptions(options, MENU_TYPE_SUBMENU, "UI Theme");
     if (fs == nullptr) return;
 
     String filepath = loopSD(*fs, true, "JSON");
