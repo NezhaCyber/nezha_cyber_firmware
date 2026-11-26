@@ -1373,11 +1373,11 @@ void setGpsBaudrateMenu() {
 **  Handles Menu to set the WiFi AP SSID
 **********************************************************************/
 void setWifiApSsidMenu() {
-    const bool isDefault = bruceConfig.wifiAp.ssid == "BruceNet";
+    const bool isDefault = bruceConfig.wifiAp.ssid == "NezhaNet";
 
     options = {
-        {"Default (BruceNet)",
-         [=]() { bruceConfig.setWifiApCreds("BruceNet", bruceConfig.wifiAp.pwd); },
+        {"Default (NezhaNet)",
+         [=]() { bruceConfig.setWifiApCreds("NezhaNet", bruceConfig.wifiAp.pwd); },
          isDefault                                                                            },
         {"Custom",
          [=]() {
@@ -1398,11 +1398,11 @@ void setWifiApSsidMenu() {
 **  Handles Menu to set the WiFi AP Password
 **********************************************************************/
 void setWifiApPasswordMenu() {
-    const bool isDefault = bruceConfig.wifiAp.pwd == "brucenet";
+    const bool isDefault = bruceConfig.wifiAp.pwd == "nezhanet";
 
     options = {
-        {"Default (brucenet)",
-         [=]() { bruceConfig.setWifiApCreds(bruceConfig.wifiAp.ssid, "brucenet"); },
+        {"Default (nezhanet)",
+         [=]() { bruceConfig.setWifiApCreds(bruceConfig.wifiAp.ssid, "nezhanet"); },
          isDefault                                                                             },
         {"Custom",
          [=]() {
@@ -1912,7 +1912,7 @@ void enableBLEAPI() {
     // looks like it does nothing and gets pressed repeatedly (which cycles the
     // BLE stack setup/teardown and can corrupt the GATT table).
     if (ble_api_enabled) {
-        displayInfo("BLE API ON > Advertising as 'Bruce'", true);
+        displayInfo("BLE API ON > Advertising as 'Nezha Cyber'", true);
     } else {
         displayInfo("BLE API OFF", true);
     }

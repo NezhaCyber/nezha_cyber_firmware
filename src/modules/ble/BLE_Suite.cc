@@ -362,7 +362,7 @@ void BLEAttackManager::prepareForConnection() {
         delay(300);
     }
 
-    BLEStateManager::initBLE("Bruce-Attack", ESP_PWR_LVL_P9);
+    BLEStateManager::initBLE("Nezha-Attack", ESP_PWR_LVL_P9);
     NimBLEDevice::setMTU(250);
     NimBLEDevice::setSecurityAuth(true, true, true);
     delay(300);
@@ -490,7 +490,7 @@ NimBLEClient *attemptConnectionWithStrategies(NimBLEAddress target, String &conn
     showAttackProgress("Trying exploit-based connection...", TFT_ORANGE);
     BLEStateManager::deinitBLE(true);
     delay(800);
-    std::string exploitName = "Bruce-Exploit";
+    std::string exploitName = "Nezha-Exploit";
     NimBLEDevice::init(exploitName);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
     NimBLEDevice::setSecurityAuth(false, false, false);
@@ -2380,7 +2380,7 @@ MultiConnectionAttack::~MultiConnectionAttack() { cleanup(); }
 bool MultiConnectionAttack::connectionFloodSingle(NimBLEAddress target, int timeout) {
     BLEStateManager::deinitBLE(true);
     delay(100);
-    std::string floodName = "Bruce-Flooder";
+    std::string floodName = "Nezha-Flooder";
     NimBLEDevice::init(floodName);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
@@ -2429,16 +2429,16 @@ bool MultiConnectionAttack::connectionFlood(std::vector<NimBLEAddress> targets, 
 bool MultiConnectionAttack::advertisingSpamSingle(NimBLEAddress target) {
     BLEStateManager::deinitBLE(true);
     delay(300);
-    std::string spamName = "Bruce-Spammer";
+    std::string spamName = "Nezha-Spammer";
     NimBLEDevice::init(spamName);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
     NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
     if (!pAdvertising) return false;
 
-    uint8_t bruceData[] = {0xFF, 0xFF, 'B', 'R', 'U', 'C', 'E'};
+    uint8_t bruceData[] = {0xFF, 0xFF, 'N', 'E', 'Z', 'H', 'A'};
     pAdvertising->setManufacturerData(bruceData, sizeof(bruceData));
-    pAdvertising->setName("Bruce-Spammer");
+    pAdvertising->setName("Nezha-Spammer");
     pAdvertising->addServiceUUID(NimBLEUUID("12345678-1234-5678-1234-567812345678"));
 
     pAdvertising->start(0);
@@ -2844,7 +2844,7 @@ bool PairingAttackServiceClass::bruteForcePIN(NimBLEAddress target) {
 
         BLEStateManager::deinitBLE(true);
         delay(300);
-        std::string pinName = "Bruce-PINBrute";
+        std::string pinName = "Nezha-PINBrute";
         NimBLEDevice::init(pinName);
         NimBLEDevice::setSecurityAuth(true, true, true);
         NimBLEDevice::setPower(ESP_PWR_LVL_P9);
@@ -2901,7 +2901,7 @@ bool DoSAttackServiceClass::connectionFlood(NimBLEAddress target) {
 
         BLEStateManager::deinitBLE(true);
         delay(100);
-        std::string floodName = "Bruce-Flooder";
+        std::string floodName = "Nezha-Flooder";
         NimBLEDevice::init(floodName);
         NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
@@ -2931,7 +2931,7 @@ bool DoSAttackServiceClass::advertisingSpam(NimBLEAddress target) {
 
     BLEStateManager::deinitBLE(true);
     delay(300);
-    std::string spamName = "Bruce-Spammer";
+    std::string spamName = "Nezha-Spammer";
     NimBLEDevice::init(spamName);
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
@@ -2943,7 +2943,7 @@ bool DoSAttackServiceClass::advertisingSpam(NimBLEAddress target) {
 
     uint8_t spamData[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     pAdvertising->setManufacturerData(spamData, sizeof(spamData));
-    pAdvertising->setName("Bruce-Spammer");
+    pAdvertising->setName("Nezha-Spammer");
     pAdvertising->addServiceUUID(NimBLEUUID("12345678-1234-5678-1234-567812345678"));
 
     const int SPAM_DURATION = 10000;
@@ -3908,7 +3908,7 @@ static String parseManufacturerData(const std::vector<uint8_t> &payload) {
 
 void BLE_Sniffer() {
     // FIX: Always init - handles case where stack was deinit'd by another module
-    BLEStateManager::initBLE("BruceSniffer", ESP_PWR_LVL_P9);
+    BLEStateManager::initBLE("NezhaSniffer", ESP_PWR_LVL_P9);
     NimBLEScan *pScan = nullptr;
     bool firstRun = true;
     bool redraw = true;
@@ -3935,7 +3935,7 @@ void BLE_Sniffer() {
         bool isSelPressed = check(SelPress);
         if (isSelPressed && snifferPacketCount == 0) {
             if (firstRun) {
-                BLEStateManager::initBLE("BruceSniffer", ESP_PWR_LVL_P9);
+                BLEStateManager::initBLE("NezhaSniffer", ESP_PWR_LVL_P9);
                 pScan = NimBLEDevice::getScan();
                 if (!pScan) {
                     displayError("Failed to init scanner");
@@ -4186,7 +4186,7 @@ String selectTargetFromScan(const char *title) {
 #endif
 
     // FIX: Always call initBLE - it handles the case where stack was deinit'd
-    if (!BLEStateManager::initBLE("Bruce-Scanner", ESP_PWR_LVL_P9)) {
+    if (!BLEStateManager::initBLE("Nezha-Scanner", ESP_PWR_LVL_P9)) {
         displayError("Failed to init BLE");
         return "";
     }
@@ -4820,7 +4820,7 @@ void showWelcomeScreen() {
 
 void BleSuiteMenu() {
     // FIX: Init BLE stack ONCE when entering the suite
-    BLEStateManager::initBLE("Bruce-BLESuite", ESP_PWR_LVL_P9);
+    BLEStateManager::initBLE("Nezha-BLESuite", ESP_PWR_LVL_P9);
 
     // Clear data when entering the menu
     scannerData.clear();
@@ -4895,7 +4895,7 @@ const char *getScanTitle(int attackIndex) {
 
 void executeAttackWithTargetScan(int attackIndex) {
     // FIX: Ensure BLE is initialized for the attack
-    BLEStateManager::initBLE("Bruce-Attack", ESP_PWR_LVL_P9);
+    BLEStateManager::initBLE("Nezha-Attack", ESP_PWR_LVL_P9);
 
     String targetInfo = selectTargetFromScan(getScanTitle(attackIndex));
     if (targetInfo.isEmpty()) return;

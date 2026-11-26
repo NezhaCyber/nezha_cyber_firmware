@@ -26,7 +26,7 @@ const int default_webserverporthttp = 80;
 IPAddress AP_GATEWAY(172, 0, 0, 1); // Gateway
 
 AsyncWebServer *server = nullptr; // initialise webserver
-const char *host = "bruce";
+const char *host = "nezha";
 String uploadFolder = "";
 static bool mdnsRunning = false;
 
@@ -267,7 +267,7 @@ void handleUpload(
     }
 }
 
-void notFound(AsyncWebServerRequest *request) { request->send(404, "text/plain", "Nothing in here Sharky"); }
+void notFound(AsyncWebServerRequest *request) { request->send(404, "text/plain", "404 - Nezha Cyber"); }
 
 /**********************************************************************
 **  Function: drawWebUiScreen
@@ -288,12 +288,12 @@ void drawWebUiScreen(bool mode_ap) {
 
     if (mode_ap) {
         tft.setCursor(padX, currentY);
-        tft.print("Net: BruceNet/brucenet");
+        tft.print("Net: " + bruceConfig.wifiAp.ssid + "/" + bruceConfig.wifiAp.pwd);
         currentY += LH * FP + 6;
     }
 
     tft.setCursor(padX, currentY);
-    if (mdnsRunning) tft.print("Url: http://bruce.local");
+    if (mdnsRunning) tft.print("Url: http://nezha.local");
     currentY += LH * FP + 6;
 
     tft.setCursor(padX, currentY);

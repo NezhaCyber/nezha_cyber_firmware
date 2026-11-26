@@ -450,7 +450,7 @@ void wifi_port_scanner() {
             String banner = "";
             if (kPorts[i].isHttp) {
                 client.print(
-                    "GET / HTTP/1.0\r\nHost: " + targetIp + "\r\nUser-Agent: BruceAudit/1.0\r\n\r\n"
+                    "GET / HTTP/1.0\r\nHost: " + targetIp + "\r\nUser-Agent: NezhaAudit/1.0\r\n\r\n"
                 );
             }
             uint32_t t0 = millis();

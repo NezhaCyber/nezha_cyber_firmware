@@ -280,7 +280,7 @@ void loadFacesAndNames() {
         faces[i++] = "♬♪♬♪♬♪♬";
         faces[i++] = "(X‿‿X)";
         faces[i++] = "(u W u)";
-        faces[i++] = "(BRUCE)";
+        faces[i++] = "(NEZHA)";
         faces[i++] = "(.)(.)";
         faces[i++] = "ლ(o_oლ)";
         faces[i++] = "(O﹏o)";
@@ -291,15 +291,15 @@ void loadFacesAndNames() {
         faces[i++] = "NOPWND!\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■";
         num_faces = i;
         i = 0;
-        names[i++] = "my name is... BRUCE!";
-        names[i++] = "Check M5 Bruce Project";
+        names[i++] = "my name is... NEZHA!";
+        names[i++] = "Nezha Cyber Project";
         names[i++] = "┌∩┐(◣_◢)┌∩┐";
         names[i++] = "(╯°□°)╯╭╮(XoX)";
         names[i++] = "STOP DEAUTH SKIDZ!";
         names[i++] = "System Breached oups";
         names[i++] = "Unauthorized  Access";
         names[i++] = "Security  Compromised.. reboot";
-        names[i++] = "Warning...Bruce's here";
+        names[i++] = "Warning...Nezha's here";
         names[i++] = "Critical Error need reboot";
         names[i++] = "No more Battery";
         names[i++] = "Never gonna give you up";

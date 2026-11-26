@@ -208,7 +208,7 @@ static String lookupVar(const ShellState &st, const String &name) {
     if (name == "?") return String(st.lastStatus);
     if (name == "PWD") return (st.useSd ? "/sd" : "/fs") + (st.cwd == "/" ? String("") : st.cwd);
     if (name == "FS") return st.useSd ? "sd" : "littlefs";
-    if (name == "USER") return "bruce";
+    if (name == "USER") return "nezha";
     if (name == "HOST") return String(DEVICE_NAME);
     auto it = st.vars.find(name);
     if (it != st.vars.end()) return it->second;
@@ -859,7 +859,7 @@ static int execSingleCommand(ShellState &st, const String &rawStmt, int depth) {
         st.emitLine("Shell: echo sh bash env unset history");
         st.emitLine("       sleep clear exit  (> >> ; $VAR)");
         st.emitLine("Sys:   free df ip uptime uname date");
-        st.emitLine("       reboot  + any Bruce CLI cmd");
+        st.emitLine("       reboot  + any Nezha CLI cmd");
         st.emitLine("Paths: /sd/... (SD)  /fs/... (LittleFS)");
     } else if (cmd == "exit" || cmd == "quit") {
         st.exitRequested = true;
@@ -993,7 +993,7 @@ static int execSingleCommand(ShellState &st, const String &rawStmt, int depth) {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     } else if (cmd == "env") {
-        st.emitLine("USER=bruce");
+        st.emitLine("USER=nezha");
         st.emitLine("HOST=" + String(DEVICE_NAME));
         st.emitLine("PWD=" + lookupVar(st, "PWD"));
         st.emitLine("FS=" + lookupVar(st, "FS"));

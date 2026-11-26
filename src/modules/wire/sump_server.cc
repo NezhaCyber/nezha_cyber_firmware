@@ -90,7 +90,7 @@ static void sump_write32(Stream &port, uint32_t v) {
 
 static void sump_send_metadata(Stream &port, uint8_t probes) {
     port.write((uint8_t)0x01); // device name
-    port.print("Bruce Logic Analyzer");
+    port.print("Nezha Logic Analyzer");
     port.write((uint8_t)0x00);
     port.write((uint8_t)0x02); // firmware version
     port.print("1.0");
