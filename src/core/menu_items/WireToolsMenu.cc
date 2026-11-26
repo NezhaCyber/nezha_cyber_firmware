@@ -4,6 +4,7 @@
 #include "core/display.h"
 #include "core/utils.h"
 #include "modules/wire/wire_tools.h"
+#include "modules/others/flipper_tools.h"
 
 void WireToolsMenu::optionsMenu() {
     options = {
@@ -12,6 +13,9 @@ void WireToolsMenu::optionsMenu() {
         {"SPI Bus",         []() { spi_bus_setup(); }        },
         {"JTAG Scanner",    []() { jtag_scan_setup(); }      },
         {"Multimeter",      []() { continuity_tester_setup();}},
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+        {"GPIO Control",    []() { flipper_gpio_control(); }  },
+#endif
         // TODO(logic-analyzer): feature-complete (logic_analyzer.cc + sump_server.cc) but held
         // back from this release; re-enable by restoring this entry and the
         // createWireLaCommand() registration in wire_commands.cc:

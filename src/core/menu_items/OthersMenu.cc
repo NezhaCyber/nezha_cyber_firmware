@@ -5,6 +5,7 @@
 #include "modules/badusb_ble/ducky_typer.h"
 #include "modules/bjs_interpreter/interpreter.h"
 #include "modules/others/clicker.h"
+#include "modules/others/flipper_tools.h"
 #include "modules/others/ibutton.h"
 #include "modules/others/mic.h"
 #include "modules/others/qrcode_menu.h"
@@ -27,6 +28,9 @@ void OthersMenu::optionsMenu() {
         {"BadUSB & HID", [this]() { badUsbHidMenu(); }},
 #endif
 
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
+        {"Flipper Tools",  flipper_tools_menu         },
+#endif
 #ifndef LITE_VERSION
         {"Terminal",       shell_terminal_setup         },
         {"iButton",        setup_ibutton                },
