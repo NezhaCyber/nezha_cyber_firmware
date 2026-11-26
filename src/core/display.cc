@@ -267,110 +267,149 @@ void displayRedStripe(const String &text, uint16_t fgcolor, uint16_t bgcolor) {
 void drawButton(
     int32_t x, int32_t y, int32_t w, int32_t h, uint32_t color, const char *text, bool inverted = false
 ) {
-    if (inverted) {
-        tft.fillRoundRect(x, y, w, h, 5, color);
-    } else {
-        tft.fillRoundRect(x, y, w, h, 5, TFT_BLACK);
-        tft.drawRoundRect(x, y, w, h, 5, color);
+    uint16_t accent = static_cast<uint16_t>(color);
+    uint16_t fillCol = inverted ? accent : uiSurfaceHiColor();
+    uint16_t fgCol = inverted ? uiTextOnAccentColor(accent) : uiTextBrightColor();
+
+    tft.fillRoundRect(x, y, w, h, 6, fillCol);
+    if (!inverted) {
+        tft.drawRoundRect(x, y, w, h, 6, uiBorderDimColor());
     }
-    tft.setTextColor(inverted ? TFT_BLACK : color);
-    tft.drawString(bruce_i18n::tr(text), x + w / 2, y + h);
+
+    String label = bruce_i18n::tr(text);
+    if (h >= 20) {
+        uiDrawText16(label, x + w / 2, y + (h - 16) / 2, w - 8, fgCol, fillCol, 1);
+    } else {
+        uint8_t oldDatum = tft.getTextDatum();
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextSize(FP);
+        tft.setTextColor(fgCol, fillCol);
+        int th = (FP == 1 && bruce_i18n::containsNonAscii(label)) ? 12 : (LH * FP);
+        tft.drawCentreString(bruce_i18n::utf8TruncateToWidth(label, w - 6, FP), x + w / 2, y + (h - th) / 2, 1);
+        tft.setTextDatum(oldDatum);
+    }
 }
 
 int8_t displayMessage(
     const char *message, const char *leftButton, const char *centerButton, const char *rightButton,
     uint16_t color
 ) {
-
     uint8_t oldTextDatum = tft.getTextDatum();
+    bool prevTouchZone = touchZoneOutsideFooterEnabled;
+#if defined(HAS_TOUCH)
+    touchZoneOutsideFooterEnabled = false;
+#endif
 
-    tft.setTextColor(color);
-    tft.setTextSize(FM);
-    tft.setTextDatum(TC_DATUM);
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 16;
+    int cardW = tftWidth - 2 * cardX;
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bright = uiTextBrightColor();
+    uint16_t bdim = uiBorderDimColor();
 
-    // Handle newline characters in message
     String msg = bruce_i18n::tr(String(message));
-    int y = tftHeight / 2 - 20;
+    std::vector<String> lines;
     int start = 0;
-    int end = msg.indexOf('\n');
-
-    while (end != -1) {
-        tft.drawString(msg.substring(start, end), tftWidth / 2, y);
-        y += FM * LH;
+    while (start <= (int)msg.length()) {
+        int end = msg.indexOf('\n', start);
+        if (end == -1) {
+            lines.push_back(msg.substring(start));
+            break;
+        }
+        lines.push_back(msg.substring(start, end));
         start = end + 1;
-        end = msg.indexOf('\n', start);
     }
-    tft.drawString(msg.substring(start), tftWidth / 2, y);
 
-    tft.setTextDatum(BC_DATUM);
-    int16_t buttonHeight = LH * FM + 4;
-    int16_t buttonY = tftHeight - buttonHeight - BORDER_OFFSET_FROM_SCREEN_EDGE;
-    int16_t buttonWidth = tftWidth / 3 - BORDER_PAD_X;
+    int lineH = compact ? 14 : 20;
+    int btnH = compact ? 20 : 26;
+    int padTop = compact ? 10 : 14;
+    int padGap = compact ? 8 : 14;
+    int padBot = compact ? 8 : 12;
+    int cardH = padTop + (int)lines.size() * lineH + padGap + btnH + padBot;
+    int maxCardH = tftHeight - STATUS_BAR_HEIGHT - 8;
+    if (cardH > maxCardH) cardH = maxCardH;
+    int cardY = max((int)STATUS_BAR_HEIGHT, (tftHeight - cardH) / 2);
 
-    int8_t totalButtons = (leftButton ? 1 : 0) + (centerButton ? 1 : 0) + (rightButton ? 1 : 0);
-    int8_t selected = 0; // Start at first available button
+    tft.fillRoundRect(cardX, cardY, cardW, cardH, 8, surf);
+    tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, bdim);
+
+    int textY = cardY + padTop;
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (!compact) {
+            uiDrawText16(lines[i], cardX + cardW / 2, textY, cardW - 20, bright, surf, 1);
+        } else {
+            tft.setTextDatum(TL_DATUM);
+            tft.setTextSize(FP);
+            tft.setTextColor(bright, surf);
+            tft.drawCentreString(bruce_i18n::utf8TruncateToWidth(lines[i], cardW - 14, FP), cardX + cardW / 2, textY, 1);
+        }
+        textY += lineH;
+    }
+
+    const char *btnLabels[3];
+    int8_t totalButtons = 0;
+    if (leftButton) btnLabels[totalButtons++] = leftButton;
+    if (centerButton) btnLabels[totalButtons++] = centerButton;
+    if (rightButton) btnLabels[totalButtons++] = rightButton;
+    if (totalButtons == 0) {
+        tft.setTextDatum(oldTextDatum);
+        touchZoneOutsideFooterEnabled = prevTouchZone;
+        return 0;
+    }
+
+    int btnGap = 8;
+    int innerW = cardW - 20;
+    int btnW = (innerW - btnGap * (totalButtons - 1)) / totalButtons;
+    int btnY = cardY + cardH - btnH - padBot;
+    int btnX0 = cardX + 10;
+
+    int8_t selected = 0;
     bool redraw = true;
 
     while (true) {
-        if (check(PrevPress) || check(UpPress) || check(EscPress)) {
-            selected = (selected - 1 + totalButtons) % totalButtons; // Cycle backward
+#if defined(HAS_TOUCH)
+        if (touchPoint.pressed) {
+            int tx = touchPoint.x;
+            int ty = touchPoint.y;
+            touchPoint.pressed = false;
+            if (ty >= btnY - 4 && ty <= btnY + btnH + 4) {
+                for (int8_t i = 0; i < totalButtons; i++) {
+                    int bx = btnX0 + i * (btnW + btnGap);
+                    if (tx >= bx && tx < bx + btnW) {
+                        selected = i;
+                        SelPress = true;
+                        break;
+                    }
+                }
+            }
+        }
+#endif
+        if (check(PrevPress) || check(UpPress)) {
+            selected = (selected - 1 + totalButtons) % totalButtons;
             redraw = true;
         }
         if (check(NextPress) || check(DownPress)) {
-            selected = (selected + 1) % totalButtons; // Cycle forward
+            selected = (selected + 1) % totalButtons;
             redraw = true;
+        }
+        if (check(EscPress)) {
+            selected = totalButtons - 1;
+            break;
         }
         if (check(SelPress)) { break; }
 
-        // Draw buttons with selection highlighting
-        int8_t index = 0;
-
         if (redraw) {
-            if (leftButton) {
-                drawButton(
-                    BORDER_OFFSET_FROM_SCREEN_EDGE,
-                    buttonY,
-                    buttonWidth,
-                    buttonHeight,
-                    color,
-                    leftButton,
-                    selected == index
-                );
-                index++;
-            }
-
-            if (centerButton) {
-                drawButton(
-                    tftWidth / 3 + BORDER_OFFSET_FROM_SCREEN_EDGE,
-                    buttonY,
-                    buttonWidth,
-                    buttonHeight,
-                    color,
-                    centerButton,
-                    selected == index
-                );
-                index++;
-            }
-
-            if (rightButton) {
-                drawButton(
-                    tftWidth * 2 / 3 + BORDER_OFFSET_FROM_SCREEN_EDGE,
-                    buttonY,
-                    buttonWidth,
-                    buttonHeight,
-                    color,
-                    rightButton,
-                    selected == index
-                );
+            for (int8_t i = 0; i < totalButtons; i++) {
+                int bx = btnX0 + i * (btnW + btnGap);
+                drawButton(bx, btnY, btnW, btnH, color, btnLabels[i], selected == i);
             }
             redraw = false;
         }
-
         delay(10);
     }
 
     tft.setTextDatum(oldTextDatum);
-
+    touchZoneOutsideFooterEnabled = prevTouchZone;
     return selected;
 }
 
@@ -1557,49 +1596,53 @@ void drawMainBorderWithTitle(const String &title, bool clear) {
 
 void printTitle(const String &title) {
     String t = bruce_i18n::tr(title);
-    if (!bruce_i18n::containsNonAscii(t)) t.toUpperCase();
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    uint16_t bg = bruceConfig.bgColor;
+    int maxW = tftWidth - 2 * BORDER_PAD_X;
+    bool compact = (tftHeight < 160);
 
-    // Scale down title font if it doesn't fit the screen width
-    int titleSize = FM;
-    while (titleSize > FP && bruce_i18n::utf8PixelWidth(t, titleSize) > tftWidth - 2 * BORDER_PAD_X) {
-        titleSize--;
+    tft.fillRect(0, BORDER_PAD_Y - 1, tftWidth, 21, bg);
+    if (!compact) {
+        uiDrawText16(t, tftWidth / 2, BORDER_PAD_Y, maxW, uiTextBrightColor(), bg, 1);
+    } else {
+        int th = (FP == 1 && bruce_i18n::containsNonAscii(t)) ? 12 : (LH * FP);
+        tft.setTextSize(FP);
+        tft.setTextColor(uiTextBrightColor(), bg);
+        tft.drawCentreString(
+            bruce_i18n::utf8TruncateToWidth(t, maxW, FP), tftWidth / 2, BORDER_PAD_Y + (16 - th) / 2, 1
+        );
     }
+    tft.drawFastHLine(8, BORDER_PAD_Y + 18, tftWidth - 16, uiBorderDimColor());
 
-    int16_t tw = bruce_i18n::utf8PixelWidth(t, titleSize);
-    tft.setTextSize(titleSize);
-    tft.setCursor((tftWidth - tw) / 2, BORDER_PAD_Y);
-    tft.println(t);
-
+    tft.setTextColor(bruceConfig.priColor, bg);
     tft.setTextSize(FP);
+    tft.setCursor(BORDER_PAD_X, BORDER_PAD_Y + 21);
 }
 
 void printSubtitle(const String &subtitle, bool withLine) {
     String sub = bruce_i18n::tr(subtitle);
-    int16_t subW = bruce_i18n::utf8PixelWidth(sub, FP);
-    int16_t cursorX = (tftWidth - subW) / 2;
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    uint16_t bg = bruceConfig.bgColor;
+    int y = BORDER_PAD_Y + 21;
+    int maxW = tftWidth - 2 * BORDER_PAD_X;
+    tft.setTextColor(uiTextMutedColor(), bg);
     tft.setTextSize(FP);
+    tft.drawCentreString(bruce_i18n::utf8TruncateToWidth(sub, maxW, FP), tftWidth / 2, y, 1);
 
-    tft.setCursor(cursorX, BORDER_PAD_Y + FM * LH);
-    tft.println(sub);
-
+    int nextY = y + ((FP == 1 && bruce_i18n::containsNonAscii(sub)) ? 13 : (LH * FP + 2));
     if (withLine) {
-        int dashCount = subW / (FP * LW);
-        if (dashCount < 1) dashCount = 1;
-        String line = "";
-        for (int i = 0; i < dashCount; i++) line += "-";
-
-        tft.setCursor(cursorX, tft.getCursorY());
-        tft.println(line);
+        tft.drawFastHLine(24, nextY, tftWidth - 48, uiBorderDimColor());
+        nextY += 4;
     }
+    tft.setTextColor(bruceConfig.priColor, bg);
+    tft.setCursor(BORDER_PAD_X, nextY);
 }
 
 void printFootnote(const String &text) {
     String trText = bruce_i18n::tr(text);
     int fh = (FP == 1 && bruce_i18n::containsNonAscii(trText)) ? 12 : (FP * LH);
     tft.setTextSize(FP);
-    tft.drawRightString(trText, tftWidth - BORDER_PAD_X, tftHeight - BORDER_PAD_X - fh, SMOOTH_FONT);
+    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
+    tft.drawRightString(trText, tftWidth - BORDER_PAD_X, tftHeight - BORDER_PAD_X - fh, 1);
+    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
 }
 
 void printCenterFootnote(const String &text) {
@@ -1613,7 +1656,9 @@ void printCenterFootnote(const String &text) {
         bruceConfig.bgColor
     );
     tft.setTextSize(FP);
-    tft.drawCentreString(trText, tftWidth / 2, tftHeight - BORDER_PAD_X - fh, SMOOTH_FONT);
+    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
+    tft.drawCentreString(trText, tftWidth / 2, tftHeight - BORDER_PAD_X - fh, 1);
+    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
 }
 
 void drawBatteryStatus(uint8_t bat) {

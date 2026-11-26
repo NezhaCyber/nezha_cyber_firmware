@@ -31,25 +31,25 @@ ScrollableTextArea::~ScrollableTextArea() {
 }
 
 void ScrollableTextArea::setup() {
-    _scrollBuffer.setTextColor(bruceConfig.priColor);
+    _scrollBuffer.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
     _scrollBuffer.setTextSize(_fontSize);
     _scrollBuffer.fillRect(_startX, _startY, _width, _height, bruceConfig.bgColor);
 
-    _maxCharactersPerLine = floor(_width / _scrollBuffer.textWidth("w", _fontSize));
-    _pixelsPerLine = (_fontSize == 1 && bruce_i18n::isChinese()) ? 14 : (_scrollBuffer.fontHeight() + 2);
-    _maxVisibleLines = floor(_height / _pixelsPerLine);
+    int32_t textW = max((int32_t)16, _width - 6); // reserve slim 2px right-edge scrollbar gutter
+    _maxCharactersPerLine = max(1, (int)floor(textW / _scrollBuffer.textWidth("w", _fontSize)));
+    _pixelsPerLine = (_fontSize == 1 && bruce_i18n::isChinese()) ? 14 : (_scrollBuffer.fontHeight() + 3);
+    _maxVisibleLines = max(1, (int)floor(_height / _pixelsPerLine));
 }
 
 void ScrollableTextArea::scrollUp() {
-    if (firstVisibleLine) {
+    if (firstVisibleLine > 0) {
         firstVisibleLine--;
         _redraw = true;
     }
 }
 
 void ScrollableTextArea::scrollDown() {
-    if (firstVisibleLine + _maxVisibleLines <= linesBuffer.size()) {
-        if (firstVisibleLine == 0) firstVisibleLine++;
+    if (firstVisibleLine + _maxVisibleLines < linesBuffer.size()) {
         firstVisibleLine++;
         _redraw = true;
     }
@@ -75,11 +75,11 @@ size_t ScrollableTextArea::getMaxLines() { return linesBuffer.size(); }
 void ScrollableTextArea::show(bool force) {
     draw(force);
 
-    while (check(SelPress)) {
+    while (check(SelPress) || check(EscPress)) {
         update();
         yield();
     }
-    while (!check(SelPress)) {
+    while (!check(SelPress) && !check(EscPress)) {
         update();
         yield();
     }
@@ -203,48 +203,53 @@ void ScrollableTextArea::addLine(const String &text) {
 void ScrollableTextArea::draw(bool force) {
     if (!_redraw && !force) return;
 
-    // Paint opaque rows instead of blanking the whole view before
-    // every scroll. Idle views are drawn once, including show(true) callers.
-    _scrollBuffer.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    uint16_t bg = bruceConfig.bgColor;
+    uint16_t pri = bruceConfig.priColor;
+    uint16_t bodyCol = blendColors(bg, uiTextBrightColor(), 220);
+    bool hasScroll = linesBuffer.size() > _maxVisibleLines;
+    int32_t textW = hasScroll ? max((int32_t)16, _width - 6) : _width;
+
     uint8_t _fSize = tft.getTextSize();
     uint8_t oldDatum = tft.getTextDatum();
     tft.setTextSize(_fontSize);
     tft.setTextDatum(TL_DATUM);
+
     auto drawRow = [&](const String &text, int32_t y) {
+        bool isHeading = text.length() >= 3 && text[0] == '[' && text[text.length() - 1] == ']';
+        _scrollBuffer.setTextColor(isHeading ? pri : bodyCol, bg);
         int32_t width = _scrollBuffer.drawString(text, _startX, y);
-        if (width < _width)
-            _scrollBuffer.fillRect(_startX + width, y, _width - width, _pixelsPerLine, bruceConfig.bgColor);
+        if (width < textW) {
+            _scrollBuffer.fillRect(_startX + width, y, textW - width, _pixelsPerLine, bg);
+        }
     };
 
     uint16_t yOffset = 0;
     size_t lines = 0;
-
-    // if there is text above
-    if (firstVisibleLine) {
-        drawRow("...", _startY + yOffset);
-        yOffset += _pixelsPerLine;
-        lines++;
-    }
-
-    int32_t tmpHeight = _height;
-    // if there is text below
-    if (linesBuffer.size() - firstVisibleLine >= _maxVisibleLines) {
-        drawRow("...", _startY + _height - _pixelsPerLine);
-        tmpHeight -= _pixelsPerLine;
-        lines++;
-    }
-
-    size_t idx{firstVisibleLine};
-    while (yOffset < tmpHeight && lines < _maxVisibleLines && idx < linesBuffer.size()) {
+    size_t idx = firstVisibleLine;
+    while (yOffset + _pixelsPerLine <= _height && lines < _maxVisibleLines && idx < linesBuffer.size()) {
         drawRow(linesBuffer[idx], _startY + yOffset);
         yOffset += _pixelsPerLine;
         lines++;
         idx++;
     }
 
-    if (yOffset < tmpHeight)
-        _scrollBuffer.fillRect(_startX, _startY + yOffset, _width, tmpHeight - yOffset, bruceConfig.bgColor);
+    if (yOffset < _height) {
+        _scrollBuffer.fillRect(_startX, _startY + yOffset, textW, _height - yOffset, bg);
+    }
+
+    if (hasScroll) {
+        int32_t barX = _startX + _width - 3;
+        int32_t trackY = _startY + 2;
+        int32_t trackH = max((int32_t)8, _height - 4);
+        _scrollBuffer.fillRect(barX, trackY, 2, trackH, uiBorderDimColor());
+        int32_t thumbH = max((int32_t)8, (int32_t)(trackH * _maxVisibleLines / linesBuffer.size()));
+        size_t maxFirst = linesBuffer.size() - _maxVisibleLines;
+        int32_t thumbY = trackY + (maxFirst > 0 ? (int32_t)((trackH - thumbH) * firstVisibleLine / maxFirst) : 0);
+        _scrollBuffer.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
+    }
+
     lastVisibleLine = firstVisibleLine + lines;
+    _scrollBuffer.setTextColor(pri, bg);
     tft.setTextSize(_fSize);
     tft.setTextDatum(oldDatum);
 

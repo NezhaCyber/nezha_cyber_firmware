@@ -276,40 +276,53 @@ void notFound(AsyncWebServerRequest *request) { request->send(404, "text/plain",
 void drawWebUiScreen(bool mode_ap) {
     drawMainBorderWithTitle("WebUI", true);
 
-    String txt;
-    if (!mode_ap) txt = WiFi.localIP().toString();
-    else txt = WiFi.softAPIP().toString();
+    String txt = mode_ap ? WiFi.softAPIP().toString() : WiFi.localIP().toString();
+    bool compact = (tftHeight < 160);
+    uint16_t bg = bruceConfig.bgColor;
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bdim = uiBorderDimColor();
+    uint16_t bright = uiTextBrightColor();
+    uint16_t muted = uiTextMutedColor();
+    uint16_t pri = bruceConfig.priColor;
 
-    int padX = 14;
-    int currentY = 55;
+    int cardX = compact ? 8 : 14;
+    int cardW = tftWidth - 2 * cardX;
+    int cardY = BORDER_PAD_Y + (compact ? 22 : 28);
+    int rowH = compact ? 13 : 24;
 
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.setTextSize(FP);
+    struct KvRow {
+        const char *k;
+        String v;
+        bool accent;
+    };
+    std::vector<KvRow> rows;
+    if (mode_ap) rows.push_back({"AP", bruceConfig.wifiAp.ssid + " / " + bruceConfig.wifiAp.pwd, false});
+    if (mdnsRunning) rows.push_back({"URL", "http://nezha.local", true});
+    rows.push_back({"IP", txt, true});
+    rows.push_back({"User", String(bruceConfig.webUI.user), false});
+    rows.push_back({"Pass", String(bruceConfig.webUI.pwd), false});
 
-    if (mode_ap) {
-        tft.setCursor(padX, currentY);
-        tft.print("Net: " + bruceConfig.wifiAp.ssid + "/" + bruceConfig.wifiAp.pwd);
-        currentY += LH * FP + 6;
+    int cardH = (int)rows.size() * rowH + (compact ? 8 : 14);
+    tft.fillRoundRect(cardX, cardY, cardW, cardH, 7, surf);
+    tft.drawRoundRect(cardX, cardY, cardW, cardH, 7, bdim);
+
+    int y = cardY + (compact ? 4 : 7);
+    for (size_t i = 0; i < rows.size(); i++) {
+        if (!compact) {
+            uiDrawText16(rows[i].k, cardX + 10, y + (rowH - 16) / 2, 56, muted, surf, 0);
+            uiDrawText16(rows[i].v, cardX + cardW - 10, y + (rowH - 16) / 2, cardW - 76, rows[i].accent ? pri : bright, surf, 2);
+        } else {
+            tft.setTextSize(FP);
+            tft.setTextColor(muted, surf);
+            tft.drawString(rows[i].k, cardX + 8, y + (rowH - LH * FP) / 2, 1);
+            tft.setTextColor(rows[i].accent ? pri : bright, surf);
+            tft.drawRightString(rows[i].v, cardX + cardW - 8, y + (rowH - LH * FP) / 2, 1);
+        }
+        y += rowH;
     }
 
-    tft.setCursor(padX, currentY);
-    if (mdnsRunning) tft.print("Url: http://nezha.local");
-    currentY += LH * FP + 6;
-
-    tft.setCursor(padX, currentY);
-    tft.print("IP:  " + txt);
-    currentY += LH * FP + 6;
-
-    tft.setCursor(padX, currentY);
-    tft.print("Usr: " + String(bruceConfig.webUI.user));
-    currentY += LH * FP + 6;
-
-    tft.setCursor(padX, currentY);
-    tft.print("Pwd: " + String(bruceConfig.webUI.pwd));
-
-    tft.setTextColor(TFT_RED, bruceConfig.bgColor);
-    tft.setTextSize(FP);
-    tft.drawCentreString(bruce_i18n::tr("press Esc to stop"), tftWidth / 2, tftHeight - 2 * LH * FP - 5, 1);
+    printCenterFootnote("press Esc to stop");
+    tft.setTextColor(pri, bg);
 
 #if defined(HAS_TOUCH)
     TouchFooter();
