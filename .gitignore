@@ -27,3 +27,7 @@ lib/mquickjs_headers/mqjs_stdlib_generator.exe
 
 # Nezha Cyber merged firmware binaries
 NezhaCyber-*.bin
+
+# Python bytecode cache
+__pycache__/
+*.py[cod]
