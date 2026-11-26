@@ -130,25 +130,19 @@ int MainMenu::gridIndexOf(MenuItemInterface *item) {
 **  falls back to the minimum size, with paging, once even one column can't make cells that big.
 **********************************************************************/
 void MainMenu::buildGridLayout(int itemCount) {
-    // Floor so a cell never gets too small to tap/read — this is what triggers paging, not a
-    // preferred size. Scaled by FP so it still means something on high-res boards.
-    const int MIN_CELL_W = 54 * FP;
-    const int MIN_CELL_H = 40 * FP;
-    // Right-edge column reserved for the scrollbar and the page-up/page-down tap zone (see
-    // MainMenu::handleGridPageTap()) — wide enough to actually tap, not just the 3px bar itself.
-    const int PAGE_TAP_W = 4 * BORDER_OFFSET_FROM_SCREEN_EDGE;
+    // Open hardware launcher proportions: 4x3 on T-Deck (320x240), 3x2 on M5StickC Plus 1.1 (240x135)
+    const bool compactScreen = (tftHeight < 160);
+    const int MIN_CELL_W = 64 * FP;
+    const int MIN_CELL_H = (compactScreen ? 46 : 56) * FP;
+    const int PAGE_TAP_W = 10;
 
     if (itemCount < 1) itemCount = 1;
 
-    int areaX = BORDER_OFFSET_FROM_SCREEN_EDGE + 2;
-    int areaY = STATUS_BAR_HEIGHT - 2; // first line free under the status bar separator
-    int areaW = tftWidth - 2 * areaX - PAGE_TAP_W;
-    int areaH = tftHeight - areaY - areaX;
+    int areaX = 6;
+    int areaY = STATUS_BAR_HEIGHT - 2;
+    int areaW = tftWidth - areaX - PAGE_TAP_W - 2;
+    int areaH = tftHeight - areaY - 4;
 
-    // Try every column count down to the MIN_CELL_W floor and keep the one whose resulting cells
-    // are largest in their smaller dimension (min(cellW, cellH)) — that's what a lopsided grid
-    // wastes: a handful of very wide, short rows or very tall, narrow columns both score low here,
-    // while a balanced, roughly-square cell that actually fills the screen scores high.
     int maxCols = max(1, min(itemCount, areaW / MIN_CELL_W));
     int bestCols = 1;
     int bestScore = -1;
@@ -161,23 +155,25 @@ void MainMenu::buildGridLayout(int itemCount) {
         }
     }
 
+    int maxVisibleRows = max(1, areaH / MIN_CELL_H);
+    if (bestCols * maxVisibleRows < itemCount && maxCols > bestCols) {
+        bestCols = maxCols;
+    }
+
     _grid.cols = bestCols;
     _grid.cellW = areaW / _grid.cols;
     _grid.rows = (itemCount + _grid.cols - 1) / _grid.cols;
 
-    // Rows still get capped to what fits at MIN_CELL_H — that's the paging trigger when there
-    // are simply too many items for one screen even at the smallest usable size.
-    _grid.visibleRows = max(1, areaH / MIN_CELL_H);
+    _grid.visibleRows = maxVisibleRows;
     if (_grid.visibleRows > _grid.rows) _grid.visibleRows = _grid.rows;
-    _grid.cellH = areaH / _grid.visibleRows; // fills whatever height is actually available
+    _grid.cellH = areaH / _grid.visibleRows;
 
-    _grid.labelSize = _grid.cellW >= 8 * LW * FM ? FM : FP;
-    // Everything the cell has left once the label and a thin margin are taken out
-    _grid.iconBox = _grid.cellH - LH * _grid.labelSize - 6;
-    if (_grid.iconBox > _grid.cellW - 4) _grid.iconBox = _grid.cellW - 4; // narrow cells cap it
-    if (_grid.iconBox < 12) _grid.iconBox = 12;
+    _grid.labelSize = FP;
+    int labelReserve = 14;
+    _grid.iconBox = _grid.cellH - labelReserve - 14;
+    if (_grid.iconBox > _grid.cellW - 18) _grid.iconBox = _grid.cellW - 18;
+    if (_grid.iconBox < 18) _grid.iconBox = 18;
 
-    // Center whatever is left over so the grid doesn't hug the border
     _grid.x = areaX + (areaW - _grid.cols * _grid.cellW) / 2;
     _grid.y = areaY + (areaH - _grid.visibleRows * _grid.cellH) / 2;
 
@@ -256,44 +252,57 @@ void MainMenu::drawGridCell(int index, bool selected) {
     options[index].w = _grid.cellW;
     options[index].h = _grid.cellH;
 
-    uint16_t bgColor = selected ? bruceConfig.priColor : bruceConfig.bgColor;
-    uint16_t fgColor = selected ? bruceConfig.bgColor : bruceConfig.priColor;
+    int cardX = x + 3;
+    int cardY = y + 3;
+    int cardW = _grid.cellW - 6;
+    int cardH = _grid.cellH - 6;
 
-    tft.fillRect(x, y, _grid.cellW, _grid.cellH, bruceConfig.bgColor);
-    if (selected) tft.fillRoundRect(x + 1, y + 1, _grid.cellW - 2, _grid.cellH - 2, 3, bgColor);
+    uint16_t bg = bruceConfig.bgColor;
+    uint16_t pri = bruceConfig.priColor;
+    uint16_t textBright = uiTextBrightColor();
+    uint16_t textMuted = uiTextMutedColor();
+    uint16_t cellBg = selected ? uiSurfaceHiColor() : bg;
+    uint16_t iconCol = selected ? pri : blendColors(bg, textBright, 200);
+    uint16_t textCol = selected ? textBright : textMuted;
+
+    // Open borderless canvas for unselected apps; crisp elevated graphite tile + 2px accent ring for active focus
+    tft.fillRect(x, y, _grid.cellW, _grid.cellH, bg);
+    if (selected) {
+        tft.fillRoundRect(cardX, cardY, cardW, cardH, 8, cellBg);
+        tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, pri);
+        tft.drawRoundRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2, 7, pri);
+    }
 
     MenuItemInterface *item = static_cast<MenuItemInterface *>(options[index].hoverPointer);
-    if (item)
-        item->drawIconInBox(x + _grid.cellW / 2, y + 3 + _grid.iconBox / 2, _grid.iconBox, fgColor, bgColor);
+    if (item) {
+        int iconCenterY = cardY + 5 + _grid.iconBox / 2;
+        item->drawIconInBox(cardX + cardW / 2, iconCenterY, _grid.iconBox, iconCol, cellBg);
+    }
 
     tft.setTextSize(_grid.labelSize);
-    tft.setTextColor(fgColor, bgColor);
+    tft.setTextColor(textCol, cellBg);
     String label = bruce_i18n::tr(options[index].label);
-    String fitted = bruce_i18n::utf8TruncateToWidth(label, _grid.cellW - 4, _grid.labelSize);
+    String fitted = bruce_i18n::utf8TruncateToWidth(label, cardW - 6, _grid.labelSize);
     int labelH = (_grid.labelSize == 1 && bruce_i18n::containsNonAscii(fitted)) ? 12 : (LH * _grid.labelSize);
-    tft.drawCentreString(
-        fitted,
-        x + _grid.cellW / 2,
-        y + _grid.cellH - labelH - 2,
-        1
-    );
+    tft.drawCentreString(fitted, cardX + cardW / 2, cardY + cardH - labelH - 4, 1);
 }
 
 /*********************************************************************
 **  Function: drawGridScrollBar
-**  Thin indicator on the right telling there are more rows off screen
+**  Minimal 2px scrollbar on the right indicating off-screen rows
 **********************************************************************/
 void MainMenu::drawGridScrollBar() {
-    int barX = tftWidth - BORDER_OFFSET_FROM_SCREEN_EDGE - 4;
-    int trackY = _grid.y;
-    int trackH = _grid.visibleRows * _grid.cellH;
+    int barX = tftWidth - 5;
+    int trackY = _grid.y + 4;
+    int trackH = _grid.visibleRows * _grid.cellH - 8;
 
-    tft.fillRect(barX, trackY, 3, trackH, bruceConfig.bgColor);
+    tft.fillRect(barX - 1, trackY, 4, trackH, bruceConfig.bgColor);
     if (_grid.rows <= _grid.visibleRows) return;
 
-    int thumbH = max(6, trackH * _grid.visibleRows / _grid.rows);
+    tft.fillRect(barX, trackY, 2, trackH, uiBorderDimColor());
+    int thumbH = max(10, trackH * _grid.visibleRows / _grid.rows);
     int thumbY = trackY + (trackH - thumbH) * _gridScroll / (_grid.rows - _grid.visibleRows);
-    tft.fillRect(barX, thumbY, 3, thumbH, bruceConfig.priColor);
+    tft.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
 }
 
 /*********************************************************************

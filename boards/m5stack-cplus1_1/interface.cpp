@@ -93,7 +93,7 @@ void _setBrightness(uint8_t brightval) {
 **********************************************************************/
 void InputHandler(void) {
     static unsigned long tm = 0;
-    if (millis() - tm < 200 && !LongPress) return;
+    if (millis() - tm < 150 && !LongPress) return;
 
     bool upPressed = (axp192.GetBtnPress());
     bool selPressed = (digitalRead(SEL_BTN) == LOW);
@@ -144,7 +144,7 @@ void checkReboot() {
         // Clear text after releasing the button
         if (millis() - time_count > 500) {
             tft.fillRect(60, 12, 16 * LW, tft.fontHeight(1), bruceConfig.bgColor);
-            drawStatusBar();
+            drawStatusBar(true);
         }
         PrevPress = true;
     }

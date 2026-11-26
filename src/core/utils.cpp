@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "core/i18n.h"
 #include "core/wifi/wifi_common.h" //to return MAC addr
 #include "scrollableTextArea.h"
 #include <Preferences.h>
@@ -135,7 +136,7 @@ void updateTimeStr(struct tm timeInfo) {
 void showDeviceInfo() {
     ScrollableTextArea area = ScrollableTextArea("DEVICE INFO");
 
-    area.addLine("Bruce Version: " + String(BRUCE_VERSION));
+    area.addLine(String(bruce_i18n::tr("Nezha Cyber")) + " v" + String(BRUCE_VERSION));
     area.addLine("EEPROM size: " + String(EEPROMSIZE));
     area.addLine("");
     area.addLine("[MEMORY]");
@@ -246,7 +247,11 @@ void touchHeatMap(struct BruceTouchPoint t) {
     // The footer band always reads as PREV/SEL/NEXT (the labels TouchFooter() draws there).
     // Everything above it is opt-out via touchZoneOutsideFooterEnabled, so a screen that wants to
     // hit-test raw taps itself (see loopOptions()) can turn zone-reading off without losing the footer.
+#if defined(NO_TOUCH_FOOTER)
+    if (!touchZoneOutsideFooterEnabled) return;
+#else
     if (t.y <= tftHeight && !touchZoneOutsideFooterEnabled) return;
+#endif
 
     if (t.x > third_x * 0 && t.x < third_x * 1) PrevPress = true;
     if (t.x > third_x * 1 && t.x < third_x * 2 && ((t.y > third_y && t.y < third_y * 2) || t.y > tftHeight))

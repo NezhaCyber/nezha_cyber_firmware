@@ -9,40 +9,37 @@
 
 #define BTN_ACT LOW
 
-// Setup for Trackball
+// Setup for Trackball (volatile pulse accumulators with critical-section atomic drain)
 void IRAM_ATTR ISR_up();
 void IRAM_ATTR ISR_down();
 void IRAM_ATTR ISR_left();
 void IRAM_ATTR ISR_right();
 
-bool trackball_interrupted = false;
-int8_t trackball_up_count = 0;
-int8_t trackball_down_count = 0;
-int8_t trackball_left_count = 0;
-int8_t trackball_right_count = 0;
+static portMUX_TYPE tbMux = portMUX_INITIALIZER_UNLOCKED;
+static volatile int16_t trackball_up_count = 0;
+static volatile int16_t trackball_down_count = 0;
+static volatile int16_t trackball_left_count = 0;
+static volatile int16_t trackball_right_count = 0;
+
 void IRAM_ATTR ISR_up() {
-    trackball_interrupted = true;
-    trackball_up_count = 1;
+    portENTER_CRITICAL_ISR(&tbMux);
+    trackball_up_count++;
+    portEXIT_CRITICAL_ISR(&tbMux);
 }
 void IRAM_ATTR ISR_down() {
-    trackball_interrupted = true;
-    trackball_down_count = 1;
+    portENTER_CRITICAL_ISR(&tbMux);
+    trackball_down_count++;
+    portEXIT_CRITICAL_ISR(&tbMux);
 }
 void IRAM_ATTR ISR_left() {
-    trackball_interrupted = true;
-    trackball_left_count = 1;
+    portENTER_CRITICAL_ISR(&tbMux);
+    trackball_left_count++;
+    portEXIT_CRITICAL_ISR(&tbMux);
 }
 void IRAM_ATTR ISR_right() {
-    trackball_interrupted = true;
-    trackball_right_count = 1;
-}
-
-void ISR_rst() {
-    trackball_up_count = 0;
-    trackball_down_count = 0;
-    trackball_left_count = 0;
-    trackball_right_count = 0;
-    trackball_interrupted = false;
+    portENTER_CRITICAL_ISR(&tbMux);
+    trackball_right_count++;
+    portEXIT_CRITICAL_ISR(&tbMux);
 }
 
 #define LILYGO_KB_SLAVE_ADDRESS 0x55
@@ -51,8 +48,8 @@ void ISR_rst() {
 #define SEL_BTN 0
 #define UP_BTN 3
 #define DW_BTN 15
-#define L_BTN 2
-#define R_BTN 1
+#define L_BTN 1 // Physical LEFT Hall sensor on T-Deck (BOARD_TBOX_G03)
+#define R_BTN 2 // Physical RIGHT Hall sensor on T-Deck (BOARD_TBOX_G01)
 #define PIN_POWER_ON 10
 #define BOARD_TOUCH_INT 16
 
@@ -174,46 +171,85 @@ void _setBrightness(uint8_t brightval) { hal_bright_set(TFT_BL, brightval); }
 **********************************************************************/
 void InputHandler(void) {
     char keyValue = 0;
-    static unsigned long tm = millis();
+    unsigned long now = millis();
+    static unsigned long tm = 0;
+    static unsigned long lastMoveMs = 0;
+    static unsigned long gatherStartMs = 0;
+    static int16_t accX = 0;
+    static int16_t accY = 0;
+
+    // 1. Atomically drain trackball Hall-sensor pulses on every poll (no delay inside inputLock)
+    int16_t du, dd, dl, dr;
+    portENTER_CRITICAL(&tbMux);
+    du = trackball_up_count;
+    dd = trackball_down_count;
+    dl = trackball_left_count;
+    dr = trackball_right_count;
+    trackball_up_count = 0;
+    trackball_down_count = 0;
+    trackball_left_count = 0;
+    trackball_right_count = 0;
+    portEXIT_CRITICAL(&tbMux);
+
+    if (du || dd || dl || dr) {
+        if (now - lastMoveMs < 110) {
+            // Discard trailing Hall-sensor bounce from the previous flick
+            accX = 0;
+            accY = 0;
+            gatherStartMs = 0;
+        } else {
+            int16_t dx = dr - dl;
+            int16_t dy = dd - du;
+            // Align trackball axes with current display rotation (rotation 1 = default landscape)
+            uint8_t rot = bruceConfigPins.rotation & 0x03;
+            int16_t rx = dx, ry = dy;
+            if (rot == 3) {
+                rx = -dx;
+                ry = -dy;
+            } else if (rot == 0) {
+                rx = -dy;
+                ry = dx;
+            } else if (rot == 2) {
+                rx = dy;
+                ry = -dx;
+            }
+            accX += rx;
+            accY += ry;
+            if (gatherStartMs == 0 && (accX != 0 || accY != 0)) { gatherStartMs = now; }
+        }
+    }
+
+    // Emit one clean dominant-axis step once >=2 pulses confirm the axis or after a 25ms gather window
+    if (gatherStartMs != 0 &&
+        (abs(accX) >= 2 || abs(accY) >= 2 || (now - gatherStartMs >= 25))) {
+        int16_t fx = accX;
+        int16_t fy = accY;
+        accX = 0;
+        accY = 0;
+        gatherStartMs = 0;
+        if (fx != 0 || fy != 0) {
+            lastMoveMs = now;
+            if (wakeUpScreen()) return;
+            AnyKeyPress = true;
+            if (abs(fy) > abs(fx)) {
+                if (fy < 0) UpPress = true;
+                else DownPress = true;
+            } else {
+                if (fx < 0) PrevPress = true;
+                else NextPress = true;
+            }
+            return;
+        }
+    }
+
     BruceTouchPoint t;
     bool touched = hal_touch_read(touchCfg(), t);
-    delay(1);
     Wire1.requestFrom(LILYGO_KB_SLAVE_ADDRESS, 1);
     while (Wire1.available() > 0) {
         keyValue = Wire1.read();
-        delay(1);
     }
-    if (millis() - tm < 200 && !LongPress) return;
 
-    // 0 - UP
-    // 1 - Down
-    // 2 - Left
-    // 3 - Right
-    if (trackball_interrupted) {
-        uint8_t xx = 1;
-        uint8_t yy = 1;
-        xx += trackball_left_count;
-        xx -= trackball_right_count;
-        yy -= trackball_up_count;
-        yy += trackball_down_count;
-        if (xx == 1 && yy == 1) {
-            ISR_rst();
-        } else {
-            if (!wakeUpScreen()) AnyKeyPress = true;
-            else return;
-        }
-        delay(50);
-        // Print "bot - xx - yy",  1 is normal value for xx and yy 0 and 2 means movement on the axis
-        // Serial.print(bot); Serial.print("-"); Serial.print(xx); Serial.print("-"); Serial.println(yy);
-        if (xx < 1 || yy < 1) {
-            ISR_rst();
-            PrevPress = true;
-        } // left , Up
-        else if (xx > 1 || yy > 1) {
-            ISR_rst();
-            NextPress = true;
-        } // right, Down
-    }
+    if (now - tm < 160 && !LongPress) return;
 
     if (keyValue != (char)0x00) {
         if (!wakeUpScreen()) {
@@ -229,20 +265,20 @@ void InputHandler(void) {
         if (KeyStroke.del) EscPress = true;
         if (KeyStroke.enter) SelPress = true;
         KeyStroke.pressed = true;
-        tm = millis();
+        tm = now;
     } else KeyStroke.pressed = false;
 
     if (digitalRead(SEL_BTN) == BTN_ACT) {
-        tm = millis();
+        tm = now;
         if (!wakeUpScreen()) {
             AnyKeyPress = true;
         } else return;
         SelPress = true;
     }
 
-    if ((millis() - tm) > 190 || LongPress) { // one reading each 190ms
+    if ((now - tm) > 160 || LongPress) { // responsive touch polling
         if (touched) {
-            tm = millis();
+            tm = now;
             hal_touch_apply(t);
             return;
         }

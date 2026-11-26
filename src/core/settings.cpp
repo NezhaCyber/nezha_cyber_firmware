@@ -207,12 +207,12 @@ void setBrightnessMenu() {
         }
 #endif
 
-        if (check(NextPress)) {
+        if (check(NextPress) || check(UpPress)) {
             val += 5;
             if (val > 100) val = 100;
             redraw = true;
         }
-        if (check(PrevPress)) {
+        if (check(PrevPress) || check(DownPress)) {
             val -= 5;
             if (val < 0) val = 0;
             redraw = true;
@@ -290,7 +290,13 @@ void setUIColor() {
                     uint16_t bgColor = mapping.bgColor;
                     bruceConfig.setUiColor(mapping.priColor, &secColor, &bgColor);
                 },
-                idx == i
+                idx == i,
+                nullptr,
+                nullptr,
+                false,
+                true,
+                true,
+                mapping.priColor
             );
             ++i;
         }
@@ -2103,7 +2109,7 @@ void calibrateTouch() {
     tft.setTextSize(FP);
     const int16_t lineHeight = LH;
     int16_t y = (_h - lineHeight * 4) / 2;
-    drawCenteredLine("Bruce Touch Calibration", y);
+    drawCenteredLine(bruce_i18n::tr("Nezha Cyber Touch Calibration"), y);
     y += lineHeight;
     drawCenteredLine("---------------------------", y);
     y += lineHeight;
