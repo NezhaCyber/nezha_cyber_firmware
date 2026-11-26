@@ -2299,15 +2299,88 @@ static bool isLightRgb565(uint16_t c) {
     int r = (c >> 11) & 0x1F;
     int g = (c >> 5) & 0x3F;
     int b = c & 0x1F;
-    return (r * 299 + (g >> 1) * 587 + b * 114) > 16000;
+    return (r * 299 + (g >> 1) * 587 + b * 114) > 15500;
 }
 
-uint16_t uiSurfaceColor() { return blendColors(bruceConfig.bgColor, bruceConfig.priColor, 24); }
-uint16_t uiSurfaceHiColor() { return blendColors(bruceConfig.bgColor, bruceConfig.priColor, 54); }
-uint16_t uiBorderDimColor() { return blendColors(bruceConfig.bgColor, bruceConfig.priColor, 82); }
+// Neutral hardware surface system: pure obsidian canvas + crisp neutral graphite elevations.
+// Adapts automatically if the user selects a light or colored custom background.
+uint16_t uiSurfaceColor() {
+    uint16_t bg = bruceConfig.bgColor;
+    if (bg == 0x0000) return 0x1082; // Neutral charcoal #101010
+    return isLightRgb565(bg) ? blendColors(bg, TFT_BLACK, 20) : blendColors(bg, TFT_WHITE, 18);
+}
+uint16_t uiSurfaceHiColor() {
+    uint16_t bg = bruceConfig.bgColor;
+    if (bg == 0x0000) return 0x2104; // Neutral graphite #202020
+    return isLightRgb565(bg) ? blendColors(bg, TFT_BLACK, 38) : blendColors(bg, TFT_WHITE, 34);
+}
+uint16_t uiBorderDimColor() {
+    uint16_t bg = bruceConfig.bgColor;
+    if (bg == 0x0000) return 0x2965; // Crisp subtle hairline #282C28
+    return isLightRgb565(bg) ? blendColors(bg, TFT_BLACK, 64) : blendColors(bg, TFT_WHITE, 52);
+}
 uint16_t uiTextBrightColor() {
-    uint16_t target = isLightRgb565(bruceConfig.bgColor) ? TFT_BLACK : TFT_WHITE;
-    return blendColors(bruceConfig.priColor, target, 195);
+    return isLightRgb565(bruceConfig.bgColor) ? 0x18E3 : 0xF7BE; // Crisp off-white #F0F4F0 / dark charcoal
+}
+uint16_t uiTextMutedColor() {
+    return isLightRgb565(bruceConfig.bgColor) ? 0x6B6D : 0x8C71; // Balanced neutral steel gray #8A8E8A
+}
+uint16_t uiTextOnAccentColor(uint16_t accent) {
+    return isLightRgb565(accent) ? TFT_BLACK : TFT_WHITE;
+}
+
+int16_t uiMeasureText16(const String &text) {
+#if defined(LOAD_FONT2)
+    if (!bruce_i18n::containsNonAscii(text)) {
+        uint8_t oldSize = tft.getTextSize();
+        tft.setTextSize(1);
+        int16_t w = tft.textWidth(text, 2);
+        tft.setTextSize(oldSize);
+        return w;
+    }
+#endif
+    return bruce_i18n::utf8PixelWidth(text, FM);
+}
+
+String uiTruncateText16(const String &text, int16_t maxPx) {
+    if (maxPx <= 0) return "";
+#if defined(LOAD_FONT2)
+    if (!bruce_i18n::containsNonAscii(text)) {
+        uint8_t oldSize = tft.getTextSize();
+        tft.setTextSize(1);
+        if (tft.textWidth(text, 2) <= maxPx) {
+            tft.setTextSize(oldSize);
+            return text;
+        }
+        String out = text;
+        int16_t ellW = tft.textWidth("..", 2);
+        while (out.length() > 0 && tft.textWidth(out, 2) + ellW > maxPx) {
+            out.remove(out.length() - 1);
+        }
+        tft.setTextSize(oldSize);
+        return out.length() > 0 ? (out + "..") : "";
+    }
+#endif
+    return bruce_i18n::utf8TruncateToWidth(text, maxPx, FM);
+}
+
+int16_t uiDrawText16(
+    const String &text, int32_t x, int32_t y, int16_t maxPx, uint16_t fg, uint16_t bg, uint8_t align
+) {
+    String fitted = (maxPx > 0) ? uiTruncateText16(text, maxPx) : text;
+    tft.setTextColor(fg, bg);
+#if defined(LOAD_FONT2)
+    if (!bruce_i18n::containsNonAscii(fitted)) {
+        tft.setTextSize(1);
+        if (align == 1) return tft.drawCentreString(fitted, x, y, 2);
+        if (align == 2) return tft.drawRightString(fitted, x, y, 2);
+        return tft.drawString(fitted, x, y, 2);
+    }
+#endif
+    tft.setTextSize(FM);
+    if (align == 1) return tft.drawCentreString(fitted, x, y, 1);
+    if (align == 2) return tft.drawRightString(fitted, x, y, 1);
+    return tft.drawString(fitted, x, y, 1);
 }
 
 void buildHeatPalette(uint16_t *lut, uint8_t n) {

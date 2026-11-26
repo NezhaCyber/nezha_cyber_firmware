@@ -119,11 +119,18 @@ uint16_t getColorVariation(uint16_t color, int delta = 10, int direction = 0);
 // Linear RGB565 mix: t = 0 returns a, t = 255 returns b. Use it to derive dim
 // or highlighted shades from the theme instead of hardcoding TFT_* constants.
 uint16_t blendColors(uint16_t a, uint16_t b, uint8_t t);
-// Theme-derived UI surface & accent helpers for the modern hacker HUD/card UI.
+// Theme-derived neutral hardware UI palette & typography helpers.
 uint16_t uiSurfaceColor();
 uint16_t uiSurfaceHiColor();
 uint16_t uiBorderDimColor();
 uint16_t uiTextBrightColor();
+uint16_t uiTextMutedColor();
+uint16_t uiTextOnAccentColor(uint16_t accent = bruceConfig.priColor);
+int16_t uiMeasureText16(const String &text);
+String uiTruncateText16(const String &text, int16_t maxPx);
+int16_t uiDrawText16(
+    const String &text, int32_t x, int32_t y, int16_t maxPx, uint16_t fg, uint16_t bg, uint8_t align = 0
+);
 // Fills lut[0..n-1] with a theme ramp going from the background up to a
 // brightened primary, for waterfalls and other intensity plots.
 void buildHeatPalette(uint16_t *lut, uint8_t n);
