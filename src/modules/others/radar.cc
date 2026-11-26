@@ -2132,7 +2132,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
             size_t alerts = 0;
             bool hasClose = false;
             for (const auto &t : list) {
-                if (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_PWNAGOTCHI)) ++alerts;
+                if (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) ++alerts;
                 if (t.distM <= 3.0f) hasClose = true;
             }
             if (alerts > prevAlertCount && (now - lastContactBeepMs >= 900)) {
