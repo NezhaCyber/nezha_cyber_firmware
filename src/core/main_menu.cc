@@ -224,79 +224,23 @@ void MainMenu::buildGridLayout(int itemCount, bool compactTiles) {
 }
 
 /*********************************************************************
-**  Style 1: Standard Open Grid (4x3 T-Deck, 3x2 M5StickC Plus 1.1)
+**  Shared Grid Engine (Style 1: Grid + Style 6: Compact Grid)
 **********************************************************************/
-void MainMenu::drawGrid(int index) {
+void MainMenu::drawGrid(int index) { drawGridCommon(index, false); }
+void MainMenu::drawCompactGrid(int index) { drawGridCommon(index, true); }
+
+void MainMenu::drawGridCommon(int index, bool compactTiles) {
     int itemCount = options.size();
     if (itemCount < 1) return;
     if (index < 0 || index >= itemCount) index = 0;
 
-    if (itemCount != _gridItemCount || _gridRotation != bruceConfigPins.rotation || _lastStyle != MAIN_MENU_GRID) {
-        buildGridLayout(itemCount, false);
+    int targetStyle = compactTiles ? MAIN_MENU_COMPACT : MAIN_MENU_GRID;
+    if (itemCount != _gridItemCount || _gridRotation != bruceConfigPins.rotation || _lastStyle != targetStyle) {
+        buildGridLayout(itemCount, compactTiles);
         _gridScroll = 0;
         _gridLastIndex = -1;
         _gridRedrawAll = true;
-        _lastStyle = MAIN_MENU_GRID;
-    }
-
-    int scroll = _gridScroll;
-    int row = index / _grid.cols;
-    if (row < scroll) scroll = row;
-    else if (row >= scroll + _grid.visibleRows) scroll = row - _grid.visibleRows + 1;
-
-    bool redrawAll = _gridRedrawAll || scroll != _gridScroll;
-    _gridScroll = scroll;
-    _launchRectW = 0;
-
-    if (_grid.rows > _grid.visibleRows) {
-        _pageStripX = _grid.x + _grid.cols * _grid.cellW;
-        _pageStripY = _grid.y;
-        _pageStripW = tftWidth - _pageStripX;
-        _pageStripH = _grid.visibleRows * _grid.cellH;
-        _pageStepRows = _grid.visibleRows;
-        _pageTotalRows = _grid.rows;
-        _pageVisibleRows = _grid.visibleRows;
-    } else {
-        _pageStripW = 0;
-    }
-
-    if (redrawAll) {
-        clearOptionRects();
-        drawMainBorder(false);
-        tft.fillRect(
-            _grid.x, _grid.y, _grid.cols * _grid.cellW, _grid.visibleRows * _grid.cellH, bruceConfig.bgColor
-        );
-        int first = _gridScroll * _grid.cols;
-        int last = min(itemCount, first + _grid.visibleRows * _grid.cols);
-        for (int i = first; i < last; i++) drawGridCell(i, i == index, false);
-        drawGridScrollBar();
-#if defined(HAS_TOUCH)
-        TouchFooter();
-#endif
-    } else {
-        if (_gridLastIndex >= 0 && _gridLastIndex != index && _gridLastIndex < itemCount)
-            drawGridCell(_gridLastIndex, false, false);
-        drawGridCell(index, true, false);
-    }
-
-    _gridLastIndex = index;
-    _gridRedrawAll = false;
-}
-
-/*********************************************************************
-**  Style 6: Compact Icon-First Bento Grid (5x3 / 4x2 + Bottom Bar)
-**********************************************************************/
-void MainMenu::drawCompactGrid(int index) {
-    int itemCount = options.size();
-    if (itemCount < 1) return;
-    if (index < 0 || index >= itemCount) index = 0;
-
-    if (itemCount != _gridItemCount || _gridRotation != bruceConfigPins.rotation || _lastStyle != MAIN_MENU_COMPACT) {
-        buildGridLayout(itemCount, true);
-        _gridScroll = 0;
-        _gridLastIndex = -1;
-        _gridRedrawAll = true;
-        _lastStyle = MAIN_MENU_COMPACT;
+        _lastStyle = targetStyle;
     }
 
     int scroll = _gridScroll;
@@ -328,20 +272,47 @@ void MainMenu::drawCompactGrid(int index) {
         );
         int first = _gridScroll * _grid.cols;
         int last = min(itemCount, first + _grid.visibleRows * _grid.cols);
-        for (int i = first; i < last; i++) drawGridCell(i, i == index, true);
+        for (int i = first; i < last; i++) drawGridCell(i, i == index, compactTiles);
         drawGridScrollBar();
 #if defined(HAS_TOUCH)
         TouchFooter();
 #endif
     } else {
         if (_gridLastIndex >= 0 && _gridLastIndex != index && _gridLastIndex < itemCount)
-            drawGridCell(_gridLastIndex, false, true);
-        drawGridCell(index, true, true);
+            drawGridCell(_gridLastIndex, false, compactTiles);
+        drawGridCell(index, true, compactTiles);
     }
 
-    drawCompactFooterBar(index, itemCount);
+    if (compactTiles) drawCompactFooterBar(index, itemCount);
     _gridLastIndex = index;
     _gridRedrawAll = false;
+}
+
+bool MainMenu::updateLinearScroll(int style, int index, int itemCount, int visibleRows) {
+    if (_lastStyle != style || _gridItemCount != itemCount || _gridRotation != bruceConfigPins.rotation) {
+        _gridScroll = 0;
+        _gridLastIndex = -1;
+        _gridRedrawAll = true;
+        _lastStyle = style;
+        _gridItemCount = itemCount;
+        _gridRotation = bruceConfigPins.rotation;
+    }
+    int scroll = _gridScroll;
+    if (index < scroll) scroll = index;
+    else if (index >= scroll + visibleRows) scroll = index - visibleRows + 1;
+    int maxScroll = max(0, itemCount - visibleRows);
+    if (scroll > maxScroll) scroll = maxScroll;
+    bool redrawAll = _gridRedrawAll || scroll != _gridScroll;
+    _gridScroll = scroll;
+    return redrawAll;
+}
+
+void MainMenu::drawLinearScrollBar(int barX, int trackY, int trackH, int visibleRows, int itemCount, int index) {
+    if (itemCount <= visibleRows) return;
+    tft.fillRect(barX, trackY, 2, trackH, uiBorderDimColor());
+    int thumbH = max(10, trackH * visibleRows / itemCount);
+    int thumbY = trackY + (trackH - thumbH) * index / max(1, itemCount - 1);
+    tft.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
 }
 
 void MainMenu::drawCompactFooterBar(int index, int itemCount) {
@@ -463,23 +434,7 @@ void MainMenu::drawList(int index) {
     if (visibleRows > itemCount) visibleRows = itemCount;
     int startY = listTop + ((listBottom - listTop) - visibleRows * rowH) / 2;
 
-    if (_lastStyle != MAIN_MENU_LIST || _gridItemCount != itemCount || _gridRotation != bruceConfigPins.rotation) {
-        _gridScroll = 0;
-        _gridLastIndex = -1;
-        _gridRedrawAll = true;
-        _lastStyle = MAIN_MENU_LIST;
-        _gridItemCount = itemCount;
-        _gridRotation = bruceConfigPins.rotation;
-    }
-
-    int scroll = _gridScroll;
-    if (index < scroll) scroll = index;
-    else if (index >= scroll + visibleRows) scroll = index - visibleRows + 1;
-    int maxScroll = max(0, itemCount - visibleRows);
-    if (scroll > maxScroll) scroll = maxScroll;
-
-    bool redrawAll = _gridRedrawAll || scroll != _gridScroll;
-    _gridScroll = scroll;
+    bool redrawAll = updateLinearScroll(MAIN_MENU_LIST, index, itemCount, visibleRows);
     _launchRectW = 0;
 
     if (itemCount > visibleRows) {
@@ -514,17 +469,7 @@ void MainMenu::drawList(int index) {
         drawListRow(index, r, startY + r * rowH, rowH, true);
     }
 
-    // Slim 2px right-edge scrollbar
-    if (itemCount > visibleRows) {
-        int barX = tftWidth - 5;
-        int trackY = startY + 2;
-        int trackH = visibleRows * rowH - 4;
-        tft.fillRect(barX, trackY, 2, trackH, uiBorderDimColor());
-        int thumbH = max(10, trackH * visibleRows / itemCount);
-        int thumbY = trackY + (trackH - thumbH) * index / max(1, itemCount - 1);
-        tft.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
-    }
-
+    drawLinearScrollBar(tftWidth - 5, startY + 2, visibleRows * rowH - 4, visibleRows, itemCount, index);
     _gridLastIndex = index;
     _gridRedrawAll = false;
 }
@@ -835,23 +780,7 @@ void MainMenu::drawSplit(int index) {
     if (visibleRows > itemCount) visibleRows = itemCount;
     int railY = topY + (availH - visibleRows * rowH) / 2;
 
-    if (_lastStyle != MAIN_MENU_SPLIT || _gridItemCount != itemCount || _gridRotation != bruceConfigPins.rotation) {
-        _gridScroll = 0;
-        _gridLastIndex = -1;
-        _gridRedrawAll = true;
-        _lastStyle = MAIN_MENU_SPLIT;
-        _gridItemCount = itemCount;
-        _gridRotation = bruceConfigPins.rotation;
-    }
-
-    int scroll = _gridScroll;
-    if (index < scroll) scroll = index;
-    else if (index >= scroll + visibleRows) scroll = index - visibleRows + 1;
-    int maxScroll = max(0, itemCount - visibleRows);
-    if (scroll > maxScroll) scroll = maxScroll;
-
-    bool redrawAll = _gridRedrawAll || scroll != _gridScroll;
-    _gridScroll = scroll;
+    bool redrawAll = updateLinearScroll(MAIN_MENU_SPLIT, index, itemCount, visibleRows);
 
     // Tapping the right preview card launches the currently focused app!
     _launchRectX = paneX;
@@ -891,16 +820,7 @@ void MainMenu::drawSplit(int index) {
         drawSplitRailRow(index, r, railY + r * rowH, rowH, railX, railW, true);
     }
 
-    // Slim 2px rail scrollbar
-    if (itemCount > visibleRows) {
-        int trackY = railY + 2;
-        int trackH = visibleRows * rowH - 4;
-        tft.fillRect(barX, trackY, 2, trackH, uiBorderDimColor());
-        int thumbH = max(10, trackH * visibleRows / itemCount);
-        int thumbY = trackY + (trackH - thumbH) * index / max(1, itemCount - 1);
-        tft.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
-    }
-
+    drawLinearScrollBar(barX, railY + 2, visibleRows * rowH - 4, visibleRows, itemCount, index);
     drawSplitPreview(index, itemCount, paneX, topY, paneW, availH);
     _gridLastIndex = index;
     _gridRedrawAll = false;

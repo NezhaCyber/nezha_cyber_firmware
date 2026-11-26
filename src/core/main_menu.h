@@ -81,8 +81,11 @@ private:
     };
 
     void buildGridLayout(int itemCount, bool compactTiles = false);
+    void drawGridCommon(int index, bool compactTiles);
     void drawGridCell(int index, bool selected, bool compactTiles = false);
     void drawGridScrollBar();
+    bool updateLinearScroll(int style, int index, int itemCount, int visibleRows);
+    void drawLinearScrollBar(int barX, int trackY, int trackH, int visibleRows, int itemCount, int index);
     void drawCompactFooterBar(int index, int itemCount);
     void drawListRow(int index, int visibleSlot, int rowY, int rowH, bool selected);
     void drawSplitRailRow(int index, int visibleSlot, int rowY, int rowH, int railX, int railW, bool selected);

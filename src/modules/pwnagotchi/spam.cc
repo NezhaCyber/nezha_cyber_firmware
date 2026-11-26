@@ -168,7 +168,7 @@ void displaySpamStatus() {
     tft.setTextSize(FP);
     tft.setCursor(0, 20);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.println("PwnGrid Spam Running...");
+    tft.println("NezhaGrid Spam Running...");
 
 #if defined(HAS_TOUCH)
     TouchFooter();
@@ -271,46 +271,19 @@ void loadFacesAndNames() {
     if (look_for_file) { loopOptions(options); }
 
     if (look_for_file == false) {
-    Default: // This is default pwngrid faces to spam, removing the necessity to have a configuration file
-             // previously saved
-        int i = 0;
-        faces[i++] = "  ><Ô>";
-        faces[i++] = "<Ô><  ";
-        faces[i++] = "(STOP)";
-        faces[i++] = "♬♪♬♪♬♪♬";
-        faces[i++] = "(X‿‿X)";
-        faces[i++] = "(u W u)";
-        faces[i++] = "(NEZHA)";
-        faces[i++] = "(.)(.)";
-        faces[i++] = "ლ(o_oლ)";
-        faces[i++] = "(O﹏o)";
-        faces[i++] = "(✖╭╮✖)";
-        faces[i++] = "SKIDZ!";
-        faces[i++] = "(ɹoɹɹƎ)";
-        faces[i++] = "(H4cK)";
-        faces[i++] = "NOPWND!\n■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■";
-        num_faces = i;
-        i = 0;
-        names[i++] = "my name is... NEZHA!";
-        names[i++] = "Nezha Cyber Project";
-        names[i++] = "┌∩┐(◣_◢)┌∩┐";
-        names[i++] = "(╯°□°)╯╭╮(XoX)";
-        names[i++] = "STOP DEAUTH SKIDZ!";
-        names[i++] = "System Breached oups";
-        names[i++] = "Unauthorized  Access";
-        names[i++] = "Security  Compromised.. reboot";
-        names[i++] = "Warning...Nezha's here";
-        names[i++] = "Critical Error need reboot";
-        names[i++] = "No more Battery";
-        names[i++] = "Never gonna give you up";
-        names[i++] = "Never gonna let you down";
-        names[i++] = "Never gonna run around";
-        names[i++] = "and desert you";
-        names[i++] = "Never gonna make you cry";
-        names[i++] = "Never gonna say goodbye";
-        names[i++] = "Never gonna tell a lie";
-        names[i++] = "and hurt you";
-        num_names = i;
+    Default: // Default NezhaGrid spam faces & names
+        static const char *const kDefFaces[] = {
+            "(NEZHA)", "(STOP)", "(X__X)", "(u W u)", "(O_o)", "SKIDZ!", "(H4cK)", "(^o^)", "(-@_@)"
+        };
+        static const char *const kDefNames[] = {
+            "my name is... NEZHA!", "Nezha Cyber Project", "STOP DEAUTH SKIDZ!",
+            "System Breached", "Unauthorized Access", "Security Compromised",
+            "Warning...Nezha's here", "Critical Error", "No more Battery"
+        };
+        num_faces = (int)(sizeof(kDefFaces) / sizeof(kDefFaces[0]));
+        num_names = (int)(sizeof(kDefNames) / sizeof(kDefNames[0]));
+        for (int i = 0; i < num_faces; i++) faces[i] = kDefFaces[i];
+        for (int i = 0; i < num_names; i++) names[i] = kDefNames[i];
     } else {
 
         filepath = loopSD(*fs, true, "txt");
