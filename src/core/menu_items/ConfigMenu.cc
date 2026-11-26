@@ -141,6 +141,10 @@ void ConfigMenu::audioMenu() {
 #if defined(HAS_SPEAKER)
             {"Sound Volume",                                                [this]() { setSoundVolume(); }},
 #endif  //  HAS_SPEAKER
+            {String("Radar Beep: ") + (bruceConfig.radarBeep ? "ON" : "OFF"),
+                                                                [this]() {
+                 bruceConfig.setRadarBeep(!bruceConfig.radarBeep);
+             }                                                                            },
 #endif  //  LITE_VERSION
             {"Back",                                                        []() {}                       },
         };

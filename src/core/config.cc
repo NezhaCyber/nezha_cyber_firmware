@@ -22,6 +22,7 @@ JsonDocument BruceConfig::toJson() const {
     setting["clock24hr"] = clock24hr;
     setting["soundEnabled"] = soundEnabled;
     setting["soundVolume"] = soundVolume;
+    setting["radarBeep"] = radarBeep;
     setting["wifiAtStartup"] = wifiAtStartup;
     setting["instantBoot"] = instantBoot;
     setting["keyboardLang"] = keyboardLang;
@@ -203,6 +204,11 @@ void BruceConfig::fromFile(bool checkFS) {
     } else {
         count++;
         log_e("Fail");
+    }
+    if (!setting["radarBeep"].isNull()) {
+        radarBeep = setting["radarBeep"].as<int>();
+    } else {
+        radarBeep = 1;
     }
     if (!setting["wifiAtStartup"].isNull()) {
         wifiAtStartup = setting["wifiAtStartup"].as<int>();
@@ -570,12 +576,22 @@ void BruceConfig::setSoundVolume(int value) {
     saveFile();
 }
 
+void BruceConfig::setRadarBeep(int value) {
+    radarBeep = value;
+    validateRadarBeepValue();
+    saveFile();
+}
+
 void BruceConfig::validateSoundEnabledValue() {
     if (soundEnabled > 1) soundEnabled = 1;
 }
 
 void BruceConfig::validateSoundVolumeValue() {
     if (soundVolume > 100) soundVolume = 100;
+}
+
+void BruceConfig::validateRadarBeepValue() {
+    radarBeep = (radarBeep != 0) ? 1 : 0;
 }
 
 void BruceConfig::setWifiAtStartup(int value) {

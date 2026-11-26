@@ -54,6 +54,7 @@ public:
     bool clock24hr = true;
     int soundEnabled = 1;
     int soundVolume = 100;
+    int radarBeep = 1; // Default ON: tactical sonar/contact beep in Radar (toggleable in Audio Config)
     int wifiAtStartup = 0;
     int instantBoot = 0;
     String keyboardLang = "QWERTY"; // "QWERTY" | "AZERTY" | "QWERTZ"
@@ -148,8 +149,10 @@ public:
     void setClock24Hr(bool value);
     void setSoundEnabled(int value);
     void setSoundVolume(int value);
+    void setRadarBeep(int value);
     void validateSoundEnabledValue();
     void validateSoundVolumeValue();
+    void validateRadarBeepValue();
     void setWifiAtStartup(int value);
     void validateWifiAtStartupValue();
     void setLanguage(const String &value);

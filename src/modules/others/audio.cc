@@ -714,6 +714,16 @@ void playTone(unsigned int frequency, unsigned long duration, short waveType, Pl
             v *= volumeScale;
             return v;
         });
+    } else if (waveType == 2) {
+        // Crisp decaying sonar ping sine wave (smooth attack + exponential-like tail, ideal for Radar)
+        file->addAudioGenerators([volumeScale, hz, toneSec](const float time) {
+            if (time >= toneSec || toneSec <= 0.0f) return 0.0f;
+            float env = 1.0f - (time / toneSec);
+            if (time < 0.004f) env *= (time / 0.004f); // 4ms anti-click ramp
+            float v = sin(TWO_PI * hz * time) * env * env;
+            v *= volumeScale * 0.72f;
+            return v;
+        });
     }
 
     AudioGeneratorWAV *wav = new AudioGeneratorWAV();
