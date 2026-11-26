@@ -372,9 +372,9 @@ bool handleDelete(String &current_text, int &cursor_x, int &cursor_y) {
         fontSize = FP;
     } else tft.setTextSize(FM);
     tft.setCursor((cursor_x - fontSize * LW), cursor_y);
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    uint16_t boxBg = uiSurfaceColor();
+    tft.setTextColor(uiTextBrightColor(), boxBg);
     tft.print(" ");
-    tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), 0x5AAB);
     tft.setCursor(cursor_x - fontSize * LW, cursor_y);
     cursor_x = tft.getCursorX();
     cursor_y = tft.getCursorY();
@@ -594,222 +594,124 @@ String generalKeyboard(
     unsigned long LongPressTmp = millis();
 
     // main loop
+    bool firstGridDraw = true;
     while (1) {
         if (redraw) {
+            uint16_t bgCol = bruceConfig.bgColor;
+            uint16_t priCol = bruceConfig.priColor;
+            uint16_t surfCol = uiSurfaceColor();
+            uint16_t surfHiCol = uiSurfaceHiColor();
+            uint16_t bdimCol = uiBorderDimColor();
+            uint16_t brightCol = uiTextBrightColor();
+            uint16_t mutedCol = uiTextMutedColor();
+            uint16_t onAccentCol = uiTextOnAccentColor(priCol);
+
             String visible_text =
                 mask_input && !show_password ? repeatString(current_text.length(), "*") : current_text;
-            // setup
             tft.setCursor(0, 0);
-            tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
             tft.setTextSize(FM);
 
-            // Draw the top row buttons_strings
-            if (y < 0 || old_y < 0 || caps != last_caps || direction != last_dir) {
+            // Draw the top row action pills
+            bool capsChanged = (caps != last_caps);
+            if (firstGridDraw || y < 0 || old_y < 0 || capsChanged || direction != last_dir) {
                 last_caps = caps;
                 last_dir = direction;
-                tft.fillRect(0, 1, tftWidth, KBLH + 2, bruceConfig.bgColor);
-                // Draw the buttons_strings borders
-                for (int i = 0; i < buttons_number; ++i) {
-                    tft.drawRect(
-                        btns_layout[i][0],
-                        2,
-                        btns_layout[i][1],
-                        KBLH,
-                        getComplementaryColor2(bruceConfig.bgColor)
-                    );
-                }
+                tft.fillRect(0, 1, tftWidth, KBLH + 2, bgCol);
 
-                tft.drawRect(3, textbox_y, tftWidth - 3, KBLH, bruceConfig.priColor); // typed string border
+                auto drawTopPill = [&](int idx, const char *lbl, bool activeToggle, bool primaryOutline, bool smallFont) {
+                    bool focused = (x == idx && y == -1);
+                    uint16_t fill = focused ? priCol : (activeToggle ? surfHiCol : surfCol);
+                    uint16_t fg = focused ? onAccentCol : (activeToggle ? priCol : brightCol);
+                    uint16_t outline = focused ? priCol : (primaryOutline ? priCol : bdimCol);
+                    int bx = btns_layout[idx][0];
+                    int bw = btns_layout[idx][1];
+                    tft.fillRoundRect(bx, 2, bw, KBLH, 4, fill);
+                    if (!focused) tft.drawRoundRect(bx, 2, bw, KBLH, 4, outline);
+                    tft.setTextColor(fg, fill);
+                    if (smallFont) {
+                        tft.setTextSize(FP);
+                        tft.drawCentreString(lbl, bx + bw / 2, 2 + (KBLH - LH * FP) / 2, 1);
+                        tft.setTextSize(FM);
+                    } else {
+                        tft.drawString(lbl, btns_layout[idx][2], top_button_text_y);
+                    }
+                };
 
-                /* Highlight the corresponding button when the user cursor is over it */
-                // OK
-                if (x == 0 && y == -1) {
-                    tft.setTextColor(bruceConfig.bgColor, getComplementaryColor2(bruceConfig.bgColor));
-                    tft.fillRect(
-                        btns_layout[0][0],
-                        2,
-                        btns_layout[0][1],
-                        KBLH,
-                        getComplementaryColor2(bruceConfig.bgColor)
-                    );
-                } else tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
-                tft.drawString("Ok", btns_layout[0][2], top_button_text_y);
-                // CAP
-                if (x == 1 && y == -1) {
-                    tft.setTextColor(bruceConfig.bgColor, getComplementaryColor2(bruceConfig.bgColor));
-                    tft.fillRect(
-                        btns_layout[1][0],
-                        2,
-                        btns_layout[1][1],
-                        KBLH,
-                        getComplementaryColor2(bruceConfig.bgColor)
-                    );
-                } else if (caps) {
-                    tft.fillRect(btns_layout[1][0], 2, btns_layout[1][1], KBLH, TFT_DARKGREY);
-                    tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), TFT_DARKGREY);
-                } else tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
-                tft.drawString(caps ? "ab" : "A@", btns_layout[1][2], top_button_text_y);
-                // DEL
-                if (x == 2 && y == -1) {
-                    tft.setTextColor(bruceConfig.bgColor, getComplementaryColor2(bruceConfig.bgColor));
-                    tft.fillRect(
-                        btns_layout[2][0],
-                        2,
-                        btns_layout[2][1],
-                        KBLH,
-                        getComplementaryColor2(bruceConfig.bgColor)
-                    );
-                } else tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
-                tft.drawString("<-", btns_layout[2][2], top_button_text_y);
-                // SPACE
-                if (x == 3 && y == -1) {
-                    tft.setTextColor(bruceConfig.bgColor, getComplementaryColor2(bruceConfig.bgColor));
-                    tft.fillRect(
-                        btns_layout[3][0],
-                        2,
-                        btns_layout[3][1],
-                        KBLH,
-                        getComplementaryColor2(bruceConfig.bgColor)
-                    );
-                } else tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
-                tft.drawString("_", btns_layout[3][2], top_button_text_y);
-                // BACK
-                if (x == 4 && y == -1) {
-                    tft.setTextColor(bruceConfig.bgColor, getComplementaryColor2(bruceConfig.bgColor));
-                    tft.fillRect(
-                        btns_layout[4][0],
-                        2,
-                        btns_layout[4][1],
-                        KBLH,
-                        getComplementaryColor2(bruceConfig.bgColor)
-                    );
-                } else tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
-                tft.drawString("Ex", btns_layout[4][2], top_button_text_y);
+                drawTopPill(0, "Ok", false, true, false);
+                drawTopPill(1, caps ? "ab" : "A@", caps, false, false);
+                drawTopPill(2, "<-", false, false, false);
+                drawTopPill(3, "_", false, false, false);
+                drawTopPill(4, "Ex", false, false, false);
 #if HAS_1_BUTTON
-                // DIRECTION
-                if (x == 5 && y == -1) {
-                    tft.setTextColor(bruceConfig.bgColor, getComplementaryColor2(bruceConfig.bgColor));
-                    tft.fillRect(
-                        btns_layout[5][0],
-                        2,
-                        btns_layout[5][1],
-                        KBLH,
-                        getComplementaryColor2(bruceConfig.bgColor)
-                    );
-                } else if (!direction) {
-                    tft.fillRect(btns_layout[5][0], 2, btns_layout[5][1], KBLH, TFT_DARKGREY);
-                    tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), TFT_DARKGREY);
-                } else tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
-                tft.drawString(direction ? "R/D" : "L/U", btns_layout[5][2], top_button_text_y);
+                drawTopPill(5, direction ? "R/D" : "L/U", !direction, false, false);
 #endif
                 if (password_toggle) {
-                    bool highlighted = (x == password_button && y == -1);
-                    uint16_t fg = getComplementaryColor2(bruceConfig.bgColor);
-                    if (highlighted)
-                        tft.fillRect(
-                            btns_layout[password_button][0], 2, btns_layout[password_button][1], KBLH, fg
-                        );
-                    tft.setTextColor(
-                        highlighted ? bruceConfig.bgColor : fg, highlighted ? fg : bruceConfig.bgColor
-                    );
-                    tft.setTextSize(FP);
-                    tft.drawCentreString(
-                        show_password ? "Hide" : "Show",
-                        btns_layout[password_button][0] + btns_layout[password_button][1] / 2,
-                        2 + (KBLH - LH * FP) / 2,
-                        1
-                    );
-                    tft.setTextSize(FM);
+                    drawTopPill(password_button, show_password ? "Hide" : "Show", show_password, false, true);
                 }
             }
 
-            // Prints the chars counter
+            // Prints the chars counter & clean muted title (no legacy 0x5AAB bar)
             tft.setTextSize(FP);
-            tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
             String chars_counter = String(current_text.length()) + "/" + String(max_size);
-            tft.fillRect(
-                tftWidth - ((chars_counter.length() * LW * FP) + 2 * BORDER_PAD_X),
-                counter_y,
-                (chars_counter.length() * LW * FP) + 2 * BORDER_PAD_X,
-                LH * FP,
-                bruceConfig.bgColor
-            ); // clear previous text
-            tft.drawString(
-                chars_counter, tftWidth - ((chars_counter.length() * LW * FP) + BORDER_PAD_X), counter_y
-            );
+            tft.fillRect(0, counter_y, tftWidth, LH * FP + 2, bgCol);
+            tft.setTextColor(mutedCol, bgCol);
+            tft.drawRightString(chars_counter, tftWidth - 5, counter_y, 1);
 
-            // Prints the title of the textbox, it should report what the user has to write in it
-            tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), 0x5AAB);
             String trTitle = bruce_i18n::tr(textbox_title);
-            int16_t maxTitlePx =
-                tftWidth - ((chars_counter.length() * LW * FP) + 2 * BORDER_PAD_X) - 6;
+            int16_t maxTitlePx = tftWidth - ((chars_counter.length() * LW * FP) + 18);
             if (maxTitlePx < 24) maxTitlePx = 24;
-            tft.drawString(bruce_i18n::utf8TruncateToWidth(trTitle, maxTitlePx, FP), 3, counter_y);
+            tft.setTextColor(mutedCol, bgCol);
+            tft.drawString(bruce_i18n::utf8TruncateToWidth(trTitle, maxTitlePx, FP), 5, counter_y);
 
-            // Drawing the textbox and the currently typed string
-            tft.setTextSize(FM);
-            // reset the text box if needed
-            if (current_text.length() == (max_FM_size) || current_text.length() == (max_FM_size + 1) ||
-                current_text.length() == (max_FP_size) || current_text.length() == (max_FP_size + 1))
-                tft.fillRect(3, textbox_y, tftWidth - 3, KBLH, bruceConfig.bgColor);
-            // Clear all old glyphs when toggling visibility or deleting text.
-            if (mask_input) tft.fillRect(4, textbox_y + 1, tftWidth - 5, KBLH - 2, bruceConfig.bgColor);
-            // write the text
-            tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor));
+            // Clean rounded neutral input field with crisp accent outline
+            tft.fillRoundRect(3, textbox_y, tftWidth - 6, KBLH, 5, surfCol);
+            tft.drawRoundRect(3, textbox_y, tftWidth - 6, KBLH, 5, priCol);
+            tft.setTextColor(brightCol, surfCol);
 
-            if (current_text.length() >
-                max_FM_size) { // if the text is too long, we try to set the smaller font
+            if (current_text.length() > max_FM_size) {
                 tft.setTextSize(FP);
-
-                if (current_text.length() >
-                    max_FP_size) { // if its still too long, we divide it into two lines
-                    tft.drawString(visible_text.substring(0, max_FP_size), 5, textbox_text_y);
+                if (current_text.length() > max_FP_size) {
+                    tft.drawString(visible_text.substring(0, max_FP_size), 7, textbox_text_y);
                     tft.drawString(
                         visible_text.substring(max_FP_size, current_text.length()),
-                        5,
+                        7,
                         textbox_text_y + LH * FP
                     );
                 } else {
-                    tft.drawString(visible_text, 5, textbox_text_y);
+                    tft.drawString(visible_text, 7, textbox_text_y);
                 }
             } else {
-                // else if it fits, just draw the text
-                tft.drawString(visible_text, 5, textbox_text_y);
+                tft.setTextSize(FM);
+                tft.drawString(visible_text, 7, textbox_text_y);
             }
-            // Draw the textbox border again(?)
-            tft.drawRect(3, textbox_y, tftWidth - 3, KBLH, bruceConfig.priColor); // typed string border
 
-            tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), bruceConfig.bgColor);
+            // Draw keycap grid (partial update on cursor move; full draw on init / caps change)
             tft.setTextSize(FM);
-
-            // Draw the actual keyboard
+            bool redrawAllKeys = firstGridDraw || capsChanged;
             for (int i = 0; i < KeyboardHeight; i++) {
                 for (int j = 0; j < KeyboardWidth; j++) {
-                    // key coordinates
+                    bool isSel = (x == j && y == i);
+                    bool wasSel = (old_x == j && old_y == i);
+                    if (!redrawAllKeys && !isSel && !wasSel) continue;
+
                     int key_x = j * key_width;
                     int key_y = i * key_height + keyboard_start_y;
+                    uint16_t tileBg = isSel ? priCol : surfCol;
+                    uint16_t tileFg = isSel ? onAccentCol : brightCol;
 
-                    // Use the previous coordinates to redraw only the previous letter
-                    if (old_x == j && old_y == i) {
-                        tft.setTextColor(~bruceConfig.bgColor, bruceConfig.bgColor);
-                        tft.fillRect(key_x, key_y, key_width, key_height, bruceConfig.bgColor);
+                    tft.fillRect(key_x, key_y, key_width, key_height, bgCol);
+                    tft.fillRoundRect(key_x + 1, key_y + 1, key_width - 2, key_height - 2, 4, tileBg);
+                    if (!isSel) {
+                        tft.drawRoundRect(key_x + 1, key_y + 1, key_width - 2, key_height - 2, 4, bdimCol);
                     }
-                    // If selected, highlight it by changing font color and filling the back rectangle
-                    if (x == j && y == i) {
-                        tft.setTextColor(bruceConfig.bgColor, ~bruceConfig.bgColor);
-                        tft.fillRect(key_x, key_y, key_width, key_height, ~bruceConfig.bgColor);
+                    tft.setTextColor(tileFg, tileBg);
+                    char ch = caps ? keys[i][j][1] : keys[i][j][0];
+                    if (ch != '\0') {
+                        tft.drawString(String(ch), key_x + text_offset_x, key_y + text_offset_y);
                     }
-
-                    // Print the letters
-                    if (!caps)
-                        tft.drawString(String(keys[i][j][0]), key_x + text_offset_x, key_y + text_offset_y);
-                    else tft.drawString(String(keys[i][j][1]), key_x + text_offset_x, key_y + text_offset_y);
-
-                    // Return colors to normal to print the other letters
-                    if (x == j && y == i) { tft.setTextColor(~bruceConfig.bgColor, bruceConfig.bgColor); }
                 }
             }
-            // backup key coordinates
+            firstGridDraw = false;
             old_x = x;
             old_y = y;
             redraw = false;

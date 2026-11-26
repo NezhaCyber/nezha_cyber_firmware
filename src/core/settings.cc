@@ -117,67 +117,88 @@ int gsetRotation(bool set) {
 **********************************************************************/
 void setBrightnessMenu() {
     returnToMenu = false;
+    bool prevTouchZone = touchZoneOutsideFooterEnabled;
+#if defined(HAS_TOUCH)
+    touchZoneOutsideFooterEnabled = false;
+#endif
 
     int original = bruceConfig.bright;
     int val = (bruceConfig.bright / 5) * 5;
     if (val > 100) val = 100;
     if (val < 0) val = 0;
 
-    const int lineHeight = FM * LH;
-    const int hintHeight = FP * LH;
-    const int sliderH = 12;
-    const int radius = sliderH / 2;
-    const int spacing = 8;
-    const int paddingTop = 8;
-    const int paddingBottom = 8;
-    const int paddingSide = 12;
+    bool compact = (tftHeight < 160);
+    const int titleH = compact ? (LH * FP + 4) : 18;
+    const int hintH = LH * FP;
+    const int sliderH = compact ? 8 : 10;
+    const int thumbR = compact ? 6 : 7;
+    const int spacing = compact ? 10 : 14;
+    const int padTop = compact ? 10 : 14;
+    const int padBot = compact ? 8 : 12;
+    const int padSide = compact ? 14 : 18;
 
-    int contentWidth = static_cast<int>(tftWidth * 0.8f);
-    int contentHeight = paddingTop + lineHeight + spacing + sliderH + spacing + hintHeight + paddingBottom;
+    int contentWidth = tftWidth - (compact ? 24 : 44);
+    int contentHeight = padTop + titleH + spacing + thumbR * 2 + spacing + hintH + padBot;
     int boxX = (tftWidth - contentWidth) / 2;
     int boxY = (tftHeight - contentHeight) / 2;
 
-    int trackX = boxX + paddingSide;
-    int trackW = contentWidth - 2 * paddingSide;
-    int trackY = boxY + paddingTop + lineHeight + spacing;
+    int trackX = boxX + padSide;
+    int trackW = contentWidth - 2 * padSide;
+    int trackCenterY = boxY + padTop + titleH + spacing + thumbR;
+    int trackY = trackCenterY - sliderH / 2;
+
+    uint16_t surf = uiSurfaceColor();
+    uint16_t surfHi = uiSurfaceHiColor();
+    uint16_t bdim = uiBorderDimColor();
+    uint16_t bright = uiTextBrightColor();
+    uint16_t muted = uiTextMutedColor();
+    uint16_t pri = bruceConfig.priColor;
 
     bool redraw = true;
     bool first_draw = true;
     while (1) {
         if (redraw) {
             if (first_draw) {
-                tft.fillRoundRect(boxX, boxY, contentWidth, contentHeight, 5, bruceConfig.bgColor);
-                tft.drawRoundRect(boxX, boxY, contentWidth, contentHeight, 5, bruceConfig.priColor);
+                tft.fillRoundRect(boxX, boxY, contentWidth, contentHeight, 8, surf);
+                tft.drawRoundRect(boxX, boxY, contentWidth, contentHeight, 8, bdim);
+                tft.setTextSize(FP);
+                tft.setTextColor(muted, surf);
+                tft.drawCentreString(
+                    bruce_i18n::tr("Sel to apply"), boxX + contentWidth / 2,
+                    trackCenterY + thumbR + spacing, 1
+                );
                 first_draw = false;
             }
-            tft.setTextSize(FM);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            tft.drawCentreString(
-                bruce_i18n::tr(" Bright: " + String(val) + "% "), boxX + contentWidth / 2, boxY + paddingTop, 1
-            );
 
-            int indicatorX = trackX + (trackW * val) / 100;
-            tft.fillRect(trackX, trackY - 3, trackW, 3, bruceConfig.bgColor);
-            tft.fillRect(trackX, trackY + sliderH, trackW, 3, bruceConfig.bgColor);
-            tft.fillRect(trackX - radius - 2, trackY - 4, radius * 2, sliderH + 8, bruceConfig.bgColor);
-            tft.fillRect(
-                trackX + trackW - radius + 2, trackY - 4, radius * 2, sliderH + 8, bruceConfig.bgColor
-            );
-            tft.drawRoundRect(trackX, trackY, trackW, sliderH, radius, bruceConfig.secColor);
-            int fillW = indicatorX - trackX;
+            // Header row: label left, percentage right
+            tft.fillRect(boxX + padSide, boxY + padTop, contentWidth - 2 * padSide, titleH, surf);
+            String pctStr = String(val) + "%";
+            if (!compact) {
+                uiDrawText16(
+                    bruce_i18n::tr("Brightness"), boxX + padSide, boxY + padTop, contentWidth - 2 * padSide - 48,
+                    bright, surf, 0
+                );
+                uiDrawText16(pctStr, boxX + contentWidth - padSide, boxY + padTop, 48, pri, surf, 2);
+            } else {
+                tft.setTextSize(FP);
+                tft.setTextColor(bright, surf);
+                tft.drawString(bruce_i18n::tr("Brightness"), boxX + padSide, boxY + padTop + 2, 1);
+                tft.setTextColor(pri, surf);
+                tft.drawRightString(pctStr, boxX + contentWidth - padSide, boxY + padTop + 2, 1);
+            }
 
-            tft.fillRoundRect(trackX, trackY, fillW, sliderH, radius, bruceConfig.secColor);
-            tft.fillRoundRect(
-                trackX + fillW, trackY + 1, trackW - fillW, sliderH - 2, radius, bruceConfig.bgColor
-            );
-
-            tft.fillCircle(indicatorX, trackY + sliderH / 2, radius + 2, bruceConfig.priColor);
-
-            tft.setTextSize(FP);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            tft.drawCentreString(
-                bruce_i18n::tr("Sel to apply"), boxX + contentWidth / 2, trackY + sliderH + spacing, 1
-            );
+            // Slider band clear + modern track + solid fill + crisp thumb knob
+            tft.fillRect(trackX - thumbR - 2, trackCenterY - thumbR - 2, trackW + (thumbR + 2) * 2, (thumbR + 2) * 2, surf);
+            tft.fillRoundRect(trackX, trackY, trackW, sliderH, sliderH / 2, surfHi);
+            int fillW = (trackW * val) / 100;
+            if (fillW >= sliderH) {
+                tft.fillRoundRect(trackX, trackY, fillW, sliderH, sliderH / 2, pri);
+            } else if (fillW > 0) {
+                tft.fillRoundRect(trackX, trackY, sliderH, sliderH, sliderH / 2, pri);
+            }
+            int knobX = trackX + fillW;
+            tft.fillCircle(knobX, trackCenterY, thumbR, bright);
+            tft.fillCircle(knobX, trackCenterY, max(2, thumbR - 4), pri);
 
             setBrightness(val, false);
             redraw = false;
@@ -189,9 +210,9 @@ void setBrightnessMenu() {
             const int touchY = touchPoint.y;
             touchPoint.Clear();
 
-            const int touchPadding = 10;
-            if (touchX >= boxX && touchX <= boxX + contentWidth && touchY >= trackY - touchPadding &&
-                touchY <= trackY + sliderH + touchPadding) {
+            const int touchPadding = 16;
+            if (touchX >= boxX && touchX <= boxX + contentWidth && touchY >= trackCenterY - thumbR - touchPadding &&
+                touchY <= trackCenterY + thumbR + touchPadding) {
                 int clampedX = touchX;
                 if (clampedX < trackX) clampedX = trackX;
                 if (clampedX > trackX + trackW) clampedX = trackX + trackW;
@@ -227,6 +248,7 @@ void setBrightnessMenu() {
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
+    touchZoneOutsideFooterEnabled = prevTouchZone;
     tft.fillScreen(bruceConfig.bgColor);
 }
 
@@ -2105,14 +2127,15 @@ void calibrateTouch() {
         tft.drawCentreString(bruce_i18n::tr(text), _w / 2, y, 1);
     };
 
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    tft.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
     tft.setTextSize(FP);
-    const int16_t lineHeight = LH;
+    const int16_t lineHeight = LH + 4;
     int16_t y = (_h - lineHeight * 4) / 2;
     drawCenteredLine(bruce_i18n::tr("Nezha Cyber Touch Calibration"), y);
-    y += lineHeight;
-    drawCenteredLine("---------------------------", y);
-    y += lineHeight;
+    y += lineHeight + 2;
+    tft.drawFastHLine(24, y, _w - 48, uiBorderDimColor());
+    y += 6;
+    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
     drawCenteredLine("Touch the screen corners", y);
     y += lineHeight;
     drawCenteredLine("indicated by the arrows", y);
