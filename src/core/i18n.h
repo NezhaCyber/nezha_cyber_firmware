@@ -11,6 +11,12 @@ namespace bruce_i18n {
 enum class Language : uint8_t {
     EN = 0,
     ZH_CN = 1,
+    KO = 2,
+    JA = 3,
+    DE = 4,
+    RU = 5,
+    ES = 6,
+    FR = 7,
 };
 
 Language getLanguage();
@@ -25,20 +31,20 @@ String normalizeLanguageCode(const String &code);
 const char *tr(const char *en);
 String tr(const String &en);
 
-// Pure UTF-8 and display-metric helpers (compatible with Bruce LW=6, LH=8 grid).
+// Pure UTF-8 and display-metric helpers (compatible with LW=6, LH=8 grid).
 bool containsNonAscii(const char *s);
 bool containsNonAscii(const String &s);
 uint32_t utf8NextCodepoint(const char *&p);
 bool isWideCodepoint(uint32_t cp);
 
-// Pixel advance width of a single Unicode codepoint at Bruce `textSize`.
+// Pixel advance width of a single Unicode codepoint at `textSize`.
 int16_t glyphAdvancePx(uint32_t cp, uint8_t textSize);
 
-// Total pixel width of a UTF-8 string at Bruce `textSize`.
+// Total pixel width of a UTF-8 string at `textSize`.
 int16_t utf8PixelWidth(const char *s, uint8_t textSize);
 int16_t utf8PixelWidth(const String &s, uint8_t textSize);
 
-// Line height in pixels for a UTF-8 string at Bruce `textSize`.
+// Line height in pixels for a UTF-8 string at `textSize`.
 int16_t utf8LineHeight(uint8_t textSize);
 
 // Truncate UTF-8 string so its rendered width fits within `maxPx` pixels

@@ -1432,7 +1432,7 @@ struct StatusBarCache {
     uint8_t iconMask = 0xFF;
     bool clockSet = false;
     bool border = false;
-    bool isZh = false;
+    uint8_t langId = 0xFF;
     uint8_t nezhaStyle = 0xFF;
     uint16_t priColor = 0;
     uint16_t secColor = 0;
@@ -1494,12 +1494,12 @@ void drawStatusBar(bool force) {
 #endif
     }
 
-    bool isZh = bruce_i18n::isChinese();
+    uint8_t langId = static_cast<uint8_t>(bruce_i18n::getLanguage());
     uint8_t nStyle = (uint8_t)bruceConfig.nezhaThemeStyle;
     if (!force && s_statusBarCache.valid && s_statusBarCache.bat == bat &&
         s_statusBarCache.charging == charging && s_statusBarCache.iconMask == iconMask &&
         s_statusBarCache.clockSet == clock_set && s_statusBarCache.border == bruceConfig.theme.border &&
-        s_statusBarCache.isZh == isZh && s_statusBarCache.nezhaStyle == nStyle &&
+        s_statusBarCache.langId == langId && s_statusBarCache.nezhaStyle == nStyle &&
         s_statusBarCache.priColor == bruceConfig.priColor &&
         s_statusBarCache.secColor == bruceConfig.secColor &&
         s_statusBarCache.bgColor == bruceConfig.bgColor &&
@@ -1514,7 +1514,7 @@ void drawStatusBar(bool force) {
     s_statusBarCache.iconMask = iconMask;
     s_statusBarCache.clockSet = clock_set;
     s_statusBarCache.border = bruceConfig.theme.border;
-    s_statusBarCache.isZh = isZh;
+    s_statusBarCache.langId = langId;
     s_statusBarCache.nezhaStyle = nStyle;
     s_statusBarCache.priColor = bruceConfig.priColor;
     s_statusBarCache.secColor = bruceConfig.secColor;

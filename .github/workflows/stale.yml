@@ -1,0 +1,25 @@
+name: Community — Stale Issue & PR Hygiene
+
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-stale: 60
+          days-before-close: 14
+          stale-issue-label: "stale"
+          stale-pr-label: "stale"
+          exempt-issue-labels: "pinned,security,bug,roadmap"
+          exempt-pr-labels: "pinned,work-in-progress"
+          stale-issue-message: "This issue has had no activity for 60 days. Comment to keep it open, or it will be closed automatically in 14 days."
+          stale-pr-message: "This pull request has had no activity for 60 days. Please rebase or comment if it is still active."

@@ -1,0 +1,97 @@
+name: CI — Nezha Cyber Firmware
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "media/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify i18n, Fonts & Repo Structure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify locale tables & Unicode glyph coverage
+        run: python3 tools/gen_cjk_font.py --check-tables
+
+      - name: Verify partition tables & build scripts
+        run: |
+          test -f partitions/custom_16Mb.csv
+          test -f partitions/custom_8Mb.csv
+          test -f partitions/custom_4Mb_full.csv
+          test -f scripts/build/build.py
+          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
+
+  build:
+    name: Build (${{ matrix.env }})
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - env: lilygo-t-deck
+            name: LilyGO T-Deck (ESP32-S3, 16MB)
+          - env: m5stack-cplus1_1
+            name: M5StickC Plus 1.1 (ESP32, 4MB)
+          - env: m5stack-cardputer
+            name: M5Stack Cardputer (ESP32-S3, 8MB)
+          - env: lilygo-t-embed-cc1101
+            name: LilyGO T-Embed CC1101 (ESP32-S3, 16MB)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'boards/**/*.ini') }}
+          restore-keys: |
+            pio-${{ runner.os }}-${{ matrix.env }}-
+            pio-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build ${{ matrix.name }}
+        run: pio run -e ${{ matrix.env }}
+
+      - name: Upload merged firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NezhaCyber-${{ matrix.env }}
+          path: NezhaCyber-${{ matrix.env }}.bin
+          if-no-files-found: error
+          retention-days: 14

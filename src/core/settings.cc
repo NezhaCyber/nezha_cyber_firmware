@@ -711,15 +711,28 @@ void setMainMenuStyleMenu() {
 **********************************************************************/
 void setLanguageMenu() {
     std::vector<Option> langOptions = {
-        {"English",
-         []() { bruceConfig.setLanguage("en"); },
-         bruceConfig.language == "en"},
-        {"简体中文",
-         []() { bruceConfig.setLanguage("zh-CN"); },
-         bruceConfig.language == "zh-CN"},
-        {"Back", []() {}},
+        {"English",  []() { bruceConfig.setLanguage("en"); },    bruceConfig.language == "en"   },
+        {"简体中文", []() { bruceConfig.setLanguage("zh-CN"); }, bruceConfig.language == "zh-CN"},
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+        {"한국어",   []() { bruceConfig.setLanguage("ko"); },    bruceConfig.language == "ko"   },
+        {"日本語",   []() { bruceConfig.setLanguage("ja"); },    bruceConfig.language == "ja"   },
+        {"Deutsch",  []() { bruceConfig.setLanguage("de"); },    bruceConfig.language == "de"   },
+        {"Русский",  []() { bruceConfig.setLanguage("ru"); },    bruceConfig.language == "ru"   },
+        {"Español",  []() { bruceConfig.setLanguage("es"); },    bruceConfig.language == "es"   },
+        {"Français", []() { bruceConfig.setLanguage("fr"); },    bruceConfig.language == "fr"   },
+#endif
+        {"Back",     []() {}                                                                     },
     };
-    int initialIdx = (bruceConfig.language == "zh-CN") ? 1 : 0;
+    int initialIdx = 0;
+    if (bruceConfig.language == "zh-CN") initialIdx = 1;
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+    else if (bruceConfig.language == "ko") initialIdx = 2;
+    else if (bruceConfig.language == "ja") initialIdx = 3;
+    else if (bruceConfig.language == "de") initialIdx = 4;
+    else if (bruceConfig.language == "ru") initialIdx = 5;
+    else if (bruceConfig.language == "es") initialIdx = 6;
+    else if (bruceConfig.language == "fr") initialIdx = 7;
+#endif
     loopOptions(langOptions, MENU_TYPE_SUBMENU, "Firmware Language", initialIdx);
 }
 

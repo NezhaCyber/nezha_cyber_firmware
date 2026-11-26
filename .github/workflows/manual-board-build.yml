@@ -1,0 +1,52 @@
+name: Manual Build — Any Target Board
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "PlatformIO environment name from platformio.ini (e.g. lilygo-t-deck, m5stack-cplus1_1, m5stack-cardputer)"
+        required: true
+        default: "lilygo-t-deck"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ inputs.env }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+            ~/.platformio/packages
+            ~/.platformio/platforms
+          key: pio-manual-${{ runner.os }}-${{ inputs.env }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-manual-${{ runner.os }}-
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Build ${{ inputs.env }}
+        run: pio run -e ${{ inputs.env }}
+
+      - name: Upload merged binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: NezhaCyber-${{ inputs.env }}
+          path: NezhaCyber-${{ inputs.env }}.bin
+          retention-days: 14

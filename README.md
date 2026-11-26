@@ -29,7 +29,7 @@ We intentionally **preserve the full upstream Git commit history** and deeply re
 - **Craft-First Industrial Hardware OS**: Every screen—launcher, menus, keyboard, radar, BLE tools, theme studio, and settings—is engineered around a cohesive, high-contrast dark obsidian hardware interface with zero cluttered legacy UI.
 - **Native 哪吒魔童 (Nezha Demon Child) Brand Identity**: Built from the ground up around authentic Chinese mythological cybersecurity aesthetics—boot splash emblem, **20 curated 哪吒魔童 theme packs** (71 total palettes), **3 selectable Motong UI crests**, and live Theme Studio preview.
 - **Original Standalone Nezha Cyber Pet (哪吒宠物)**: Replaced legacy `Brucegotchi` / `PwnGrid` / `Megalodon` with a 100% original persistent **哪吒魔童** companion featuring 4 visual evolution realms and purely passive RF spirit patrol.
-- **Chinese & English First-Class Experience**: Built-in compact 12px/16px PROGMEM CJK bitmap font pipeline (`1,050+` translated UI strings) with instant EN / 简体中文 switching and full support for **4 MB Flash** boards (such as M5StickC Plus 1.1) alongside **16 MB + 8 MB PSRAM** flagship boards (LilyGO T-Deck / T-Deck Plus).
+- **8-Language Global Experience**: Built-in compact PROGMEM Unicode/CJK bitmap font pipeline supporting **English**, **简体中文**, **한국어 (Korean)**, **日本語 (Japanese)**, **Deutsch (German)**, **Русский (Russian)**, **Español (Spanish)**, and **Français (French)** with instant in-firmware switching (`Config → Language`) and Flash-tiered support for **4 MB** boards alongside **16 MB + 8 MB PSRAM** flagship boards.
 - **Daily Flipper-Style Hardware Toolkit**: Expanded beyond red-team utilities into an everyday multi-tool featuring a Sub-GHz Frequency Analyzer, Universal IR Remote, GPIO Pin Controller & Voltage Monitor, RFC 6238 TOTP 2FA Authenticator, PWM Signal Generator, ITU Morse TX, Hardware TRNG Password Generator, and Polyhedral Dice Roller.
 
 ---
@@ -122,6 +122,8 @@ Also inherits board definitions across the wider ESP32 ecosystem from upstream B
 This project is an independent standalone fork originating from **[Bruce Firmware](https://github.com/pr3y/Bruce)**, preserving its full Git history and AGPL-3.0 copyleft lineage. Deep gratitude to the Bruce maintainers and upstream open-source ecosystem:
 - **[pr3y/Bruce](https://github.com/pr3y/Bruce)** and all upstream contributors (`@bmorcelli`, `@IncursioHack`, `@Luidiblu`, `@eadmaster`, `@rennancockles`, `@7h30th3r0n3`, `@Tawank`, `@geo-tp`, `@lshaf`, and the entire Bruce community).
 - Foundational open-source inspirations: [ESP32Marauder](https://github.com/justcallmekoko/ESP32Marauder), [Launcher](https://github.com/bmorcelli/Launcher), [Evil-M5Project](https://github.com/7h30th3r0n3/Evil-M5Project), and [M5Stick-Nemo](https://github.com/n0xa/m5stick-nemo).
+- Architecture & standardized directory layout: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) · Roadmap: [docs/ROADMAP.md](./docs/ROADMAP.md)
+- Contributing & open-source community: [CONTRIBUTING.md](./CONTRIBUTING.md) · [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md)
 - Third-party library attributions and copyleft details: see [THIRD_PARTY.md](./THIRD_PARTY.md) and [LICENSE](./LICENSE).
 
 ---

@@ -10,16 +10,25 @@ namespace {
 const bruce_i18n::CjkGlyph *findCjkGlyph(uint32_t cp) {
     if (cp > 0xFFFF) return nullptr;
     uint16_t target = static_cast<uint16_t>(cp);
-    size_t lo = 0;
-    size_t hi = bruce_i18n::kCjkGlyphCount;
-    while (lo < hi) {
-        size_t mid = lo + (hi - lo) / 2;
-        uint16_t midCp = pgm_read_word(&bruce_i18n::kCjkGlyphs[mid].codepoint);
-        if (midCp == target) return &bruce_i18n::kCjkGlyphs[mid];
-        if (midCp < target) lo = mid + 1;
-        else hi = mid;
-    }
+    auto bsearchTable = [target](const bruce_i18n::CjkGlyph *arr, size_t count) -> const bruce_i18n::CjkGlyph * {
+        size_t lo = 0;
+        size_t hi = count;
+        while (lo < hi) {
+            size_t mid = lo + (hi - lo) / 2;
+            uint16_t midCp = pgm_read_word(&arr[mid].codepoint);
+            if (midCp == target) return &arr[mid];
+            if (midCp < target) lo = mid + 1;
+            else hi = mid;
+        }
+        return nullptr;
+    };
+    const bruce_i18n::CjkGlyph *hit = bsearchTable(bruce_i18n::kCjkGlyphs, bruce_i18n::kCjkGlyphCount);
+    if (hit) return hit;
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+    return bsearchTable(bruce_i18n::kExtGlyphs, bruce_i18n::kExtGlyphCount);
+#else
     return nullptr;
+#endif
 }
 
 } // namespace

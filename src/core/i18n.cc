@@ -1,5 +1,8 @@
 #include "i18n.h"
 #include "lang_zh_cn.h"
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+#include "i18n/lang_locales.h"
+#endif
 #include <cstring>
 #include <strings.h>
 
@@ -11,7 +14,13 @@ Language getLanguage() { return s_currentLanguage; }
 
 bool isChinese() { return s_currentLanguage == Language::ZH_CN; }
 
-void setLanguage(Language lang) { s_currentLanguage = lang; }
+void setLanguage(Language lang) {
+#if defined(BRUCE_COMPACT_CJK_FONT)
+    s_currentLanguage = (lang == Language::ZH_CN) ? Language::ZH_CN : Language::EN;
+#else
+    s_currentLanguage = lang;
+#endif
+}
 
 String normalizeLanguageCode(const String &code) {
     String lower = code;
@@ -21,52 +30,129 @@ String normalizeLanguageCode(const String &code) {
         lower == "chinese" || lower == "简体中文") {
         return "zh-CN";
     }
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+    if (lower == "ko" || lower == "ko-kr" || lower == "kr" || lower == "korean" || lower == "한국어") {
+        return "ko";
+    }
+    if (lower == "ja" || lower == "ja-jp" || lower == "jp" || lower == "japanese" || lower == "日本語") {
+        return "ja";
+    }
+    if (lower == "de" || lower == "de-de" || lower == "german" || lower == "deutsch") {
+        return "de";
+    }
+    if (lower == "ru" || lower == "ru-ru" || lower == "russian" || lower == "русский") {
+        return "ru";
+    }
+    if (lower == "es" || lower == "es-es" || lower == "spanish" || lower == "español") {
+        return "es";
+    }
+    if (lower == "fr" || lower == "fr-fr" || lower == "french" || lower == "français") {
+        return "fr";
+    }
+#endif
     return "en";
 }
 
 void setLanguage(const String &code) {
-    if (normalizeLanguageCode(code) == "zh-CN") {
-        s_currentLanguage = Language::ZH_CN;
-    } else {
-        s_currentLanguage = Language::EN;
-    }
+    String norm = normalizeLanguageCode(code);
+    if (norm == "zh-CN") s_currentLanguage = Language::ZH_CN;
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+    else if (norm == "ko") s_currentLanguage = Language::KO;
+    else if (norm == "ja") s_currentLanguage = Language::JA;
+    else if (norm == "de") s_currentLanguage = Language::DE;
+    else if (norm == "ru") s_currentLanguage = Language::RU;
+    else if (norm == "es") s_currentLanguage = Language::ES;
+    else if (norm == "fr") s_currentLanguage = Language::FR;
+#endif
+    else s_currentLanguage = Language::EN;
 }
 
 const char *languageCode(Language lang) {
-    return (lang == Language::ZH_CN) ? "zh-CN" : "en";
+    switch (lang) {
+        case Language::ZH_CN: return "zh-CN";
+        case Language::KO: return "ko";
+        case Language::JA: return "ja";
+        case Language::DE: return "de";
+        case Language::RU: return "ru";
+        case Language::ES: return "es";
+        case Language::FR: return "fr";
+        default: return "en";
+    }
 }
 
-static const char *lookupExactZh(const char *en) {
+static void getActiveTable(const TranslationEntry *&table, size_t &size) {
+    switch (s_currentLanguage) {
+        case Language::ZH_CN:
+            table = kZhCnTable;
+            size = kZhCnTableSize;
+            return;
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+        case Language::KO:
+            table = kKoTable;
+            size = kKoTableSize;
+            return;
+        case Language::JA:
+            table = kJaTable;
+            size = kJaTableSize;
+            return;
+        case Language::DE:
+            table = kDeTable;
+            size = kDeTableSize;
+            return;
+        case Language::RU:
+            table = kRuTable;
+            size = kRuTableSize;
+            return;
+        case Language::ES:
+            table = kEsTable;
+            size = kEsTableSize;
+            return;
+        case Language::FR:
+            table = kFrTable;
+            size = kFrTableSize;
+            return;
+#endif
+        default:
+            table = nullptr;
+            size = 0;
+            return;
+    }
+}
+
+static const char *lookupExact(const char *en) {
     if (!en || !*en) return nullptr;
+    const TranslationEntry *table = nullptr;
+    size_t tableSize = 0;
+    getActiveTable(table, tableSize);
+    if (!table || tableSize == 0) return nullptr;
+
     size_t lo = 0;
-    size_t hi = kZhCnTableSize;
+    size_t hi = tableSize;
     while (lo < hi) {
         size_t mid = lo + (hi - lo) / 2;
-        int cmp = strcmp(kZhCnTable[mid].en, en);
-        if (cmp == 0) return kZhCnTable[mid].zh;
+        int cmp = strcmp(table[mid].en, en);
+        if (cmp == 0) return table[mid].zh;
         if (cmp < 0) lo = mid + 1;
         else hi = mid;
     }
-    // Case-insensitive fallback (handles e.g. "Custom SubGHz" vs "Custom SubGhz", "Connect to WiFi" vs "Wifi")
-    for (size_t i = 0; i < kZhCnTableSize; ++i) {
-        if (strcasecmp(kZhCnTable[i].en, en) == 0) return kZhCnTable[i].zh;
+    for (size_t i = 0; i < tableSize; ++i) {
+        if (strcasecmp(table[i].en, en) == 0) return table[i].zh;
     }
     return nullptr;
 }
 
 const char *tr(const char *en) {
     if (!en || s_currentLanguage == Language::EN) return en;
-    const char *hit = lookupExactZh(en);
+    const char *hit = lookupExact(en);
     return hit ? hit : en;
 }
 
 String tr(const String &en) {
     if (en.isEmpty() || s_currentLanguage == Language::EN) return en;
 
-    const char *exact = lookupExactZh(en.c_str());
+    const char *exact = lookupExact(en.c_str());
     if (exact) return String(exact);
 
-    // Handle leading/trailing whitespace around translatable strings (e.g. " Bright: 80% ", "Overwrite ")
     String trimmed = en;
     trimmed.trim();
     if (trimmed.length() != en.length() && !trimmed.isEmpty()) {
@@ -80,7 +166,6 @@ String tr(const String &en) {
         }
     }
 
-    // Handle "Left > Right" breadcrumb titles (e.g. "Apple Pairing Prompt > Device", "... > Config")
     int arrow = en.indexOf(" > ");
     if (arrow > 0) {
         String left = en.substring(0, arrow);
@@ -92,29 +177,27 @@ String tr(const String &en) {
         }
     }
 
-    // Handle dynamic "Prefix: Value" labels such as "Sound: ON", "Low RAM: free BLE/SD (22K/34K)"
     int sep = en.indexOf(": ");
     if (sep > 0) {
         String key = en.substring(0, sep);
-        const char *trKey = lookupExactZh(key.c_str());
+        const char *trKey = lookupExact(key.c_str());
         if (trKey) {
             String val = en.substring(sep + 2);
-            const char *trVal = lookupExactZh(val.c_str());
+            const char *trVal = lookupExact(val.c_str());
             if (trVal) return String(trKey) + ": " + String(trVal);
             int paren = val.indexOf(" (");
             if (paren > 0) {
                 String valHead = val.substring(0, paren);
-                const char *trHead = lookupExactZh(valHead.c_str());
+                const char *trHead = lookupExact(valHead.c_str());
                 if (trHead) return String(trKey) + ": " + String(trHead) + val.substring(paren);
             }
             return String(trKey) + ": " + val;
         }
     }
 
-    // Handle trailing-colon prompts such as "Network Password:", "Evil Portal SSID:"
     if (en.endsWith(":") && en.length() > 1) {
         String key = en.substring(0, en.length() - 1);
-        const char *trKey = lookupExactZh(key.c_str());
+        const char *trKey = lookupExact(key.c_str());
         if (trKey) {
             return String(trKey) + ":";
         }
@@ -164,9 +247,10 @@ uint32_t utf8NextCodepoint(const char *&p) {
 }
 
 bool isWideCodepoint(uint32_t cp) {
-    return (cp >= 0x2E80 && cp <= 0x9FFF) || (cp >= 0xF900 && cp <= 0xFAFF) ||
+    return (cp >= 0x1100 && cp <= 0x11FF) || (cp >= 0x2E80 && cp <= 0x9FFF) ||
+           (cp >= 0xAC00 && cp <= 0xD7AF) || (cp >= 0xF900 && cp <= 0xFAFF) ||
            (cp >= 0xFE30 && cp <= 0xFE6F) || (cp >= 0xFF00 && cp <= 0xFF60) ||
-           (cp >= 0xFFE0 && cp <= 0xFFE6) || (cp >= 0x3000 && cp <= 0x303F);
+           (cp >= 0xFFE0 && cp <= 0xFFE6);
 }
 
 int16_t glyphAdvancePx(uint32_t cp, uint8_t textSize) {
@@ -174,7 +258,6 @@ int16_t glyphAdvancePx(uint32_t cp, uint8_t textSize) {
     if (cp < 0x80) {
         return static_cast<int16_t>(6 * textSize);
     }
-    // CJK / full-width glyph cell matches 12px at size 1, 16px at size 2, 8*textSize at size >= 3
     if (textSize == 1) return 12;
     if (textSize == 2) return 16;
     return static_cast<int16_t>(8 * textSize);
@@ -249,9 +332,6 @@ std::vector<String> utf8WrapToWidth(const String &s, int16_t maxPx, uint8_t text
         if (cp == ' ' || cp == '-' || cp == '_') {
             lastBreakPtr = charStart;
             lastBreakSkipChar = (cp == ' ');
-        } else if (isWideCodepoint(cp) && charStart > lineStart) {
-            lastBreakPtr = charStart;
-            lastBreakSkipChar = false;
         }
 
         if (curWidth + adv > maxPx && charStart > lineStart) {
@@ -259,30 +339,29 @@ std::vector<String> utf8WrapToWidth(const String &s, int16_t maxPx, uint8_t text
                 lines.push_back(s.substring(lineStart - base, lastBreakPtr - base));
                 lineStart = lastBreakSkipChar ? (lastBreakPtr + 1) : lastBreakPtr;
                 p = lineStart;
-            } else {
-                lines.push_back(s.substring(lineStart - base, charStart - base));
-                lineStart = charStart;
-                p = lineStart;
+                lastBreakPtr = nullptr;
+                curWidth = 0;
+                continue;
             }
+            lines.push_back(s.substring(lineStart - base, charStart - base));
+            lineStart = charStart;
             lastBreakPtr = nullptr;
-            curWidth = 0;
+            curWidth = adv;
             continue;
         }
 
         curWidth += adv;
     }
 
-    if (*lineStart != '\0') {
-        lines.push_back(s.substring(lineStart - base));
+    if (lineStart < p || lines.empty()) {
+        lines.push_back(s.substring(lineStart - base, p - base));
     }
-
     return lines;
 }
 
 size_t utf8SafeCutBytes(const char *s, size_t len, size_t maxBytes) {
     if (!s || len <= maxBytes) return len;
     size_t cut = maxBytes;
-    // Back up past any UTF-8 continuation bytes (10xxxxxx)
     while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) {
         --cut;
     }

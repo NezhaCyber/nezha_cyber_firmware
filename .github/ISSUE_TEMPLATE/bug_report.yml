@@ -1,0 +1,43 @@
+name: Bug Report
+description: Report a firmware crash, UI glitch, or hardware bug in Nezha Cyber
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: input
+    id: board
+    attributes:
+      label: Target Board / Environment
+      description: Which board and PlatformIO env are you running?
+      placeholder: "e.g. LilyGO T-Deck (lilygo-t-deck) or M5StickC Plus 1.1 (m5stack-cplus1_1)"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Firmware Version / Commit SHA
+      placeholder: "e.g. main @ 3c36e1d9"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of the bug and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Go to '...'
+        2. Select '...'
+        3. Observe crash / UI issue
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Serial Logs / Screenshots (optional)
+      description: Paste `make monitor` serial logs or attach photos.
+      render: shell

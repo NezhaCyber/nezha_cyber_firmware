@@ -1,0 +1,23 @@
+name: Feature Request
+description: Propose a new tool, theme, localization, or UI enhancement for Nezha Cyber
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: Describe the feature and how it fits Nezha Cyber's philosophy.
+    validations:
+      required: true
+  - type: textarea
+    id: boards
+    attributes:
+      label: Target Hardware
+      placeholder: "All boards, or ESP32-S3 / LilyGO T-Deck only?"
+    validations:
+      required: false
+  - type: textarea
+    id: details
+    attributes:
+      label: Implementation Ideas / References (optional)
