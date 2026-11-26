@@ -128,6 +128,8 @@ uint16_t uiTextMutedColor();
 uint16_t uiTextOnAccentColor(uint16_t accent = bruceConfig.priColor);
 // Crisp vector 哪吒魔童 crest emblem (style: 1=Motong Flame, 2=Lotus Seal, 3=Ice-Fire Twin)
 void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t style);
+// Subtle 1px hardware divider with restrained 哪吒魔童 dual-tone Hun Tian Ling lead accent
+void drawNezhaRibbonRule(int x, int y, int w);
 int16_t uiMeasureText16(const String &text);
 String uiTruncateText16(const String &text, int16_t maxPx);
 int16_t uiDrawText16(

@@ -8,8 +8,8 @@ This project preserves the full upstream Git history of [Bruce Firmware](https:/
 ## [Unreleased]
 
 ### Added
-- **8-Language Internationalization (i18n)**: Added Korean (`한국어`), Japanese (`日本語`), German (`Deutsch`), Russian (`Русский`), Spanish (`Español`), and French (`Français`) alongside English and Simplified Chinese (`简体中文`), backed by an automated multi-script PROGMEM Unicode bitmap font generator (`tools/gen_cjk_font.py`).
-- **5-Second Animated 哪吒魔童 Boot Splash**: Swirling Wind-Fire ember sparks, pulsing Qiankun corner brackets, dual-side reactor bars, 6-stage subsystem boot ticker, dual-tone Wind-Fire progress bar, and pentatonic chimes (instantly skippable on any input).
+- **Bilingual UI (`zh-CN` Default + English)**: Simplified Chinese is now the default firmware language with instant switching to English, backed by a compact PROGMEM CJK bitmap font (`tools/gen_cjk_font.py`).
+- **5-Second Animated 哪吒魔童 Boot Splash**: Animated boot sequence with flanking sparks, corner brackets, subsystem ticker, progress bar, and startup chimes (skippable on any input).
 - **4 New Cyber Tools in Flipper Tools**:
   - **WiFi Waterfall (`WiFi 瀑布图`)**: Live 2.4 GHz 13-channel thermal bar spectrum, scrolling 48-row heat waterfall, and quietest best-channel recommender.
   - **GPIO Scope (`GPIO 示波器`)**: Real-time pocket ADC/Logic oscilloscope with graticule grid, `Min/Max/Avg/Hz`, timebase, and Hold trigger.

@@ -332,6 +332,9 @@ int8_t displayMessage(
 
     tft.fillRoundRect(cardX, cardY, cardW, cardH, 8, surf);
     tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, bdim);
+    if (bruceConfig.nezhaThemeStyle > 0) {
+        drawNezhaRibbonRule(cardX + 10, cardY + 2, cardW - 20);
+    }
 
     int textY = cardY + padTop;
     for (size_t i = 0; i < lines.size(); i++) {
@@ -1322,7 +1325,7 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
             String fitted = bruce_i18n::utf8TruncateToWidth(trTitle, maxTitleW, FP);
             tft.drawString(fitted, titleX, headerY + (headerH - titleH) / 2, 1);
         }
-        tft.drawFastHLine(6, headerY + headerH + 1, tftWidth - 12, borderDim);
+        drawNezhaRibbonRule(6, headerY + headerH + 1, tftWidth - 12);
     }
 
     // Tabular item counter (e.g. 3/18)
@@ -1382,6 +1385,9 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
         tft.fillRect(rowX, rowY, rowW, rowH, bg);
         if (isSel) {
             tft.fillRoundRect(rowX, rowY + 1, rowW, rowH - 2, 6, pri);
+            if (bruceConfig.nezhaThemeStyle > 0) {
+                tft.fillRoundRect(rowX + 3, rowY + 5, 2, rowH - 10, 1, bruceConfig.secColor);
+            }
         }
 
         uint16_t labelCol = !options[i].enabled ? 0x528A : (isSel ? onAccent : (options[i].selected ? textBright : textNormal));
@@ -1466,6 +1472,20 @@ void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t s
     }
 }
 
+void drawNezhaRibbonRule(int x, int y, int w) {
+    if (w <= 0) return;
+    tft.drawFastHLine(x, y, w, uiBorderDimColor());
+    if (bruceConfig.nezhaThemeStyle > 0) {
+        int lead = max(12, w / 4);
+        int tip = max(6, min(20, w / 10));
+        if (lead > w) lead = w;
+        tft.drawFastHLine(x, y, lead, bruceConfig.priColor);
+        if (lead + tip <= w) {
+            tft.drawFastHLine(x + lead, y, tip, bruceConfig.secColor);
+        }
+    }
+}
+
 void invalidateStatusBarCache() { s_statusBarCache.valid = false; }
 
 void drawStatusBar(bool force) {
@@ -1534,14 +1554,9 @@ void drawStatusBar(bool force) {
     uint16_t textBright = uiTextBrightColor();
     int hudH = STATUS_BAR_HEIGHT - 6;
 
-    // Clean minimal hardware status bar with optional 哪吒魔童 Hun Tian Ling accent hairline
+    // Clean minimal hardware status bar with restrained 哪吒魔童 Hun Tian Ling accent hairline
     tft.fillRect(0, 0, tftWidth, hudH, barBg);
-    tft.drawFastHLine(0, hudH, tftWidth, borderDim);
-    if (nStyle > 0) {
-        int accentW = tftWidth / 4;
-        tft.drawFastHLine(0, hudH, accentW, pri);
-        tft.drawFastHLine(accentW, hudH, max(10, accentW / 3), sec);
-    }
+    drawNezhaRibbonRule(0, hudH, tftWidth);
 
     // Left badge: live clock or Nezha Cyber brand with 哪吒魔童 crest
     int crestR = (hudH >= 20) ? 5 : 4;

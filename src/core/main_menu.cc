@@ -611,6 +611,9 @@ void MainMenu::drawCards(int index) {
     tft.fillRoundRect(heroX, heroY, heroW, heroH, hr, surf);
     tft.drawRoundRect(heroX, heroY, heroW, heroH, hr, pri);
     tft.drawRoundRect(heroX + 1, heroY + 1, heroW - 2, heroH - 2, hr - 1, pri);
+    if (bruceConfig.nezhaThemeStyle > 0) {
+        drawNezhaCrest(heroX + 12, heroY + (compactScreen ? 10 : 13), compactScreen ? 3 : 4, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
+    }
 
     MenuItemInterface *heroItem = static_cast<MenuItemInterface *>(options[index].hoverPointer);
     if (heroItem) {
@@ -710,6 +713,9 @@ void MainMenu::drawDock(int index) {
         tft.setTextSize(FP);
         tft.setTextColor(muted, surf);
         tft.drawRightString(cnt, padX + stageW - 10, stageY + 8, 1);
+        if (bruceConfig.nezhaThemeStyle > 0) {
+            drawNezhaCrest(padX + 12, stageY + 12, 4, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
+        }
         if (heroItem) {
             heroItem->drawIconInBox(padX + stageW / 2, stageY + (stageH - 26) / 2, 68, pri, surf);
         }
@@ -745,7 +751,7 @@ void MainMenu::drawDock(int index) {
             int pw = min(slotW - 6, compactScreen ? 34 : 46);
             int ph = dockH - (compactScreen ? 8 : 14);
             tft.fillRoundRect(cx - pw / 2, dockY + (compactScreen ? 3 : 5), pw, ph, compactScreen ? 6 : 9, pri);
-            tft.fillRoundRect(cx - 6, dockY + dockH - 4, 12, 2, 1, bright);
+            tft.fillRoundRect(cx - 6, dockY + dockH - 4, 12, 2, 1, bruceConfig.nezhaThemeStyle > 0 ? bruceConfig.secColor : bright);
         }
 
         MenuItemInterface *it = static_cast<MenuItemInterface *>(options[idx].hoverPointer);

@@ -66,7 +66,7 @@ public:
     int wifiAtStartup = 0;
     int instantBoot = 0;
     String keyboardLang = "QWERTY"; // "QWERTY" | "AZERTY" | "QWERTZ"
-    String language = "en";         // "en" | "zh-CN"
+    String language = "zh-CN";      // "zh-CN" (default) | "en"
 
 #ifdef HAS_RGB_LED
     // Led
@@ -117,9 +117,9 @@ public:
     std::vector<String> disabledMenus = {};
 
     std::vector<QrCodeEntry> qrCodes = {
-        {"Nezha AP",   "WIFI:T:WPA;S:NezhaNet;P:nezhanet;;"          },
-        {"Nezha Repo", "https://github.com/ctkqiang/bruce_firmware"  },
-        {"Rickroll",   "https://youtu.be/dQw4w9WgXcQ"                }
+        {"Nezha AP",   "WIFI:T:WPA;S:NezhaNet;P:nezhanet;;"                 },
+        {"Nezha Repo", "https://github.com/ctkqiang/nezha_cyber_firmware"   },
+        {"Rickroll",   "https://youtu.be/dQw4w9WgXcQ"                       }
     };
 
     /////////////////////////////////////////////////////////////////////////////////////

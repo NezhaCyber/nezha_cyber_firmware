@@ -56,14 +56,20 @@ constexpr float RADAR_PI = 3.14159265f;
 constexpr float RADAR_MAX_DIST_M = 30.0f;
 constexpr float RADAR_TRIANGULATE_STEP_M = 2.0f;
 
-// Tactical RGB565 palette
-constexpr uint16_t COL_GRID_DIM = 0x0220;    // Deep phosphor green
-constexpr uint16_t COL_GRID_MID = 0x0440;    // Mid phosphor green
-constexpr uint16_t COL_SWEEP_T2 = 0x02E0;    // Sweep trail far
-constexpr uint16_t COL_SWEEP_T1 = 0x0520;    // Sweep trail near
-constexpr uint16_t COL_BLE_SAMSUNG = 0x4C5F; // Sky blue
-constexpr uint16_t COL_BLE_MS = 0x5EBF;      // Teal
-constexpr uint16_t COL_ROW_SEL = 0x1A26;     // Dark tactical highlight
+// 哪吒魔童 (Nezha Motong) Wind-Fire & Qiankun Ring RGB565 Radar Palette
+constexpr uint16_t COL_GRID_DIM = 0x3041;     // Deep volcanic crimson-ember grid
+constexpr uint16_t COL_GRID_MID = 0x60A2;     // Crimson-bronze range ring
+constexpr uint16_t COL_SPOKE_DIM = 0x2000;    // Faint Wind-Fire Wheel diagonal spoke
+constexpr uint16_t COL_QIANKUN_DIM = 0x6A60;  // Burnished Qiankun bronze outer bezel
+constexpr uint16_t COL_QIANKUN_GOLD = 0xFEA0; // Radiant Qiankun gold
+constexpr uint16_t COL_SWEEP_T3 = 0x2800;     // Ember fade far
+constexpr uint16_t COL_SWEEP_T2 = 0x6040;     // Hun Tian Ling crimson mid trail
+constexpr uint16_t COL_SWEEP_T1 = 0xC160;     // Blazing flame-orange near trail
+constexpr uint16_t COL_SWEEP_LEAD = 0xFE60;   // Wind-Fire gold leading beam
+constexpr uint16_t COL_BLE_SAMSUNG = 0x4C5F;  // Sky blue
+constexpr uint16_t COL_BLE_MS = 0x5EBF;       // Teal
+constexpr uint16_t COL_ROW_SEL = 0x3861;      // Dark crimson-lacquer row highlight
+constexpr uint16_t COL_HEADER_BG = 0x2041;    // Crimson-obsidian table header strip
 
 // Pentest threat/alert bitmask
 constexpr uint8_t RFLAG_TRACKER = 0x01;   // AirTag / SmartTag / Tile / iBeacon / Eddystone
@@ -740,39 +746,55 @@ static void drawRadarScope(
     const uint16_t bg = bruceConfig.bgColor;
     tft.fillCircle(cx, cy, r + 2, bg);
 
-    // Distance-calibrated range rings (2m, 8m, 30m) + 30-degree compass bezel ticks
+    // 哪吒魔童 Qiankun Ring bezel + distance-calibrated range rings (2m, 8m, 30m)
     int r2 = distToRadius(2.0f, r);
     int r8 = distToRadius(8.0f, r);
-    tft.drawCircle(cx, cy, r, COL_GRID_MID);
-    tft.drawCircle(cx, cy, r8, COL_GRID_DIM);
-    tft.drawCircle(cx, cy, r2, COL_GRID_DIM);
+    int diag = (int)(r * 0.7071f);
+    // Faint 45-degree Wind-Fire Wheel diagonal spokes behind cardinal axes
+    tft.drawLine(cx - diag, cy - diag, cx + diag, cy + diag, COL_SPOKE_DIM);
+    tft.drawLine(cx - diag, cy + diag, cx + diag, cy - diag, COL_SPOKE_DIM);
     tft.drawFastHLine(cx - r, cy, 2 * r + 1, COL_GRID_DIM);
     tft.drawFastVLine(cx, cy - r, 2 * r + 1, COL_GRID_DIM);
 
+    // Concentric rings: golden-bronze outer Qiankun Ring + crimson inner rings
+    tft.drawCircle(cx, cy, r, COL_QIANKUN_DIM);
+    if (r >= 24) tft.drawCircle(cx, cy, r - 1, COL_GRID_MID);
+    tft.drawCircle(cx, cy, r8, COL_GRID_DIM);
+    tft.drawCircle(cx, cy, r2, COL_GRID_DIM);
+
+    // 30-degree compass bezel ticks (Qiankun gold on N/E/S/W, crimson on 30-deg marks)
     for (int deg = 0; deg < 360; deg += 30) {
         float a = (float)deg * (RADAR_PI / 180.0f);
-        int tickLen = (deg % 90 == 0) ? 5 : 3;
+        bool card = (deg % 90 == 0);
+        int tickLen = card ? 6 : 3;
         int x1 = cx + (int)(cosf(a) * r);
         int y1 = cy + (int)(sinf(a) * r);
         int x2 = cx + (int)(cosf(a) * (r - tickLen));
         int y2 = cy + (int)(sinf(a) * (r - tickLen));
-        tft.drawLine(x1, y1, x2, y2, (deg % 90 == 0) ? TFT_DARKGREEN : COL_GRID_MID);
+        tft.drawLine(x1, y1, x2, y2, card ? COL_QIANKUN_GOLD : COL_GRID_MID);
     }
 
     if (r >= 48) {
         tft.setTextSize(1);
-        tft.setTextColor(TFT_DARKGREEN, bg);
-        tft.drawString("N", cx - 2, cy - r + 6, 1);
+        tft.setTextColor(COL_QIANKUN_GOLD, bg);
+        tft.drawString("N", cx - 2, cy - r + 7, 1);
+        tft.setTextColor(COL_GRID_MID, bg);
         tft.drawString("2m", cx + 2, cy - r2 + 1, 1);
         tft.drawString("8m", cx + 2, cy - r8 + 1, 1);
     }
 
-    // Phosphor-fade 3-ray sweep wedge
-    float t2 = sweepRad - 0.24f;
-    float t1 = sweepRad - 0.11f;
+    // Blazing 4-ray Wind-Fire Wheel sweep wedge + ember spark on outer rim
+    float t3 = sweepRad - 0.34f;
+    float t2 = sweepRad - 0.21f;
+    float t1 = sweepRad - 0.09f;
+    tft.drawLine(cx, cy, cx + (int)(cosf(t3) * (r - 2)), cy + (int)(sinf(t3) * (r - 2)), COL_SWEEP_T3);
     tft.drawLine(cx, cy, cx + (int)(cosf(t2) * (r - 2)), cy + (int)(sinf(t2) * (r - 2)), COL_SWEEP_T2);
     tft.drawLine(cx, cy, cx + (int)(cosf(t1) * (r - 2)), cy + (int)(sinf(t1) * (r - 2)), COL_SWEEP_T1);
-    tft.drawLine(cx, cy, cx + (int)(cosf(sweepRad) * (r - 1)), cy + (int)(sinf(sweepRad) * (r - 1)), TFT_GREEN);
+    int leadX = cx + (int)(cosf(sweepRad) * (r - 2));
+    int leadY = cy + (int)(sinf(sweepRad) * (r - 2));
+    tft.drawLine(cx, cy, leadX, leadY, COL_SWEEP_LEAD);
+    tft.fillCircle(leadX, leadY, 2, bruceConfig.priColor);
+    tft.drawPixel(leadX, leadY, TFT_WHITE);
 
     struct LabelRect {
         int x, y, w, h;
@@ -827,7 +849,8 @@ static void drawRadarScope(
         }
     }
 
-    tft.fillCircle(cx, cy, 2, TFT_WHITE);
+    // Center 哪吒魔童 lotus-flame core emblem
+    drawNezhaCrest(cx, cy, (r >= 48) ? 4 : 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
 }
 
 static void drawRadarHud(
@@ -926,7 +949,7 @@ static void drawRadarHud(
     }
     y += LH + 3;
 
-    tft.drawFastHLine(hudX, y, hudW, bruceConfig.secColor);
+    drawNezhaRibbonRule(hudX, y, hudW);
     y += 4;
 
     if (ctx.hasLocked) {
@@ -1059,9 +1082,9 @@ static void drawIntelTable(
     }
     int curY = y + LH + 2;
 
-    // Column headers
-    tft.fillRect(x, curY, w, LH + 2, COL_GRID_DIM);
-    tft.setTextColor(TFT_GREEN, COL_GRID_DIM);
+    // Column headers (crimson-obsidian lacquer strip + Qiankun gold labels)
+    tft.fillRect(x, curY, w, LH + 2, COL_HEADER_BG);
+    tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
     int colName = x + 10;
     int colTag = x + (w * 48) / 100;
     int colRssi = x + (w * 73) / 100;
@@ -1093,7 +1116,10 @@ static void drawIntelTable(
         bool sel = (idx == ctx.tableCursor);
         bool locked = ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0;
         uint16_t rowBg = sel ? COL_ROW_SEL : bg;
-        if (sel) tft.fillRect(x, curY, w, rowH - 1, rowBg);
+        if (sel) {
+            tft.fillRect(x, curY, w, rowH - 1, rowBg);
+            tft.fillRect(x, curY, 2, rowH - 1, COL_QIANKUN_GOLD);
+        }
 
         uint16_t col = categoryColor(t.category, t.flags);
         drawCategoryGlyph(x + 4, curY + 4, t.category, col, t.flags);
@@ -1253,7 +1279,7 @@ static void drawFoxHuntOrSpectrum(
     }
 
     tft.setTextSize(1);
-    tft.setTextColor(TFT_GREEN, bg);
+    tft.setTextColor(COL_QIANKUN_GOLD, bg);
     char hdr[48];
     snprintf(hdr, sizeof(hdr), "2.4G CH1-13  CLEAN:C%d  BUSY:C%d(%d)", bestCh, busyCh, chCount[busyCh]);
     tft.drawString(String(hdr).substring(0, max(10, w / LW)), x + 2, y, 1);

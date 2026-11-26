@@ -62,12 +62,12 @@
 - **20 curated 哪吒魔童 (Nezha Demon Child) theme packs** (`71` total palettes) + interactive full-screen **Theme Studio** (`setNezhaThemeGallery()`).
 - **3 selectable 哪吒魔童 UI crests** (`Motong Flame`, `Lotus Seal`, `Ice-Fire Twin`) + **7 Main Menu layouts** (`src/core/main_menu.*`).
 
-### 2. Multi-Language i18n & Unicode Bitmap Font Pipeline (`src/core/i18n.*`, `tools/gen_cjk_font.py`)
-- **8 supported languages**: English (`en`), Simplified Chinese (`zh-CN`), Korean (`ko`), Japanese (`ja`), German (`de`), Russian (`ru`), Spanish (`es`), and French (`fr`).
+### 2. Bilingual i18n & CJK Bitmap Font Pipeline (`src/core/i18n.*`, `tools/gen_cjk_font.py`)
+- **2 supported languages**: Simplified Chinese (`zh-CN`, default) and English (`en`).
 - **Flash-budget tiering**:
-  - 4 MB boards (`BRUCE_COMPACT_CJK_FONT`, e.g. `m5stack-cplus1_1`): compiles only `en` + `zh-CN` (`kCjkGlyphs[]`, 12×12 bitmaps) so the full feature set fits cleanly inside `0x3E8000`.
-  - 8 MB / 16 MB boards (e.g. `lilygo-t-deck`): compiles all 8 languages + `kExtGlyphs[]` (12×12 & 16×16 bitmaps covering Hangul, Kana/Kanji, Cyrillic, and Latin-Extended).
-- All locale tables are verified strictly UTF-8 byte-sorted for O(log N) binary search via `python3 tools/gen_cjk_font.py --check`.
+  - 4 MB boards (`BRUCE_COMPACT_CJK_FONT`, e.g. `m5stack-cplus1_1`): compiles 12×12 PROGMEM CJK bitmaps so the full feature set fits inside `0x3E8000`.
+  - 8 MB / 16 MB boards (e.g. `lilygo-t-deck`): compiles both 12×12 and 16×16 PROGMEM CJK bitmaps.
+- `src/core/lang_zh_cn.h` is verified strictly ASCII-sorted for O(log N) binary search via `python3 tools/gen_cjk_font.py --check`.
 
 ### 3. Build & Partition Pipeline (`scripts/build/`, `partitions/`, `Makefile`)
 - `scripts/build/build.py` validates firmware size against the target partition table and emits ready-to-flash merged binaries (`NezhaCyber-<env>.bin`).

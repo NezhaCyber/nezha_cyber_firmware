@@ -23,10 +23,9 @@ By participating in this project, you agree to abide by our [Code of Conduct](./
 
 ## Adding or Updating Translations (i18n)
 
-- Simplified Chinese strings live in [`src/core/lang_zh_cn.h`](./src/core/lang_zh_cn.h).
-- Korean (`ko`), Japanese (`ja`), German (`de`), Russian (`ru`), Spanish (`es`), and French (`fr`) tables live in [`src/core/i18n/lang_locales.h`](./src/core/i18n/lang_locales.h).
-- Every table **must remain strictly sorted in UTF-8 / ASCII `strcmp` order** for O(log N) binary search.
-- After editing any translation file, regenerate and verify the PROGMEM bitmap font header:
+- Simplified Chinese (`zh-CN`, default) translations live in [`src/core/lang_zh_cn.h`](./src/core/lang_zh_cn.h); English (`en`) is built into source strings.
+- The table **must remain strictly sorted in ASCII `strcmp` order** for O(log N) binary search.
+- After editing translations, regenerate and verify the PROGMEM CJK bitmap font header:
   ```sh
   python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check
   ```

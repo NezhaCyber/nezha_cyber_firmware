@@ -7,29 +7,79 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v2.0.0)"
+        description: "Release tag to create & publish (e.g. v2.0.0 or v2.1.0-beta.1)"
         required: true
         type: string
+      prerelease:
+        description: "Mark as GitHub Pre-release"
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: "Create as Draft Release (review before publishing)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
+  verify:
+    name: Pre-Release Quality Gate
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Resolve release tag & channel
+        id: meta
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          IS_PRE="${{ inputs.prerelease }}"
+          if [[ "$TAG" == *-* ]]; then
+            IS_PRE="true"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=${IS_PRE:-false}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify i18n tables, Unicode glyphs & build scripts
+        run: |
+          python3 tools/gen_cjk_font.py --check-tables
+          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
+
   build:
-    name: Build Release (${{ matrix.env }})
+    name: Build (${{ matrix.env }})
+    needs: verify
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        env:
-          - lilygo-t-deck
-          - lilygo-t-deck-pro
-          - m5stack-cplus1_1
-          - m5stack-cplus2
-          - m5stack-cardputer
-          - m5stack-cores3
-          - lilygo-t-embed-cc1101
-          - CYD-2432S028
+        include:
+          - { env: "lilygo-t-deck",              board: "LilyGO T-Deck",               mcu: "esp32s3", flash: "16MB" }
+          - { env: "lilygo-t-deck-pro",          board: "LilyGO T-Deck Plus",          mcu: "esp32s3", flash: "16MB" }
+          - { env: "m5stack-cplus1_1",           board: "M5StickC Plus 1.1",           mcu: "esp32",   flash: "4MB"  }
+          - { env: "LAUNCHER_m5stack-cplus1_1",  board: "M5StickC Plus 1.1 (Launcher)", mcu: "esp32",  flash: "4MB"  }
+          - { env: "m5stack-cplus2",             board: "M5StickC Plus2",              mcu: "esp32",   flash: "8MB"  }
+          - { env: "m5stack-cardputer",          board: "M5Stack Cardputer",           mcu: "esp32s3", flash: "8MB"  }
+          - { env: "m5stack-cores3",             board: "M5Stack CoreS3",              mcu: "esp32s3", flash: "16MB" }
+          - { env: "m5stack-core2",              board: "M5Stack Core2",               mcu: "esp32",   flash: "16MB" }
+          - { env: "lilygo-t-embed-cc1101",      board: "LilyGO T-Embed CC1101",       mcu: "esp32s3", flash: "16MB" }
+          - { env: "lilygo-t-embed",             board: "LilyGO T-Embed",              mcu: "esp32s3", flash: "16MB" }
+          - { env: "CYD-2432S028",               board: "CYD-2432S028 (2.8\")",        mcu: "esp32",   flash: "4MB"  }
+          - { env: "LAUNCHER_CYD-2432S028",      board: "CYD-2432S028 (Launcher)",     mcu: "esp32",   flash: "4MB"  }
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,44 +99,83 @@ jobs:
             ~/.platformio/.cache
             ~/.platformio/packages
             ~/.platformio/platforms
-          key: pio-rel-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini') }}
-          restore-keys: pio-rel-${{ runner.os }}-
+          key: pio-rel-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'boards/**/*.ini') }}
+          restore-keys: |
+            pio-rel-${{ runner.os }}-${{ matrix.env }}-
+            pio-rel-${{ runner.os }}-
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
-      - name: Build firmware
+      - name: Build ${{ matrix.board }} (${{ matrix.env }})
         run: pio run -e ${{ matrix.env }}
 
-      - name: Upload release binary
+      - name: Package merged factory & OTA binaries + metadata
+        run: |
+          mkdir -p dist
+          cp "NezhaCyber-${{ matrix.env }}.bin" "dist/NezhaCyber-${{ matrix.env }}.bin"
+          if [ -f ".pio/build/${{ matrix.env }}/firmware.bin" ]; then
+            cp ".pio/build/${{ matrix.env }}/firmware.bin" "dist/NezhaCyber-${{ matrix.env }}-ota.bin"
+          fi
+          cat > "dist/meta-${{ matrix.env }}.json" <<EOF
+          {
+            "env": "${{ matrix.env }}",
+            "board": "${{ matrix.board }}",
+            "mcu": "${{ matrix.mcu }}",
+            "flash": "${{ matrix.flash }}",
+            "factory_bin": "NezhaCyber-${{ matrix.env }}.bin",
+            "ota_bin": "NezhaCyber-${{ matrix.env }}-ota.bin"
+          }
+          EOF
+
+      - name: Upload built firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: bin-${{ matrix.env }}
-          path: NezhaCyber-${{ matrix.env }}.bin
+          name: release-bin-${{ matrix.env }}
+          path: dist/
           if-no-files-found: error
 
   publish:
-    name: Publish GitHub Release
-    needs: build
+    name: Package & Publish GitHub Release
+    needs: [verify, build]
     runs-on: ubuntu-latest
     steps:
-      - name: Download all firmware binaries
+      - name: Checkout repository (for sd_files bundle)
+        uses: actions/checkout@v4
+
+      - name: Download all built firmware artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release-artifacts
-          pattern: bin-*
+          path: release-assets
+          pattern: release-bin-*
           merge-multiple: true
 
-      - name: Generate SHA-256 checksums
-        working-directory: release-artifacts
-        run: sha256sum NezhaCyber-*.bin > SHA256SUMS.txt
+      - name: Bundle microSD reference files
+        run: |
+          if [ -d sd_files ]; then
+            zip -r -q release-assets/NezhaCyber-sd-files.zip sd_files
+          fi
 
-      - name: Create GitHub Release
+      - name: Generate SHA256SUMS.txt, manifest.json & Release Notes
+        run: |
+          python3 scripts/build/package_release.py \
+            --assets-dir release-assets \
+            --tag "${{ needs.verify.outputs.tag }}" \
+            --notes-out RELEASE_NOTES.md
+
+      - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag || github.ref_name }}
-          name: "Nezha Cyber (哪吒网络安全) ${{ inputs.tag || github.ref_name }}"
+          tag_name: ${{ needs.verify.outputs.tag }}
+          name: "🔥 Nezha Cyber (哪吒网络安全) ${{ needs.verify.outputs.tag }}"
+          body_path: RELEASE_NOTES.md
           generate_release_notes: true
+          draft: ${{ inputs.draft == true }}
+          prerelease: ${{ needs.verify.outputs.is_prerelease == 'true' }}
+          make_latest: ${{ (needs.verify.outputs.is_prerelease != 'true' && inputs.draft != true) && 'true' || 'false' }}
+          fail_on_unmatched_files: false
           files: |
-            release-artifacts/NezhaCyber-*.bin
-            release-artifacts/SHA256SUMS.txt
+            release-assets/NezhaCyber-*.bin
+            release-assets/NezhaCyber-sd-files.zip
+            release-assets/manifest.json
+            release-assets/SHA256SUMS.txt

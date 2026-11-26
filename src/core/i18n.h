@@ -11,12 +11,6 @@ namespace bruce_i18n {
 enum class Language : uint8_t {
     EN = 0,
     ZH_CN = 1,
-    KO = 2,
-    JA = 3,
-    DE = 4,
-    RU = 5,
-    ES = 6,
-    FR = 7,
 };
 
 Language getLanguage();
@@ -37,24 +31,12 @@ bool containsNonAscii(const String &s);
 uint32_t utf8NextCodepoint(const char *&p);
 bool isWideCodepoint(uint32_t cp);
 
-// Pixel advance width of a single Unicode codepoint at `textSize`.
 int16_t glyphAdvancePx(uint32_t cp, uint8_t textSize);
-
-// Total pixel width of a UTF-8 string at `textSize`.
 int16_t utf8PixelWidth(const char *s, uint8_t textSize);
 int16_t utf8PixelWidth(const String &s, uint8_t textSize);
-
-// Line height in pixels for a UTF-8 string at `textSize`.
 int16_t utf8LineHeight(uint8_t textSize);
-
-// Truncate UTF-8 string so its rendered width fits within `maxPx` pixels
-// without splitting any multi-byte UTF-8 sequence.
 String utf8TruncateToWidth(const String &s, int16_t maxPx, uint8_t textSize);
-
-// Wrap UTF-8 string into lines that each fit within `maxPx` pixels.
 std::vector<String> utf8WrapToWidth(const String &s, int16_t maxPx, uint8_t textSize);
-
-// Return the largest byte length <= maxBytes that does not split a UTF-8 codepoint.
 size_t utf8SafeCutBytes(const char *s, size_t len, size_t maxBytes);
 
 } // namespace bruce_i18n

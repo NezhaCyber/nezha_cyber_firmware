@@ -394,12 +394,6 @@ void setNezhaThemeGallery() {
         }
     }
 
-    const bool compact = (tftHeight < 180);
-#if defined(HAS_TOUCH)
-    bool prevTouchZone = touchZoneOutsideFooterEnabled;
-    touchZoneOutsideFooterEnabled = false;
-#endif
-
     auto applyPack = [&](int i) {
         const auto &p = NEZHA_THEME_PACKS[i];
         uint16_t sec = p.secColor;
@@ -422,6 +416,26 @@ void setNezhaThemeGallery() {
         }
 #endif
     };
+
+#if defined(BRUCE_COMPACT_CJK_FONT)
+    // Compact 4MB Flash boards: clean direct list of all 20 哪吒魔童 theme packs
+    std::vector<Option> packOpts;
+    packOpts.reserve(NEZHA_THEME_COUNT + 1);
+    for (int i = 0; i < NEZHA_THEME_COUNT; i++) {
+        const auto &p = NEZHA_THEME_PACKS[i];
+        bool active = (bruceConfig.priColor == p.priColor && bruceConfig.secColor == p.secColor &&
+                       bruceConfig.bgColor == p.bgColor);
+        packOpts.emplace_back(p.name, [&, i]() { applyPack(i); }, active, nullptr, nullptr, false, true, true, p.priColor);
+    }
+    packOpts.push_back({"Back", []() {}});
+    loopOptions(packOpts, MENU_TYPE_SUBMENU, "Nezha Themes", idx);
+    return;
+#else
+    const bool compact = (tftHeight < 180);
+#if defined(HAS_TOUCH)
+    bool prevTouchZone = touchZoneOutsideFooterEnabled;
+    touchZoneOutsideFooterEnabled = false;
+#endif
 
     auto drawGallery = [&](int i, bool justApplied) {
         const auto &p = NEZHA_THEME_PACKS[i];
@@ -668,6 +682,7 @@ void setNezhaThemeGallery() {
     SelPress = EscPress = PrevPress = NextPress = UpPress = DownPress = false;
     tft.fillScreen(bruceConfig.bgColor);
     invalidateStatusBarCache();
+#endif // defined(BRUCE_COMPACT_CJK_FONT)
 }
 
 /*********************************************************************
@@ -711,28 +726,11 @@ void setMainMenuStyleMenu() {
 **********************************************************************/
 void setLanguageMenu() {
     std::vector<Option> langOptions = {
-        {"English",  []() { bruceConfig.setLanguage("en"); },    bruceConfig.language == "en"   },
         {"简体中文", []() { bruceConfig.setLanguage("zh-CN"); }, bruceConfig.language == "zh-CN"},
-#if !defined(BRUCE_COMPACT_CJK_FONT)
-        {"한국어",   []() { bruceConfig.setLanguage("ko"); },    bruceConfig.language == "ko"   },
-        {"日本語",   []() { bruceConfig.setLanguage("ja"); },    bruceConfig.language == "ja"   },
-        {"Deutsch",  []() { bruceConfig.setLanguage("de"); },    bruceConfig.language == "de"   },
-        {"Русский",  []() { bruceConfig.setLanguage("ru"); },    bruceConfig.language == "ru"   },
-        {"Español",  []() { bruceConfig.setLanguage("es"); },    bruceConfig.language == "es"   },
-        {"Français", []() { bruceConfig.setLanguage("fr"); },    bruceConfig.language == "fr"   },
-#endif
+        {"English",  []() { bruceConfig.setLanguage("en"); },    bruceConfig.language == "en"   },
         {"Back",     []() {}                                                                     },
     };
-    int initialIdx = 0;
-    if (bruceConfig.language == "zh-CN") initialIdx = 1;
-#if !defined(BRUCE_COMPACT_CJK_FONT)
-    else if (bruceConfig.language == "ko") initialIdx = 2;
-    else if (bruceConfig.language == "ja") initialIdx = 3;
-    else if (bruceConfig.language == "de") initialIdx = 4;
-    else if (bruceConfig.language == "ru") initialIdx = 5;
-    else if (bruceConfig.language == "es") initialIdx = 6;
-    else if (bruceConfig.language == "fr") initialIdx = 7;
-#endif
+    int initialIdx = (bruceConfig.language == "en") ? 1 : 0;
     loopOptions(langOptions, MENU_TYPE_SUBMENU, "Firmware Language", initialIdx);
 }
 

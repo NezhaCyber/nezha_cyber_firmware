@@ -231,7 +231,7 @@ void BruceConfig::fromFile(bool checkFS) {
     if (!setting["language"].isNull()) {
         language = setting["language"].as<String>();
     } else {
-        language = "en";
+        language = "zh-CN";
     }
 
 #ifdef HAS_RGB_LED
@@ -449,6 +449,18 @@ void BruceConfig::fromFile(bool checkFS) {
         for (JsonObject qrEntry : qrArray) {
             String menuName = qrEntry["menuName"].as<String>();
             String content = qrEntry["content"].as<String>();
+            // Auto-migrate legacy saved QR entries from older config files
+            if (menuName.equalsIgnoreCase("Bruce AP") || content.indexOf("BruceNet") >= 0) {
+                menuName = "Nezha AP";
+                content = "WIFI:T:WPA;S:NezhaNet;P:nezhanet;;";
+                count++;
+            } else if (menuName.equalsIgnoreCase("Bruce Repo") || menuName.equalsIgnoreCase("Bruce Wiki") ||
+                       content.indexOf("pr3y/Bruce") >= 0 || content.indexOf("bruce.computer") >= 0 ||
+                       content.indexOf("ctkqiang/bruce_firmware") >= 0) {
+                menuName = "Nezha Repo";
+                content = "https://github.com/ctkqiang/nezha_cyber_firmware";
+                count++;
+            }
             qrCodes.push_back({menuName, content});
         }
     } else {

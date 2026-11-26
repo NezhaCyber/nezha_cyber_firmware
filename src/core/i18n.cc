@@ -1,156 +1,64 @@
 #include "i18n.h"
 #include "lang_zh_cn.h"
-#if !defined(BRUCE_COMPACT_CJK_FONT)
-#include "i18n/lang_locales.h"
-#endif
 #include <cstring>
 #include <strings.h>
 
 namespace bruce_i18n {
 
-static Language s_currentLanguage = Language::EN;
+// Simplified Chinese is the default firmware language.
+static Language s_currentLanguage = Language::ZH_CN;
 
 Language getLanguage() { return s_currentLanguage; }
 
 bool isChinese() { return s_currentLanguage == Language::ZH_CN; }
 
-void setLanguage(Language lang) {
-#if defined(BRUCE_COMPACT_CJK_FONT)
-    s_currentLanguage = (lang == Language::ZH_CN) ? Language::ZH_CN : Language::EN;
-#else
-    s_currentLanguage = lang;
-#endif
-}
+void setLanguage(Language lang) { s_currentLanguage = lang; }
 
 String normalizeLanguageCode(const String &code) {
     String lower = code;
     lower.trim();
     lower.toLowerCase();
-    if (lower == "zh-cn" || lower == "zh_cn" || lower == "zh" || lower == "zh-hans" || lower == "cn" ||
-        lower == "chinese" || lower == "简体中文") {
-        return "zh-CN";
+    if (lower == "en" || lower == "en-us" || lower == "en-gb" || lower == "english") {
+        return "en";
     }
-#if !defined(BRUCE_COMPACT_CJK_FONT)
-    if (lower == "ko" || lower == "ko-kr" || lower == "kr" || lower == "korean" || lower == "한국어") {
-        return "ko";
-    }
-    if (lower == "ja" || lower == "ja-jp" || lower == "jp" || lower == "japanese" || lower == "日本語") {
-        return "ja";
-    }
-    if (lower == "de" || lower == "de-de" || lower == "german" || lower == "deutsch") {
-        return "de";
-    }
-    if (lower == "ru" || lower == "ru-ru" || lower == "russian" || lower == "русский") {
-        return "ru";
-    }
-    if (lower == "es" || lower == "es-es" || lower == "spanish" || lower == "español") {
-        return "es";
-    }
-    if (lower == "fr" || lower == "fr-fr" || lower == "french" || lower == "français") {
-        return "fr";
-    }
-#endif
-    return "en";
+    return "zh-CN";
 }
 
 void setLanguage(const String &code) {
-    String norm = normalizeLanguageCode(code);
-    if (norm == "zh-CN") s_currentLanguage = Language::ZH_CN;
-#if !defined(BRUCE_COMPACT_CJK_FONT)
-    else if (norm == "ko") s_currentLanguage = Language::KO;
-    else if (norm == "ja") s_currentLanguage = Language::JA;
-    else if (norm == "de") s_currentLanguage = Language::DE;
-    else if (norm == "ru") s_currentLanguage = Language::RU;
-    else if (norm == "es") s_currentLanguage = Language::ES;
-    else if (norm == "fr") s_currentLanguage = Language::FR;
-#endif
-    else s_currentLanguage = Language::EN;
+    s_currentLanguage = (normalizeLanguageCode(code) == "en") ? Language::EN : Language::ZH_CN;
 }
 
 const char *languageCode(Language lang) {
-    switch (lang) {
-        case Language::ZH_CN: return "zh-CN";
-        case Language::KO: return "ko";
-        case Language::JA: return "ja";
-        case Language::DE: return "de";
-        case Language::RU: return "ru";
-        case Language::ES: return "es";
-        case Language::FR: return "fr";
-        default: return "en";
-    }
+    return (lang == Language::EN) ? "en" : "zh-CN";
 }
 
-static void getActiveTable(const TranslationEntry *&table, size_t &size) {
-    switch (s_currentLanguage) {
-        case Language::ZH_CN:
-            table = kZhCnTable;
-            size = kZhCnTableSize;
-            return;
-#if !defined(BRUCE_COMPACT_CJK_FONT)
-        case Language::KO:
-            table = kKoTable;
-            size = kKoTableSize;
-            return;
-        case Language::JA:
-            table = kJaTable;
-            size = kJaTableSize;
-            return;
-        case Language::DE:
-            table = kDeTable;
-            size = kDeTableSize;
-            return;
-        case Language::RU:
-            table = kRuTable;
-            size = kRuTableSize;
-            return;
-        case Language::ES:
-            table = kEsTable;
-            size = kEsTableSize;
-            return;
-        case Language::FR:
-            table = kFrTable;
-            size = kFrTableSize;
-            return;
-#endif
-        default:
-            table = nullptr;
-            size = 0;
-            return;
-    }
-}
-
-static const char *lookupExact(const char *en) {
+static const char *lookupExactZh(const char *en) {
     if (!en || !*en) return nullptr;
-    const TranslationEntry *table = nullptr;
-    size_t tableSize = 0;
-    getActiveTable(table, tableSize);
-    if (!table || tableSize == 0) return nullptr;
-
     size_t lo = 0;
-    size_t hi = tableSize;
+    size_t hi = kZhCnTableSize;
     while (lo < hi) {
         size_t mid = lo + (hi - lo) / 2;
-        int cmp = strcmp(table[mid].en, en);
-        if (cmp == 0) return table[mid].zh;
+        int cmp = strcmp(kZhCnTable[mid].en, en);
+        if (cmp == 0) return kZhCnTable[mid].zh;
         if (cmp < 0) lo = mid + 1;
         else hi = mid;
     }
-    for (size_t i = 0; i < tableSize; ++i) {
-        if (strcasecmp(table[i].en, en) == 0) return table[i].zh;
+    for (size_t i = 0; i < kZhCnTableSize; ++i) {
+        if (strcasecmp(kZhCnTable[i].en, en) == 0) return kZhCnTable[i].zh;
     }
     return nullptr;
 }
 
 const char *tr(const char *en) {
     if (!en || s_currentLanguage == Language::EN) return en;
-    const char *hit = lookupExact(en);
+    const char *hit = lookupExactZh(en);
     return hit ? hit : en;
 }
 
 String tr(const String &en) {
     if (en.isEmpty() || s_currentLanguage == Language::EN) return en;
 
-    const char *exact = lookupExact(en.c_str());
+    const char *exact = lookupExactZh(en.c_str());
     if (exact) return String(exact);
 
     String trimmed = en;
@@ -180,15 +88,15 @@ String tr(const String &en) {
     int sep = en.indexOf(": ");
     if (sep > 0) {
         String key = en.substring(0, sep);
-        const char *trKey = lookupExact(key.c_str());
+        const char *trKey = lookupExactZh(key.c_str());
         if (trKey) {
             String val = en.substring(sep + 2);
-            const char *trVal = lookupExact(val.c_str());
+            const char *trVal = lookupExactZh(val.c_str());
             if (trVal) return String(trKey) + ": " + String(trVal);
             int paren = val.indexOf(" (");
             if (paren > 0) {
                 String valHead = val.substring(0, paren);
-                const char *trHead = lookupExact(valHead.c_str());
+                const char *trHead = lookupExactZh(valHead.c_str());
                 if (trHead) return String(trKey) + ": " + String(trHead) + val.substring(paren);
             }
             return String(trKey) + ": " + val;
@@ -197,7 +105,7 @@ String tr(const String &en) {
 
     if (en.endsWith(":") && en.length() > 1) {
         String key = en.substring(0, en.length() - 1);
-        const char *trKey = lookupExact(key.c_str());
+        const char *trKey = lookupExactZh(key.c_str());
         if (trKey) {
             return String(trKey) + ":";
         }
@@ -247,10 +155,9 @@ uint32_t utf8NextCodepoint(const char *&p) {
 }
 
 bool isWideCodepoint(uint32_t cp) {
-    return (cp >= 0x1100 && cp <= 0x11FF) || (cp >= 0x2E80 && cp <= 0x9FFF) ||
-           (cp >= 0xAC00 && cp <= 0xD7AF) || (cp >= 0xF900 && cp <= 0xFAFF) ||
+    return (cp >= 0x2E80 && cp <= 0x9FFF) || (cp >= 0xF900 && cp <= 0xFAFF) ||
            (cp >= 0xFE30 && cp <= 0xFE6F) || (cp >= 0xFF00 && cp <= 0xFF60) ||
-           (cp >= 0xFFE0 && cp <= 0xFFE6);
+           (cp >= 0xFFE0 && cp <= 0xFFE6) || (cp >= 0x3000 && cp <= 0x303F);
 }
 
 int16_t glyphAdvancePx(uint32_t cp, uint8_t textSize) {

@@ -1,133 +1,114 @@
 <p align="center">
-  <img src="./media/pictures/nezha_cyber_banner.jpg" alt="Nezha Cyber (哪吒网络安全) — 哪吒魔童" width="260" />
+  <img src="./media/pictures/nezha_cyber_banner.jpg" alt="Nezha Cyber (哪吒网络安全)" width="200" />
 </p>
 
-<h1 align="center">🔥 Nezha Cyber (哪吒网络安全)</h1>
+<h1 align="center">Nezha Cyber (哪吒网络安全)</h1>
 
 <p align="center">
-  <strong>Portable ESP32 Hardware Security, RF/Wireless Research &amp; 哪吒魔童 Cyber OS</strong><br />
-  <em>"My fate is mine, not heaven's!" — 我命由我不由天</em>
-</p>
-
-<p align="center">
+  ESP32 / ESP32-S3 portable wireless security, RF, and hardware utility firmware.<br />
   <strong>English</strong> | <a href="./README_ZH.md">简体中文</a>
 </p>
 
 <p align="center">
-  <strong>Author &amp; Maintainer:</strong> 钟智强 (<a href="https://github.com/ctkqiang">ctkqiang</a>) ·
-  <strong>License:</strong> AGPL-3.0
+  Author: <strong>钟智强 (<a href="https://github.com/ctkqiang">ctkqiang</a>)</strong> · License: <strong>GNU AGPL-3.0</strong>
 </p>
 
 ---
 
-## ⚡ About This Project & Standalone Fork Philosophy
+## About
 
-**Nezha Cyber (哪吒网络安全)** is an **independent, standalone fork of [Bruce Firmware](https://github.com/pr3y/Bruce)**, created and maintained by **钟智强 (ctkqiang)**.
+**Nezha Cyber (哪吒网络安全)** is a standalone firmware project forked from [Bruce Firmware](https://github.com/pr3y/Bruce). All upstream Git commit history and credits are preserved, while the codebase diverges independently due to a different design philosophy:
 
-We intentionally **preserve the full upstream Git commit history** and deeply respect the pioneering open-source work of the Bruce Firmware team and community. However, **Nezha Cyber diverges as a standalone project because our product philosophy is fundamentally different**:
-
-- **Craft-First Industrial Hardware OS**: Every screen—launcher, menus, keyboard, radar, BLE tools, theme studio, and settings—is engineered around a cohesive, high-contrast dark obsidian hardware interface with zero cluttered legacy UI.
-- **Native 哪吒魔童 (Nezha Demon Child) Brand Identity**: Built from the ground up around authentic Chinese mythological cybersecurity aesthetics—boot splash emblem, **20 curated 哪吒魔童 theme packs** (71 total palettes), **3 selectable Motong UI crests**, and live Theme Studio preview.
-- **Original Standalone Nezha Cyber Pet (哪吒宠物)**: Replaced legacy `Brucegotchi` / `PwnGrid` / `Megalodon` with a 100% original persistent **哪吒魔童** companion featuring 4 visual evolution realms and purely passive RF spirit patrol.
-- **8-Language Global Experience**: Built-in compact PROGMEM Unicode/CJK bitmap font pipeline supporting **English**, **简体中文**, **한국어 (Korean)**, **日本語 (Japanese)**, **Deutsch (German)**, **Русский (Russian)**, **Español (Spanish)**, and **Français (French)** with instant in-firmware switching (`Config → Language`) and Flash-tiered support for **4 MB** boards alongside **16 MB + 8 MB PSRAM** flagship boards.
-- **Daily Flipper-Style Hardware Toolkit**: Expanded beyond red-team utilities into an everyday multi-tool featuring a Sub-GHz Frequency Analyzer, Universal IR Remote, GPIO Pin Controller & Voltage Monitor, RFC 6238 TOTP 2FA Authenticator, PWM Signal Generator, ITU Morse TX, Hardware TRNG Password Generator, and Polyhedral Dice Roller.
+- **Default Simplified Chinese + English UI**: Ships in Simplified Chinese (`zh-CN`) by default with instant switching to English (`en`), powered by a compact 12px/16px PROGMEM CJK bitmap font pipeline that still fits on 4 MB ESP32 boards.
+- **Unified Hardware UI & 哪吒魔童 Themes**: Rebuilt launcher, menus, dialogs, keyboard, BLE tools, and settings with 20 哪吒魔童 color presets (71 palettes total), a live Theme Studio, 3 subtle UI crest styles, 7 main menu layouts, and a 5-second animated boot splash (skippable on any key/touch).
+- **Standalone Companion & Daily Hardware Tools**: Replaces legacy `Brucegotchi` / `PwnGrid` / `Megalodon` with an original persistent **Nezha Pet (哪吒宠物)**, and adds Flipper-style daily utilities (Sub-GHz frequency analyzer, universal IR remote, GPIO controller & scope, Wi-Fi thermal waterfall, TOTP 2FA, PWM generator, Morse TX, offline crypto hashes, and pentatonic synth).
 
 ---
 
-## ✨ Flagship Features
+## Features
 
-### 🎨 哪吒魔童 Theme Studio & 7 Launcher Layouts
-- **Live Visual Theme Studio** (`Config → Display & UI → Nezha Themes`): Interactive full-screen gallery with live **哪吒魔童** medallion, color swatches, and 1-tap apply across **20 lore-accurate 哪吒魔童 packs** (71 total color palettes):
-  - *Nezha Motong (魔丸赤焰)* · *Hun Tian Ling (混天绫)* · *Wind-Fire Wheels (风火轮)* · *Qiankun Ring (乾坤圈)* · *Fire-Tipped Spear (火尖枪)* · *Lotus Rebirth (莲花化身)* · *Demon Orb Seal (魔丸封印)* · *Spirit Pearl AoBing (灵珠敖丙)* · *Ice & Fire Clash (冰火双生)* · *Dragon Palace Sea (东海龙宫)* · *Chentang Pass (陈塘关)* · *Heavenly Tribulation (天劫神雷)* · *Shanhe Scroll (山河社稷)* · *Taiyi Immortal (太乙仙风)* · *Shen Gongbao (申公豹)* · *Six-Arm Awakened (三头六臂)* · *Jade Void Palace (玉虚宫)* · *Demon Sea Rage (魔童闹海)* · *Nezha Crimson* · *Nezha Lotus*.
-- **Selectable UI Crests** (`Config → Display & UI → Theme Crest`): `Motong Flame (魔童烈焰)`, `Lotus Seal (莲花玄印)`, `Ice-Fire Twin (冰火双生)`, or `Minimal (极简硬件)`.
-- **7 Main Menu Layouts** (`Config → Display & UI → Menu Layout`): `Grid`, `Carousel`, `List`, `Cards`, `Dock`, `Split`, and `Compact Grid`—with full touch, trackball, keyboard, and 3-button navigation.
-
-### 🐾 Original Nezha Cyber Pet (哪吒宠物)
-- Persistent NVS stats (`Level`, `XP`, `Spirit`, `Mood`, `Bond`, `Patrols`, `RF Absorbed`).
-- **4 Evolution Realms**: *Demon Orb (魔丸灵童)* → *Lotus Form (莲花化身)* → *Wind-Fire (风火少年)* → *Cyber Nezha (哪吒三太子)* with progressive visual aura, lotus pedestal, spinning Wind-Fire Wheels, and Qiankun Halo.
-- **5 Interactive Actions**: **Feed (喂食)** · **Train (修炼)** · **Pet (互动)** (or tap Nezha directly!) · **Patrol (巡查)** (passive ambient Wi-Fi RF sensing) · **Rest (打坐)**.
-- Runs natively on **both** LilyGO T-Deck (320×240) and M5StickC Plus 1.1 (240×135).
-
-### 📡 Tactical Radar & RF / Wireless Security Suite
-- **Tactical Radar**: Real-time Wi-Fi & BLE spatial radar sweep with AirTag/SmartTag/Evil-Twin/Hack-Device threat flagging, global GPS/RF LocationState, and toggleable **Sonar Beep** (`Config → Audio Config → Radar Beep`, ON by default).
-- **Wi-Fi Tools**: AP/STA mode, Sniffer, Channel Analyzer, Jam Detect, Probe Monitor, LAN Port & Banner Audit, IDS Watchdog, Security Auditor, Evil Portal, NetCut, Responder, ARP Scanner, WireGuard, SSH/Telnet, SOCKS4 Proxy, WiFi Pass Recovery.
-- **BLE Tools**: Redesigned touch-scrollable BLE Spam Suite (iOS / Android / Samsung / Windows / All), BLE Scan, GATT Inspector & Notify Viewer, BLE File Transfer, BadBLE / BLE Keyboard.
-- **Sub-GHz RF (CC1101 / RF433)**: **Sub-GHz Frequency Analyzer** (315/433.92/868.35/915 MHz RSSI sweep + peak hold), Spectrum, Waterfall, Record/Replay, ProtoPirate, Custom SubGHz.
-- **IR / RFID / NFC / LoRa / FM / NRF24**: **Universal IR Remote** (TV / AC / Audio / Projector one-tap blaster), TV-B-Gone, Custom IR, PN532 / PN532Killer / Chameleon / Amiibolink, LoRa, FM Radio, 2.4G Spectrum.
-
-### 🛠️ Flipper-Style Daily Tools & Wire Tools
-- **Flipper Tools** (`Others → Flipper Tools`): **Live 2.4 GHz Wi-Fi Thermal Waterfall**, **Pocket GPIO Oscilloscope & Logic Plotter**, **Nezha Pentatonic Cyber Synth & FX Pad**, **Offline mbedTLS Cyber Crypto Lab** (SHA-256 / SHA-1 / MD5 / Base64 / TRNG), RFC 6238 **TOTP 2FA Authenticator**, **PWM Signal Generator**, **ITU Morse Code TX**, **Hardware TRNG Password Generator**, and **Polyhedral Dice Roller**.
-- **Wire Tools**: **GPIO Pin Controller & Live ADC Voltage Monitor**, UART Terminal, I2C Scanner/Dump, SPI Flash JEDEC Console, JTAG Scanner, Continuity Multimeter.
-- **WebUI & Standalone Extras**: Modernized **Nezha Cyber WebUI** (`NezhaNet` / `nezhanet`), JS Interpreter, Phone Suite, QR Codes, BadUSB/HID, iButton, and Serial CLI.
+| Category | Modules |
+| :--- | :--- |
+| **UI & Themes** | 7 Main Menu layouts (`Grid`, `Carousel`, `List`, `Cards`, `Dock`, `Split`, `Compact Grid`), 哪吒魔童 Theme Studio (20 curated presets, 71 palettes total), 3 UI crest styles, `zh-CN` (default) & `en` |
+| **Wi-Fi** | STA/AP, Raw Sniffer, Channel Analyzer, 2.4 GHz Thermal Waterfall, Jam Detect, Probe Monitor, LAN Port/Banner Audit, IDS Watchdog, Evil Portal, Responder, ARP Scan, WireGuard, SSH/Telnet, SOCKS4 |
+| **BLE** | Scrollable BLE Spam suite, BLE Scanner, GATT Inspector & Notify Viewer, BLE File Transfer, BadBLE & BLE Keyboard |
+| **Radar** | Live Wi-Fi & BLE spatial radar with threat flags, persistent GPS/RF location state, and toggleable Sonar Beep |
+| **Sub-GHz & IR** | CC1101 / RF433 Frequency Analyzer, Spectrum, Waterfall, Record/Replay, ProtoPirate, Universal IR Remote, TV-B-Gone, Custom IR |
+| **RFID / Radio** | PN532, PN532Killer, Chameleon, Amiibolink, LoRa, FM Radio, NRF24 2.4G Spectrum |
+| **Hardware & Daily Tools** | GPIO Pin Controller & ADC Voltage Monitor, Pocket GPIO Oscilloscope, UART / I2C / SPI / JTAG / Continuity Multimeter, TOTP 2FA, PWM Signal Gen, Morse TX, Offline Crypto Lab (`SHA-256`/`SHA-1`/`MD5`/`Base64`), TRNG PassGen, Nezha Synth, QR Codes, BadUSB/HID, JS Interpreter, Nezha Pet |
 
 ---
 
-## 🚀 Quick Build & Flash
+## Primary Verified Targets
 
-This repository includes an auto-detecting [Makefile](./Makefile) configured for **LilyGO T-Deck** (ESP32-S3, 16 MB Flash / 8 MB OPI PSRAM) and **M5StickC Plus 1.1** (ESP32, 4 MB Flash).
+| Board | MCU | Flash / PSRAM | PlatformIO Env |
+| :--- | :--- | :--- | :--- |
+| **LilyGO T-Deck / T-Deck Plus** | ESP32-S3 | 16 MB / 8 MB OPI PSRAM | `lilygo-t-deck`, `lilygo-t-deck-pro` |
+| **M5StickC Plus 1.1** | ESP32 | 4 MB | `m5stack-cplus1_1` |
 
-### 1. Using `make` (Recommended)
+Additional board definitions from the wider ESP32 ecosystem (M5Stack Cardputer, Core2, CoreS3, M5StickC Plus2, LilyGO T-Embed CC1101, CYD-2432S028, ESP32-C5, etc.) are located under [`boards/`](./boards/).
+
+---
+
+## Install & Build
+
+### 1. Prebuilt Releases
+Download the latest merged binary (`NezhaCyber-<board>.bin`) or OTA image (`NezhaCyber-<board>-ota.bin`) from **GitHub Releases** and flash at `0x00000`:
+
 ```sh
-# Auto-detect connected T-Deck or M5StickC Plus 1.1, compile, and flash
+# LilyGO T-Deck (ESP32-S3)
+esptool --chip esp32s3 --port /dev/ttyACM0 --baud 921600 write_flash 0x00000 NezhaCyber-lilygo-t-deck.bin
+
+# M5StickC Plus 1.1 (ESP32)
+esptool --chip esp32 --port /dev/ttyUSB0 --baud 921600 write_flash 0x00000 NezhaCyber-m5stack-cplus1_1.bin
+```
+
+### 2. Build from Source (`Makefile` or PlatformIO)
+```sh
+# Auto-detect connected T-Deck or M5StickC Plus 1.1, build, and flash
 make install
 
-# Target specific boards directly
-make tdeck            # LilyGO T-Deck (lilygo-t-deck)
-make tdeck-plus       # LilyGO T-Deck Plus (lilygo-t-deck-pro)
-make stickc-plus      # M5StickC Plus 1.1 (m5stack-cplus1_1)
-make cardputer        # M5Stack Cardputer (m5stack-cardputer)
+# Target a specific board
+make tdeck
+make stickc-plus
 
-# Build merged binary only -> NezhaCyber-<ENV>.bin
+# Build merged binary only -> NezhaCyber-<env>.bin
 make build ENV=lilygo-t-deck
 make build ENV=m5stack-cplus1_1
 
-# Flash merged binary directly at 0x00000
-make flash-bin ENV=lilygo-t-deck
+# Or directly with PlatformIO
+pio run -e lilygo-t-deck -e m5stack-cplus1_1
 ```
 
-### 2. Using PlatformIO CLI Directly
-```sh
-pio run -e lilygo-t-deck
-pio run -e m5stack-cplus1_1
-```
+**LilyGO T-Deck Download Mode:** Power OFF → hold Trackball button (`GPIO0`) → Power ON → release Trackball → run `make tdeck`.
 
-### 3. LilyGO T-Deck Bootloader Mode
-1. Connect T-Deck via USB-C and turn the power switch **OFF**.
-2. **Press and hold the Trackball button** (`GPIO0` / `BOOT`).
-3. Turn the power switch **ON** while holding the Trackball, then release.
-4. Run `make tdeck` (or `pio run -e lilygo-t-deck -t upload`).
-
-### 4. Regenerating CJK Bitmap Fonts (Developers)
-Whenever you add or edit translations in [`src/core/lang_zh_cn.h`](./src/core/lang_zh_cn.h):
+### 3. Updating Chinese Translations
+Edit [`src/core/lang_zh_cn.h`](./src/core/lang_zh_cn.h) (strict ASCII sort order), then regenerate and verify the CJK font header:
 ```sh
 python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check
 ```
 
 ---
 
-## 🧩 Supported Hardware
+## Project Structure
 
-Primary verified targets for **Nezha Cyber**:
-- **LilyGO T-Deck / T-Deck Plus** (`ESP32-S3`, 320×240 IPS + Touch + Trackball + QWERTY + 8 MB OPI PSRAM)
-- **M5Stack M5StickC Plus 1.1** (`ESP32`, 240×135 TFT + 3 Buttons + 4 MB Flash full build)
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full repository layout.
 
-Also inherits board definitions across the wider ESP32 ecosystem from upstream Bruce Firmware: M5Stack Cardputer / M5StickC Plus2 / Core2 / CoreS3, LilyGO T-Embed / T-Embed CC1101 / T-Display-S3 / T-Watch-S3 / T-LoRa Pager, CYD-2432S028, Elecrow, Smoochiee, and ESP32-C5 boards (see [`boards/`](./boards/) and [`platformio.ini`](./platformio.ini)).
+- `src/core/` — Core OS, display, themes, `zh-CN`/`en` i18n, config, launcher, WebUI, serial CLI
+- `src/modules/` — Wireless, RF, IR, RFID, Wire Tools, Radar, Flipper Tools, Nezha Pet
+- `boards/` — Hardware pinouts and PlatformIO board configs
+- `partitions/` — Custom 4 MB / 8 MB / 16 MB partition CSV tables
+- `scripts/build/` — PlatformIO pre/post build hooks and release packager
+- `tools/` — Host utilities (`gen_cjk_font.py`)
+- `.github/` — CI build matrix, automated GitHub Releases, issue & PR templates
 
----
-
-## 🙏 Lineage, Upstream Credits & License
-
-**Nezha Cyber (哪吒网络安全)** is authored and maintained by **钟智强 ([ctkqiang](https://github.com/ctkqiang))**.
-
-This project is an independent standalone fork originating from **[Bruce Firmware](https://github.com/pr3y/Bruce)**, preserving its full Git history and AGPL-3.0 copyleft lineage. Deep gratitude to the Bruce maintainers and upstream open-source ecosystem:
-- **[pr3y/Bruce](https://github.com/pr3y/Bruce)** and all upstream contributors (`@bmorcelli`, `@IncursioHack`, `@Luidiblu`, `@eadmaster`, `@rennancockles`, `@7h30th3r0n3`, `@Tawank`, `@geo-tp`, `@lshaf`, and the entire Bruce community).
-- Foundational open-source inspirations: [ESP32Marauder](https://github.com/justcallmekoko/ESP32Marauder), [Launcher](https://github.com/bmorcelli/Launcher), [Evil-M5Project](https://github.com/7h30th3r0n3/Evil-M5Project), and [M5Stick-Nemo](https://github.com/n0xa/m5stick-nemo).
-- Architecture & standardized directory layout: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) · Roadmap: [docs/ROADMAP.md](./docs/ROADMAP.md)
-- Contributing & open-source community: [CONTRIBUTING.md](./CONTRIBUTING.md) · [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md)
-- Third-party library attributions and copyleft details: see [THIRD_PARTY.md](./THIRD_PARTY.md) and [LICENSE](./LICENSE).
+More docs: [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md) · [docs/ROADMAP.md](./docs/ROADMAP.md)
 
 ---
 
-## ⚠️ Legal Disclaimer
+## Acknowledgements & License
 
-**Nezha Cyber (哪吒网络安全)** is released under the **GNU Affero General Public License v3.0 (AGPL-3.0)** strictly for **authorized security research, education, hardware debugging, and personal laboratory testing**. Any unauthorized or malicious use against systems you do not own or have explicit written permission to test is strictly prohibited. The author (**钟智强 / ctkqiang**) and upstream contributors assume no liability for misuse.
+Maintained by **钟智强 ([ctkqiang](https://github.com/ctkqiang))**.  
+Forked from **[pr3y/Bruce](https://github.com/pr3y/Bruce)** with gratitude to all upstream Bruce contributors and foundational projects (`ESP32Marauder`, `Launcher`, `Evil-M5Project`, `M5Stick-Nemo`). Third-party licenses and notices are listed in [THIRD_PARTY.md](./THIRD_PARTY.md).
+
+Released under **GNU AGPL-3.0** ([LICENSE](./LICENSE)). Intended strictly for authorized security research, education, hardware debugging, and personal lab testing.

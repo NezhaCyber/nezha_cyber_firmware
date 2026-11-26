@@ -176,7 +176,7 @@ void GPSTracker::add_initial_file_data(File file) {
     file.println("  <metadata>");
     file.println("    <name>Nezha GPS Tracker</name>");
     file.println("    <desc>GPS Tracker using Nezha Cyber Firmware</desc>");
-    file.println("    <link href=\"https://github.com/ctkqiang/bruce_firmware\">");
+    file.println("    <link href=\"https://github.com/ctkqiang/nezha_cyber_firmware\">");
     file.println("      <text>Nezha Cyber</text>");
     file.println("    </link>");
     file.println("  </metadata>");
