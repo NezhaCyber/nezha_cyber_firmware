@@ -89,7 +89,7 @@ jobs:
         run: pio run -e ${{ matrix.env }}
 
       - name: Upload merged firmware artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NezhaCyber-${{ matrix.env }}
           path: NezhaCyber-${{ matrix.env }}.bin

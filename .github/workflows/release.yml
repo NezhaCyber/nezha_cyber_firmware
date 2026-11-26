@@ -129,7 +129,7 @@ jobs:
           EOF
 
       - name: Upload built firmware artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-bin-${{ matrix.env }}
           path: dist/
