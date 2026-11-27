@@ -306,6 +306,7 @@ bool checkShortcutPress() {
     for (JsonPair kv : shortcutsJson.as<JsonObject>()) {
         const char *shortcut_key = kv.key().c_str();
         const char *shortcut_value = kv.value().as<const char *>();
+        if (!shortcut_key || !shortcut_key[0] || !shortcut_value) continue;
 
         // check for matching keys
         for (auto i : key.word) {
