@@ -1,6 +1,7 @@
 #include "massStorage.h"
 #if defined(SOC_USB_OTG_SUPPORTED)
 #include "core/display.h"
+#include "core/i18n.h"
 #include <USB.h>
 bool MassStorage::shouldStop = false;
 int32_t MassStorage::status = -1;
@@ -80,8 +81,24 @@ void MassStorage::setupUsbEvent() {
 
 void MassStorage::displayMessage(String message) {
     drawMainBorderWithTitle("Mass Storage");
-    padprintln("");
-    padprintln(message);
+    if (!message.isEmpty()) {
+        bool compact = (tftHeight < 160);
+        int cardX = compact ? 10 : 18;
+        int cardY = BORDER_PAD_Y + (compact ? 26 : 34);
+        int cardW = tftWidth - 2 * cardX;
+        int cardH = compact ? 42 : 52;
+        uiDrawCard(cardX, cardY, cardW, cardH, true);
+        uiDrawText16(
+            bruce_i18n::tr(message),
+            tftWidth / 2,
+            cardY + (cardH - 16) / 2,
+            cardW - 16,
+            uiTextBrightColor(),
+            uiSurfaceColor(),
+            1
+        );
+        printCenterFootnote("ESC: Eject & Exit");
+    }
 }
 
 int32_t usbWriteCallback(uint32_t lba, uint32_t offset, uint8_t *buffer, uint32_t bufsize) {
@@ -130,54 +147,62 @@ bool usbStartStopCallback(uint8_t power_condition, bool start, bool load_eject) 
 }
 
 void drawUSBStickIcon(bool plugged) {
-    static bool first = true;
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 10 : 18;
+    int cardY = BORDER_PAD_Y + 24;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+    uint16_t surfHi = uiSurfaceHiColor();
+    uint16_t bdim = uiBorderDimColor();
 
-    float scale;
-    if (bruceConfigPins.rotation & 0b01) scale = float((float)tftHeight / (float)135);
-    else scale = float((float)tftWidth / (float)240);
+    drawMainBorderWithTitle("Mass Storage");
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
 
-    int iconW = scale * 120;
-    int iconH = scale * 40;
-
-    if (iconW % 2 != 0) iconW++;
-    if (iconH % 2 != 0) iconH++;
-
-    int radius = 5;
-
-    int bodyW = 2 * iconW / 3;
+    int iconW = compact ? 104 : 136;
+    int iconH = compact ? 32 : 44;
+    int bodyW = (iconW * 2) / 3;
     int bodyH = iconH;
     int bodyX = tftWidth / 2 - iconW / 2;
-    int bodyY = tftHeight / 2;
+    int bodyY = cardY + (cardH - iconH) / 2 - (compact ? 8 : 10);
 
     int portW = iconW - bodyW;
-    int portH = 0.8 * bodyH;
-    int portX = bodyX + bodyW;
+    int portH = (bodyH * 75) / 100;
+    int portX = bodyX + bodyW - 2;
     int portY = bodyY + (bodyH - portH) / 2;
 
-    int portDetailW = portW / 2;
-    int portDetailH = portH / 4;
-    int portDetailX = portX + (portW - portDetailW) / 2;
-    int portDetailY1 = portY + 0.8 * portDetailH;
-    int portDetailY2 = portY + portH - 1.8 * portDetailH;
+    int holeW = max(5, portW / 3);
+    int holeH = max(4, portH / 4);
+    int holeX = portX + (portW - holeW) / 2 + 1;
+    int holeY1 = portY + portH / 4 - holeH / 2;
+    int holeY2 = portY + (portH * 3) / 4 - holeH / 2;
 
-    int ledW = 0.1 * bodyH;
-    int ledH = 0.6 * bodyH;
-    int ledX = bodyX + 2 * ledW;
-    int ledY = bodyY + (iconH - ledH) / 2;
+    // USB connector & themed body
+    tft.fillRoundRect(portX, portY, portW, portH, 4, uiTextMutedColor());
+    tft.fillRect(holeX, holeY1, holeW, holeH, surf);
+    tft.fillRect(holeX, holeY2, holeW, holeH, surf);
+    tft.fillRoundRect(bodyX, bodyY, bodyW, bodyH, 6, surfHi);
+    tft.drawRoundRect(bodyX, bodyY, bodyW, bodyH, 6, plugged ? bruceConfig.priColor : bdim);
 
-    if (first) {
-        MassStorage::displayMessage("");
-        // Body
-        tft.fillRoundRect(bodyX, bodyY, bodyW, bodyH, radius, TFT_DARKCYAN);
-        // Port USB
-        tft.fillRoundRect(portX, portY, portW, portH, radius, TFT_LIGHTGREY);
-        // Small square on port
-        tft.fillRoundRect(portDetailX, portDetailY1, portDetailW, portDetailH, radius, TFT_DARKGREY);
-        tft.fillRoundRect(portDetailX, portDetailY2, portDetailW, portDetailH, radius, TFT_DARKGREY);
-        first = false;
-    }
-    // Led
-    tft.fillRoundRect(ledX, ledY, ledW, ledH, radius, plugged ? TFT_GREEN : TFT_RED);
+    // Status LED strip on body
+    int ledW = max(4, bodyH / 8);
+    int ledH = (bodyH * 55) / 100;
+    int ledX = bodyX + 8;
+    int ledY = bodyY + (bodyH - ledH) / 2;
+    uint16_t stateCol = plugged ? TFT_DARKGREEN : bruceConfig.secColor;
+    tft.fillRoundRect(ledX, ledY, ledW, ledH, 2, plugged ? TFT_GREEN : bruceConfig.priColor);
+
+    // Label inside USB body
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextBrightColor(), surfHi);
+    tft.drawCentreString("NEZHA", bodyX + bodyW / 2 + 4, bodyY + (bodyH - LH * FP) / 2, 1);
+
+    // Status pill below icon
+    String badgeTxt = plugged ? "USB Connected" : "Waiting USB";
+    int16_t badgeW = bruce_i18n::utf8PixelWidth(bruce_i18n::tr(badgeTxt), FP) + 12;
+    uiDrawBadge(tftWidth / 2 - badgeW / 2, bodyY + bodyH + (compact ? 6 : 12), badgeTxt, stateCol, 16);
+    printCenterFootnote("ESC: Eject & Exit");
 }
 
 #endif // SOC_USB_OTG_SUPPORTED
