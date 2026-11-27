@@ -20,11 +20,17 @@
    - Always gate Wi-Fi/NimBLE startup via `radioHasMemForWifi()`, `radioHasMemForBle()`, and `radioSafeBleInit()` (`src/core/radio_mem.h`).
    - Respect `-flto -Werror=odr`, `sdcardSPI(VSPI)` vs `AUX_SPI(HSPI)`, `inputLock()`/`inputUnlock()`, and never modify `struct keyStroke` (`include/globals.h`).
 
-4. **UI & Bilingual i18n (`zh-CN` default + `en`) / 主题 UI 与双语字库**
+4. **Architecture, Data Structures & Coding Patterns / 架构、数据结构与编码骨架**
+   - **Layered flow**: `menu_items`/`serial_commands`/`WebUI` → `src/modules/` → `src/core/` → `bus_HAL` / `boards/*/interface.cc`. Keep shared parsers/encoders in `src/modules/` or `src/core/` so GUI and CLI never diverge.
+   - **Local `std::vector<Option>`**: Always use a local `localOpts` inside submenus (see `RadarMenu.cc`) — never reuse global `options` in nested menus (prevents lambda use-after-free).
+   - **Bus & Storage RAII**: Acquire I2C through move-only RAII `I2CLease` (`i2cLeaseDevice`/`i2cLeaseBus`/`i2cLeasePins` in `src/core/bus_HAL.h`), SPI via `acquireSPIBus()`, and storage via `FS &fs` (`getFsStorage()`, never hardcode `SD`).
+   - **Bounded PODs & Zero-Overhead C++**: Cap scan vectors with `static constexpr size_t MAX_*` + fixed fields (`uint8_t mac[6]`, `char name[N]`), store static lookup tables in sorted `PROGMEM` arrays, follow the 4-phase module lifecycle (Guard → Init → Dirty-Flag Loop → Deterministic Teardown), and avoid C++ exceptions, RTTI, `<iostream>`, and `std::regex`.
+
+5. **UI & Bilingual i18n (`zh-CN` default + `en`) / 主题 UI 与双语字库**
    - Use theme helpers in `src/core/display.h` (`uiSurfaceColor()`, `uiBorderDimColor()`, `uiTextBrightColor()`, `uiTextOnAccentColor()`, `uiDrawText16()`) and `bruce_i18n::tr()` / UTF-8 width helpers.
    - Keep `src/core/lang_zh_cn.h` strictly ASCII `strcmp`-sorted. Never hand-edit `src/core/cjk_font_data.h`; regenerate with `python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check`.
 
-5. **Formatting, Verification & Git / 格式化、编译验证与提交**
+6. **Formatting, Verification & Git / 格式化、编译验证与提交**
    - Match `.clang-format` (LLVM, 4 spaces, 110 cols, attached braces).
    - Verify before finishing:
      ```sh
