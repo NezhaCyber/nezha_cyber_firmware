@@ -224,18 +224,22 @@ bool copyToFs(FS from, FS to, String path, bool draw) {
         Serial.println("Fail opening Source file");
         return false;
     }
-    path = path.substring(path.lastIndexOf('/'));
+    int slashIdx = path.lastIndexOf('/');
+    if (slashIdx >= 0) path = path.substring(slashIdx);
     if (!path.startsWith("/")) path = "/" + path;
     File dest = to.open(path, FILE_WRITE);
     if (!dest) {
         Serial.println("Fail creating destination file");
+        source.close();
         return false;
     }
     size_t bytesRead;
     int tot = source.size();
     int prog = 0;
 
-    if (&to == &LittleFS && (LittleFS.totalBytes() - LittleFS.usedBytes()) < tot) {
+    if (&to == &LittleFS && (LittleFS.totalBytes() - LittleFS.usedBytes()) < (size_t)tot) {
+        source.close();
+        dest.close();
         displayError("Not enought space", true);
         return false;
     }
@@ -243,6 +247,12 @@ bool copyToFs(FS from, FS to, String path, bool draw) {
     // heap-allocated (not stack) to keep this buffer off the task stack; freed before
     // every return below
     uint8_t *buff = (uint8_t *)malloc(bufSize);
+    if (!buff) {
+        source.close();
+        dest.close();
+        displayError("Not Enough RAM", true);
+        return false;
+    }
     // tft.drawRect(5,tftHeight-12, (tftWidth-10), 9, bruceConfig.priColor);
     while ((bytesRead = source.read(buff, bufSize)) > 0) {
         if (dest.write(buff, bytesRead) != bytesRead) {
@@ -254,7 +264,7 @@ bool copyToFs(FS from, FS to, String path, bool draw) {
             return false;
         } else {
             prog += bytesRead;
-            float rad = 360 * prog / tot;
+            float rad = (tot > 0) ? (360.0f * prog / tot) : 360.0f;
             if (draw)
                 tft.drawArc(
                     tftWidth / 2,
@@ -440,10 +450,11 @@ char *readBigFile(FS *fs, const String &filepath, bool binary, size_t *fileSize)
 
     size_t fileLen = file.size();
     char *buf = (char *)(psramFound() ? ps_malloc(fileLen + 1) : malloc(fileLen + 1));
-    if (fileSize != NULL) { *fileSize = file.size(); }
+    if (fileSize != NULL) { *fileSize = fileLen; }
 
     if (!buf) {
         Serial.printf("Could not allocate memory for file: %s\n", filepath.c_str());
+        file.close();
         return NULL;
     }
 
@@ -451,10 +462,12 @@ char *readBigFile(FS *fs, const String &filepath, bool binary, size_t *fileSize)
     while (bytesRead < fileLen && file.available()) {
         size_t toRead = fileLen - bytesRead;
         if (toRead > 512) { toRead = 512; }
-        file.read((uint8_t *)(buf + bytesRead), toRead);
-        bytesRead += toRead;
+        size_t chunk = file.read((uint8_t *)(buf + bytesRead), toRead);
+        if (chunk == 0) { break; }
+        bytesRead += chunk;
     }
     buf[bytesRead] = '\0';
+    if (fileSize != NULL) { *fileSize = bytesRead; }
     file.close();
 
     return buf;
@@ -721,8 +734,10 @@ String loopSD(FS &fs, bool filePicker, const String &allowed_ext, String rootPat
             String filepath = Folder + (Folder == "/" ? "" : "/") + fileList[index].filename;
             String filename = fileList[index].filename;
             Serial.println(filepath + " --> " + filename);
-            fileList.clear();  // Clear memory to allow other functions to work better
+            fileList.clear(); // Clear memory to allow other functions to work better
+            fileList.shrink_to_fit();
             sdOptions.clear(); // its parallel display list too
+            sdOptions.shrink_to_fit();
 
             options = {
                 {"View File",  [=, &fs]() { viewFile(fs, filepath); }            },
@@ -879,6 +894,7 @@ String loopSD(FS &fs, bool filePicker, const String &allowed_ext, String rootPat
         }
     }
     fileList.clear();
+    fileList.shrink_to_fit();
     return result;
 }
 
@@ -974,9 +990,11 @@ void fileInfo(FS &fs, const String &filepath) {
 **  append a version number to the file name.
 **********************************************************************/
 File createNewFile(FS *&fs, String filepath, String filename) {
+    if (!fs) return File();
+
     int extIndex = filename.lastIndexOf('.');
-    String name = filename.substring(0, extIndex);
-    String ext = filename.substring(extIndex);
+    String name = (extIndex >= 0) ? filename.substring(0, extIndex) : filename;
+    String ext = (extIndex >= 0) ? filename.substring(extIndex) : "";
 
     if (filepath.endsWith("/")) filepath = filepath.substring(0, filepath.length() - 1);
     if (!(*fs).exists(filepath)) (*fs).mkdir(filepath);
