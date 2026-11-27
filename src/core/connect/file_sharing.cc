@@ -2,6 +2,7 @@
 #if !defined(LITE_VERSION) && !defined(CONFIG_IDF_TARGET_ESP32P4)
 #include "file_sharing.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include <SD.h>
 FileSharing::FileSharing() {}
 
@@ -107,14 +108,21 @@ void FileSharing::receiveFile() {
     delay(1000);
 
     if (recvStatus == SUCCESS) {
+        bool compact = (tftHeight < 160);
+        int cardX = compact ? 8 : 16;
+        int cardY = BORDER_PAD_Y + 26;
+        int cardW = tftWidth - 2 * cardX;
+        int cardH = compact ? 52 : 68;
+        uint16_t surf = uiSurfaceColor();
+
         drawMainBorderWithTitle("RECEIVE FILE");
-        padprintln("");
-        padprintln("File received: ");
-        padprintln(recvFileName);
-        padprintln("\n");
-        padprintln("Press any key to leave");
+        uiDrawCard(cardX, cardY, cardW, cardH, true);
+        uiDrawBadge(cardX + 10, cardY + 10, "File received", TFT_DARKGREEN, 16);
+        uiDrawText16(
+            recvFileName, cardX + 10, cardY + (compact ? 30 : 38), cardW - 20, uiTextBrightColor(), surf, 0
+        );
+        printCenterFootnote("Press any key to leave");
         while (!check(AnyKeyPress)) vTaskDelay(50 / portTICK_PERIOD_MS);
-        ;
     }
 }
 
@@ -123,11 +131,11 @@ File FileSharing::selectFile() {
     FS *fs = &LittleFS;
     setupSdCard();
     if (sdcardMounted) {
-        options = {
+        std::vector<Option> localOpts = {
             {"SD Card",  [&]() { fs = &SD; }      },
             {"LittleFS", [&]() { fs = &LittleFS; }},
         };
-        loopOptions(options);
+        loopOptions(localOpts, MENU_TYPE_SUBMENU, "Select Storage");
     }
     filename = loopSD(*fs, true);
 
