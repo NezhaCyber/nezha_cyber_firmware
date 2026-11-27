@@ -4,6 +4,7 @@
 #include "core/i2c_finder.h"
 #include "core/main_menu.h"
 #include "core/settings.h"
+#include "core/system_monitor.h"
 #include "core/utils.h"
 #include "core/wifi/wifi_common.h"
 #ifdef HAS_RGB_LED
@@ -46,6 +47,7 @@ void ConfigMenu::optionsMenu() {
             localOptions.push_back({"Dev Mode", [this]() { devMenu(); }});
         }
 
+        localOptions.push_back({"System Monitor", showSystemMonitor});
         localOptions.push_back({"About", showDeviceInfo});
         localOptions.push_back({"Main Menu", []() {}});
 
