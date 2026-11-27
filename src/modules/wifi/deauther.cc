@@ -9,11 +9,11 @@
 #include "modules/wifi/sniffer.h"
 #include "scan_hosts.h"
 #include "wifi_atks.h"
+#include <cctype>
+#include <cstring>
 #include <esp_wifi.h>
 #include <esp_wifi_types.h>
 #include <globals.h>
-#include <iomanip>
-#include <iostream>
 #include <lwip/dns.h>
 #include <lwip/err.h>
 #include <lwip/etharp.h>
@@ -27,7 +27,6 @@
 #include <lwip/sockets.h>
 #include <lwip/sys.h>
 #include <lwip/timeouts.h>
-#include <sstream>
 
 struct wifi_header_t {
     uint16_t frame_ctrl;
@@ -55,14 +54,36 @@ static std::vector<APInfo> sameSSID_APs;
 
 static std::vector<Host> detectedClients;
 static uint8_t scanTargetBSSID[6];
-static bool clientScanActive = false;
+static volatile bool clientScanActive = false;
+
+struct RawDetectedClient {
+    uint8_t mac[6];
+    int8_t rssi;
+};
+static constexpr size_t MAX_DETECTED_CLIENTS = 64;
+static RawDetectedClient rawDetectedClients[MAX_DETECTED_CLIENTS];
+static volatile size_t rawDetectedCount = 0;
+static portMUX_TYPE clientSnifferMux = portMUX_INITIALIZER_UNLOCKED;
 
 // =============================================================================
-// Vendor OUI Lookup
+// Vendor OUI Lookup (Flash-resident POD table, zero DRAM heap allocations)
 // =============================================================================
+
+struct OuiEntry {
+    const char prefix[9];
+    const char *vendor;
+};
+
+static bool ouiPrefixEquals(const char *mac, const char *prefix) {
+    for (int i = 0; i < 8; ++i) {
+        if (mac[i] == '\0') return false;
+        if (toupper(static_cast<unsigned char>(mac[i])) != prefix[i]) return false;
+    }
+    return true;
+}
 
 String getVendorFromMAC(const String &mac) {
-    static const std::pair<String, String> oui_list[] = {
+    static const OuiEntry oui_list[] = {
         {"00:1A:2B", "Apple"    },
         {"00:1E:52", "Apple"    },
         {"00:25:00", "Apple"    },
@@ -74,7 +95,6 @@ String getVendorFromMAC(const String &mac) {
         {"00:1C:42", "Cisco"    },
         {"00:1A:A0", "Cisco"    },
         {"00:0F:FE", "TP-Link"  },
-        {"00:1A:2B", "Netgear"  },
         {"00:18:4D", "Netgear"  },
         {"00:1F:33", "Asus"     },
         {"00:0D:88", "Microsoft"},
@@ -103,9 +123,10 @@ String getVendorFromMAC(const String &mac) {
         {"00:1A:70", "Linksys"  }
     };
 
-    String prefix = mac.substring(0, 8); // "XX:XX:XX"
-    for (auto &entry : oui_list) {
-        if (prefix == entry.first) { return entry.second; }
+    if (mac.length() < 8) return "Unknown";
+    const char *raw = mac.c_str();
+    for (const auto &entry : oui_list) {
+        if (ouiPrefixEquals(raw, entry.prefix)) { return String(entry.vendor); }
     }
     return "Unknown";
 }
@@ -1043,39 +1064,35 @@ void showAPSelectionForClientDeauth() {
 }
 
 void clientSnifferCallback(void *buf, wifi_promiscuous_pkt_type_t type) {
-    if (!clientScanActive) return;
+    if (!clientScanActive || !buf) return;
 
     wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *)buf;
+    if (pkt->rx_ctrl.sig_len < sizeof(wifi_header_t)) return;
     wifi_header_t *header = (wifi_header_t *)pkt->payload;
 
     if (type == WIFI_PKT_DATA) {
-        uint8_t clientMAC[6];
-        memcpy(clientMAC, header->addr2, 6);
-
         if (memcmp(header->addr1, scanTargetBSSID, 6) == 0 ||
             memcmp(header->addr3, scanTargetBSSID, 6) == 0) {
+            const uint8_t *clientMAC = header->addr2;
+            const int8_t rssi = static_cast<int8_t>(pkt->rx_ctrl.rssi);
 
+            // Lock-safe, zero-allocation POD capture inside Wi-Fi RX task
+            portENTER_CRITICAL(&clientSnifferMux);
             bool exists = false;
-            for (auto &c : detectedClients) {
-                uint8_t existingMAC[6];
-                stringToMAC(c.mac.c_str(), existingMAC);
-                if (memcmp(existingMAC, clientMAC, 6) == 0) {
+            size_t count = rawDetectedCount;
+            for (size_t i = 0; i < count; ++i) {
+                if (memcmp(rawDetectedClients[i].mac, clientMAC, 6) == 0) {
+                    if (rssi > rawDetectedClients[i].rssi) rawDetectedClients[i].rssi = rssi;
                     exists = true;
                     break;
                 }
             }
-            if (!exists) {
-                ip4_addr_t ip;
-                ip.addr = 0;
-                eth_addr eth;
-                memcpy(eth.addr, clientMAC, 6);
-
-                int rssi = pkt->rx_ctrl.rssi;
-                String vendor = getVendorFromMAC(MAC(eth.addr));
-
-                Host client(&ip, &eth, "", vendor, rssi);
-                detectedClients.push_back(client);
+            if (!exists && count < MAX_DETECTED_CLIENTS) {
+                memcpy(rawDetectedClients[count].mac, clientMAC, 6);
+                rawDetectedClients[count].rssi = rssi;
+                rawDetectedCount = count + 1;
             }
+            portEXIT_CRITICAL(&clientSnifferMux);
         }
     }
 }
@@ -1091,6 +1108,9 @@ void scanClientsOnAP(uint8_t *targetMAC, int channel) {
     padprintln("Press BACK to stop");
 
     detectedClients.clear();
+    portENTER_CRITICAL(&clientSnifferMux);
+    rawDetectedCount = 0;
+    portEXIT_CRITICAL(&clientSnifferMux);
     memcpy(scanTargetBSSID, targetMAC, 6);
     clientScanActive = true;
 
@@ -1128,7 +1148,7 @@ void scanClientsOnAP(uint8_t *targetMAC, int channel) {
             tft.setCursor(10, 80);
             padprintln("Scanning... (" + String(scanCount) + "s)");
             padprintln("");
-            padprintln("Clients found: " + String(detectedClients.size()));
+            padprintln("Clients found: " + String((unsigned)rawDetectedCount));
             padprintln("");
 
             String spinner = "|/-\\";
@@ -1144,9 +1164,22 @@ void scanClientsOnAP(uint8_t *targetMAC, int channel) {
     esp_wifi_set_promiscuous(false);
     esp_wifi_set_promiscuous_rx_cb(NULL);
 
+    size_t capturedCount = rawDetectedCount;
+    detectedClients.reserve(capturedCount);
+    for (size_t i = 0; i < capturedCount; ++i) {
+        ip4_addr_t ip;
+        ip.addr = 0;
+        eth_addr eth;
+        memcpy(eth.addr, rawDetectedClients[i].mac, 6);
+        String vendor = getVendorFromMAC(MAC(eth.addr));
+        detectedClients.emplace_back(&ip, &eth, "", vendor, rawDetectedClients[i].rssi);
+    }
+
     if (wasConnected) { restoreWiFiState(savedState); }
 
     showClientSelectionForDeauth(detectedClients, targetMAC, channel);
+    detectedClients.clear();
+    detectedClients.shrink_to_fit();
 }
 
 void showClientSelectionForDeauth(const std::vector<Host> &clients, uint8_t *targetMAC, int channel) {

@@ -917,6 +917,14 @@ struct WordlistReader {
                 pos = len;
                 return cp > 0;
             }
+            if (pos == 0 && len == cap) {
+                // Guard against an overlong line (> cap bytes without '\n') causing an infinite loop.
+                size_t cp = (len < max_len) ? len : max_len;
+                memcpy(out, buf, cp);
+                out[cp] = '\0';
+                pos = len;
+                return cp > 0;
+            }
             refill();
         }
     }
