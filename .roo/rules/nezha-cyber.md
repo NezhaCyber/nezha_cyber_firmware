@@ -11,6 +11,7 @@
   - Guard heavy code/tables with `#if !defined(LITE_VERSION)` / `#if !defined(BRUCE_COMPACT_CJK_FONT)` and store read-only tables in `PROGMEM`.
   - Always gate Wi-Fi/BLE init via `radioHasMemForWifi()`, `radioHasMemForBle()`, and `radioSafeBleInit()` (`src/core/radio_mem.h`).
   - Maintain strict ODR (`-flto -Werror=odr`), SPI bus isolation (`sdcardSPI` vs `AUX_SPI`), `inputLock()`/`inputUnlock()`, and never alter `struct keyStroke` (`include/globals.h`).
+- **Architecture & Data Structures / 架构与数据结构**: Respect layering (`menu_items`/`serial_commands` → `src/modules/` → `src/core/` → `bus_HAL`/`boards/*/interface.cc`). Always use a **local** `std::vector<Option>` in submenus (prevents lambda UAF), RAII `I2CLease` & `acquireSPIBus()`, `FS &fs` (`getFsStorage()`), bounded `MAX_*` POD scan tables, sorted `PROGMEM` tables, and the 4-phase lifecycle (Guard → Init → Dirty-Flag Loop → Deterministic Teardown). Avoid C++ exceptions, RTTI, `<iostream>`, and `std::regex`.
 - **UI & i18n / 主题界面与双语字库**:
   - Use `src/core/display.h` theme helpers and `bruce_i18n::tr()` / UTF-8 width helpers.
   - Keep `src/core/lang_zh_cn.h` strictly ASCII `strcmp`-sorted. Never hand-edit `src/core/cjk_font_data.h`; run `python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check`.
