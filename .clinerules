@@ -1,0 +1,41 @@
+# .clinerules — Cline / DeepSeek Agent Rules for Nezha Cyber (哪吒网络安全)
+
+> Canonical Rules / 权威规范: `AGENTS.md` (English) | `AGENTS_ZH.md` (简体中文)
+
+## Mandatory Rules / 强制执行规则
+
+1. **Zero AI Code Slop / 严禁 AI 垃圾代码**
+   - Always inspect real source files (`src/`, `include/`, `boards/`, `platformio.ini`) before editing. Never guess pins, macros, headers, or APIs.
+   - Keep every diff minimal and strictly scoped to the user's request. No drive-by refactoring, no formatting unrelated files, no `TODO` stubs, no fake RF/Wi-Fi results.
+   - Never commit binaries or generated artifacts (`NezhaCyber-*.bin`, `.pio/`, `__pycache__/`, `include/webFiles.h`, `include/current_year.h`).
+
+2. **Project Branding & Compatibility / 品牌与兼容性**
+   - User-facing branding: **Nezha Cyber (哪吒网络安全)** / **哪吒魔童**, author **钟智强 (ctkqiang)**, license **GNU AGPL-3.0**. Preserve `THIRD_PARTY.md` and upstream `pr3y/Bruce` credit.
+   - Do not restore legacy `Brucegotchi`/`PwnGrid`/`Megalodon` branding, and do **not** mass-rename legacy internal C++ identifiers (`BruceConfig`, `bruce_i18n`, `BRUCE_COMPACT_CJK_FONT`, `/bruce.conf`).
+
+3. **ESP32 / ESP32-S3 Flash & Internal DRAM Guardrails / 内存与 Flash 红线**
+   - Support both 16 MB PSRAM (`lilygo-t-deck`, `320×240`) and 4 MB no-PSRAM (`m5stack-cplus1_1`, `240×135`, `BRUCE_COMPACT_CJK_FONT=1`, `0x3E8000` app limit).
+   - Guard heavy assets/tables with `#if !defined(LITE_VERSION)` and/or `#if !defined(BRUCE_COMPACT_CJK_FONT)`. Use `PROGMEM` for read-only tables.
+   - Gate Wi-Fi/NimBLE startup with `radioHasMemForWifi()`, `radioHasMemForBle()`, and `radioSafeBleInit()` (`src/core/radio_mem.h`).
+   - Respect `-flto -Werror=odr`, `sdcardSPI(VSPI)` vs `AUX_SPI(HSPI)` separation, `inputLock()`/`inputUnlock()`, watchdog yields (`vTaskDelay`), and never modify `struct keyStroke` (`include/globals.h`).
+
+4. **Architecture, Data Structures & Coding Patterns / 架构、数据结构与编码规范**
+   - Follow strict layering (`menu_items`/`serial_commands`/`WebUI` → `src/modules/` → `src/core/` → `bus_HAL`/`boards/*/interface.cc`); keep shared parsers in `src/modules/` or `src/core/` so GUI and CLI never diverge.
+   - Always use a **local** `std::vector<Option> localOpts` inside submenus (see `RadarMenu.cc`); never reuse global `options` in nested menus (prevents lambda UAF).
+   - Acquire I2C via RAII `I2CLease` (`src/core/bus_HAL.h`), SPI via `acquireSPIBus()`, and storage via `FS &fs` (`getFsStorage()`).
+   - Cap scan lists with `MAX_*` + fixed POD fields, store static tables in sorted `PROGMEM` arrays, follow the 4-phase lifecycle (Guard → Init → Dirty-Flag Loop → Deterministic Teardown), and avoid C++ exceptions, RTTI, `<iostream>`, and `std::regex`.
+
+5. **UI & Bilingual i18n (`zh-CN` default + `en`) / 界面与中文字库**
+   - Use theme helpers in `src/core/display.h` (`uiSurfaceColor()`, `uiBorderDimColor()`, `uiTextBrightColor()`, `uiTextOnAccentColor()`, `uiDrawText16()`) and support both touch+trackball and 3-button boards.
+   - Route UI strings through `bruce_i18n::tr()`. Keep `src/core/lang_zh_cn.h` strictly ASCII `strcmp`-sorted.
+   - Never hand-edit `src/core/cjk_font_data.h`; regenerate with `python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check`.
+
+6. **Style, Verification & Git / 代码风格、验证与提交**
+   - Follow `.clang-format` (LLVM, 4 spaces, 110 columns, attached braces).
+   - Verify before finishing:
+     ```sh
+     python3 tools/gen_cjk_font.py --check-tables
+     python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
+     pio run -e lilygo-t-deck -e m5stack-cplus1_1
+     ```
+   - Report honestly which commands ran and which did not. Branch off `development` and target all PRs to `development` (maintainer handles `development` → `main`) with atomic Conventional Commits. Comply strictly with `SECURITY.md`.

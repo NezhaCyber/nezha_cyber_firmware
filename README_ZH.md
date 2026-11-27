@@ -102,7 +102,7 @@ python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check
 - `tools/` — 主机端工具（`gen_cjk_font.py`）
 - `.github/` — CI 编译检查、自动 GitHub Release 发布、Issue 与 PR 模板
 
-相关文档：[CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md) · [docs/ROADMAP.md](./docs/ROADMAP.md)
+相关文档：[AGENTS_ZH.md](./AGENTS_ZH.md) · [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md) · [docs/ROADMAP.md](./docs/ROADMAP.md)
 
 ---
 

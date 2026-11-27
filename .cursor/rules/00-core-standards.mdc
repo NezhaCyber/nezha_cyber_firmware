@@ -1,0 +1,32 @@
+---
+description: Core anti-slop, branding, style, git, and security rules for Nezha Cyber (哪吒网络安全)
+globs:
+alwaysApply: true
+---
+
+# Nezha Cyber (哪吒网络安全) — Core AI Engineering Rules
+
+Authoritative specification: `AGENTS.md` (EN) and `AGENTS_ZH.md` (简体中文).
+
+## 1. Zero AI Code Slop / 严禁 AI 垃圾代码
+- Read existing files in `src/`, `include/`, `boards/`, and `platformio.ini` before proposing or making edits. Never hallucinate pins, macros, headers, or board envs.
+- Keep diffs minimal and scoped strictly to the task. Do not refactor unrelated files, reformat untouched code, or add speculative abstractions.
+- Never ship `// TODO: implement` stubs, dead menu callbacks, or fake/mocked RF/Wi-Fi/BLE data.
+- Never silence build errors by disabling `-Werror=odr`, deleting working features on 4 MB boards, or adding unapproved `lib_deps`.
+- Comment only non-obvious hardware invariants, DMA/SPI constraints, or protocol quirks — never narrate obvious C++ lines.
+- Never commit generated or binary artifacts (`NezhaCyber-*.bin`, `.pio/`, `__pycache__/`, `include/webFiles.h`, `include/current_year.h`).
+
+## 2. Branding, Ownership & License / 品牌与协议
+- User-facing copy & UI: **Nezha Cyber (哪吒网络安全)** and **哪吒魔童** visual identity; author **钟智强 (ctkqiang)**; license **GNU AGPL-3.0**.
+- Preserve upstream `pr3y/Bruce` attribution (`THIRD_PARTY.md`, `LICENSE`). Do not reintroduce legacy user-facing `Brucegotchi` / `PwnGrid` / `Megalodon` names.
+- Do **not** mass-rename legacy internal C++ identifiers (`BruceConfig`, `bruceConfig`, `bruce_i18n`, `BRUCE_COMPACT_CJK_FONT`, `/bruce.conf`).
+
+## 3. Code Style, Verification & Git / 代码风格、验证与提交
+- C++/C (`.cc`/`.h`): Strictly follow `.clang-format` (LLVM, 4 spaces, no tabs, 110 column limit, attached braces).
+- Python (`scripts/build/*.py`, `tools/*.py`): Python 3.11+ compatible; verify with `python3 -m py_compile`.
+- Before finishing any firmware change, verify:
+  - `python3 tools/gen_cjk_font.py --check-tables`
+  - `pio run -e lilygo-t-deck -e m5stack-cplus1_1`
+- Report truthfully which commands ran and which did not.
+- Branch off `development` (`feat/*`, `fix/*`, `ui/*`, `i18n/*`, `docs/*`, `chore/*`) and target all PRs to `development` (maintainer promotes `development` → `main`) with atomic Conventional Commits.
+- Comply strictly with `SECURITY.md` (authorized research/lab use only; never hardcode secrets or weaken WebUI auth).
