@@ -1,6 +1,7 @@
 #include "util_commands.h"
 #include "core/main_menu.h"
 #include "core/sd_functions.h"
+#include "core/system_monitor.h"
 #include "core/utils.h" // to return optionsJSON
 #include "core/wifi/webInterface.h"
 #include "core/wifi/wifi_common.h" //to return MAC addr
@@ -418,11 +419,17 @@ uint32_t loaderCallback(cmd *c) {
     return false;
 }
 
+uint32_t sysmonCallback(cmd *c) {
+    serialDevice->println(systemMonitorJson());
+    return true;
+}
+
 void createUtilCommands(SimpleCLI *cli) {
     cli->addCommand("uptime", uptimeCallback);
     cli->addCommand("date", dateCallback);
     cli->addCommand("i2c", i2cCallback);
     cli->addCommand("free", freeCallback);
+    cli->addCommand("sysmon", sysmonCallback);
     cli->addCommand("info,!,device_info", infoCallback);
     cli->addCommand("help,?,halp", helpCallback);
     cli->addCommand("optionsJSON", optionsJsonCallback);

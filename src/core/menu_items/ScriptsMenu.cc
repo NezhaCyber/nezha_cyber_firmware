@@ -3,7 +3,8 @@
 #include "core/settings.h"
 #include "core/utils.h"
 #include "modules/bjs_interpreter/interpreter.h" // for JavaScript interpreter
-#include <algorithm>                             // for std::sort
+#include "modules/others/playbooks.h"
+#include <algorithm> // for std::sort
 
 void ScriptsMenu::optionsMenu() {
 #if !defined(LITE_VERSION) && !defined(DISABLE_INTERPRETER)
@@ -15,9 +16,16 @@ void ScriptsMenu::optionsMenu() {
 
     options = getScriptsOptionsList("", false);
 
+    options.push_back({"Playbooks", playbooks_menu});
     options.push_back({"Load...", run_bjs_script});
     addOptionToMainMenu();
 
+    loopOptions(options, MENU_TYPE_SUBMENU, "Scripts");
+#else
+    options = {
+        {"Playbooks", playbooks_menu},
+    };
+    addOptionToMainMenu();
     loopOptions(options, MENU_TYPE_SUBMENU, "Scripts");
 #endif
 }
