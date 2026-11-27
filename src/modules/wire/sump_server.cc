@@ -1,4 +1,4 @@
-#if !defined(LITE_VERSION)
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
 #include "wire_tools.h"
 
 #include "core/display.h"
