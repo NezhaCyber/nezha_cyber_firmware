@@ -2,6 +2,7 @@ bool isConnectedWireguard = false;
 #ifndef LITE_VERSION
 #include "wg.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/wifi/wifi_common.h"
@@ -115,6 +116,13 @@ void wg_setup() {
 
     read_and_parse_file();
 
+    if (private_key[0] == '\0' || public_key[0] == '\0' || endpoint_address[0] == '\0') {
+        displayError("Invalid or missing wg.conf", true);
+        NZLOGE("WG", "missing WireGuard key/endpoint");
+        isConnectedWireguard = false;
+        return;
+    }
+
     drawMainBorderWithTitle("WIREGUARD");
     printSubtitle("Connecting...");
     tft.setTextSize(FP);
@@ -124,7 +132,14 @@ void wg_setup() {
     configTime(9 * 60 * 60, 0, "ntp.jst.mfeed.ad.jp", "ntp.nict.jp");
 
     padprintln("Initializing tunnel...");
-    wg.begin(local_ip, private_key, endpoint_address, public_key, endpoint_port);
+    bool tunnelUp = wg.begin(local_ip, private_key, endpoint_address, public_key, endpoint_port);
+    if (!tunnelUp) {
+        displayError("WireGuard connect failed", true);
+        NZLOGE("WG", "wg.begin failed for %s:%d", endpoint_address, endpoint_port);
+        isConnectedWireguard = false;
+        return;
+    }
+    NZLOGI("WG", "tunnel up: %s:%d", endpoint_address, endpoint_port);
 
     drawMainBorderWithTitle("WIREGUARD");
     printSubtitle("Connected");

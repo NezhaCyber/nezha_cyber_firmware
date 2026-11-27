@@ -176,7 +176,7 @@ static bool parse_pcap_handshake(FS &fs, const String &path, HandshakeData &hs) 
         if (read_sz < incl_len) f.seek(f.position() + (incl_len - read_sz));
 
         size_t pos = 0;
-        if (pos + 24 > incl_len) {
+        if (pos + 24 > read_sz) {
             free(pkt);
             continue;
         }
@@ -204,7 +204,7 @@ static bool parse_pcap_handshake(FS &fs, const String &path, HandshakeData &hs) 
         }
 
         if (frame_type == 0 && frame_sub == 8 && !have_beacon) {
-            String ssid = extract_ssid_from_beacon(pkt, incl_len);
+            String ssid = extract_ssid_from_beacon(pkt, read_sz);
             if (ssid.length() > 0) {
                 strncpy(hs.ssid, ssid.c_str(), sizeof(hs.ssid) - 1);
                 memcpy(hs.ap_mac, addr2, 6);
@@ -220,21 +220,21 @@ static bool parse_pcap_handshake(FS &fs, const String &path, HandshakeData &hs) 
         size_t hdr_len = 24 + ((fc & 0x0080) ? 2 : 0);
         pos += hdr_len;
 
-        if (pos + 8 > incl_len || pkt[pos] != 0xAA || pkt[pos + 1] != 0xAA || pkt[pos + 2] != 0x03) {
+        if (pos + 8 > read_sz || pkt[pos] != 0xAA || pkt[pos + 1] != 0xAA || pkt[pos + 2] != 0x03) {
             free(pkt);
             continue;
         }
 
         uint16_t ethertype = (uint16_t)((pkt[pos + 6] << 8) | pkt[pos + 7]);
         pos += 8;
-        if (ethertype != 0x888E || pos + 4 > incl_len) {
+        if (ethertype != 0x888E || pos + 4 > read_sz) {
             free(pkt);
             continue;
         }
 
         uint8_t *eapol = pkt + pos;
         uint16_t eapol_len = (uint16_t)((eapol[2] << 8) | eapol[3]);
-        if ((size_t)(pos + 4 + eapol_len) > incl_len) {
+        if ((size_t)(pos + 4 + eapol_len) > read_sz) {
             free(pkt);
             continue;
         }

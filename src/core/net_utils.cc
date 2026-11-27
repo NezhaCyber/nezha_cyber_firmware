@@ -74,6 +74,30 @@ void stringToMAC(const std::string &macStr, uint8_t MAC[6]) {
     }
 }
 
+bool stringToMACChecked(const String &macStr, uint8_t MAC[6]) {
+    memset(MAC, 0, 6);
+    if (macStr.length() < 11) return false;
+    unsigned int b[6] = {0};
+    int matched = sscanf(
+        macStr.c_str(), "%2x:%2x:%2x:%2x:%2x:%2x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]
+    );
+    if (matched != 6) {
+        matched = sscanf(
+            macStr.c_str(), "%2x-%2x-%2x-%2x-%2x-%2x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]
+        );
+    }
+    if (matched != 6) return false;
+    bool allZero = true;
+    for (int i = 0; i < 6; ++i) {
+        if (b[i] > 0xFF) return false;
+        MAC[i] = static_cast<uint8_t>(b[i]);
+        if (MAC[i] != 0) allZero = false;
+    }
+    if (allZero) return false;
+    if (MAC[0] & 0x01) return false; // multicast/broadcast
+    return true;
+}
+
 // Função para converter IP para string
 String ipToString(const uint8_t *ip) {
     char buf[16];

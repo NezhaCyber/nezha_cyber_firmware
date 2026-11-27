@@ -1,4 +1,5 @@
 #include "display.h"
+#include "core/logging/nzlog.h"
 #include "hal/power/gauge.h"
 #include "i18n.h"
 #include "core/wifi/webInterface.h" // for server
@@ -428,6 +429,7 @@ int8_t displayMessage(
 }
 
 void displayError(const String &txt, bool waitKeyPress) {
+    NZLOGE("UI", "%s", txt.c_str());
     displayRedStripe(txt);
     Serial.println("ERR: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -438,6 +440,7 @@ void displayError(const String &txt, bool waitKeyPress) {
 }
 
 void displayWarning(const String &txt, bool waitKeyPress) {
+    NZLOGW("UI", "%s", txt.c_str());
     displayRedStripe(txt, TFT_BLACK, TFT_YELLOW);
     Serial.println("WARN: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -448,6 +451,7 @@ void displayWarning(const String &txt, bool waitKeyPress) {
 }
 
 void displayInfo(const String &txt, bool waitKeyPress) {
+    NZLOGI("UI", "%s", txt.c_str());
     displayRedStripe(txt, TFT_WHITE, TFT_BLUE);
     Serial.println("INFO: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -458,6 +462,7 @@ void displayInfo(const String &txt, bool waitKeyPress) {
 }
 
 void displaySuccess(const String &txt, bool waitKeyPress) {
+    NZLOGI("UI", "%s", txt.c_str());
     displayRedStripe(txt, TFT_WHITE, TFT_DARKGREEN);
     Serial.println("SUCCESS: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -468,6 +473,7 @@ void displaySuccess(const String &txt, bool waitKeyPress) {
 }
 
 void displayTextLine(const String &txt, bool waitKeyPress) {
+    NZLOGD("UI", "%s", txt.c_str());
     displayRedStripe(txt, getComplementaryColor2(bruceConfig.priColor), bruceConfig.priColor);
     Serial.println("MESSAGE: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -628,6 +634,19 @@ int loopOptions(
     bool letterShortcuts, uint16_t pageJumpSize, bool border, bool compact
 ) {
     if (options.empty()) return -1;
+
+    // Some legacy menus implement "Back" by calling their parent menu function
+    // recursively, which nests loopOptions() frames. Cap the nesting so a long
+    // Back/forward session cannot overflow the loop task stack.
+    static uint8_t s_loopDepth = 0;
+    struct LoopDepthGuard {
+        LoopDepthGuard() { ++s_loopDepth; }
+        ~LoopDepthGuard() { --s_loopDepth; }
+    } loopDepthGuard;
+    if (s_loopDepth > 12) {
+        NZLOGW("MENU", "menu recursion depth exceeded (%u); unwinding", (unsigned)s_loopDepth);
+        return -1;
+    }
 
     s_submenuForceFull = true;
 
@@ -823,6 +842,7 @@ int loopOptions(
 #endif
         if (menuType != MENU_TYPE_MAIN && check(EscPress)) {
             index = -1;
+            NZLOGD("MENU", "back from [%s]", (subText != nullptr && subText[0] != '\0') ? subText : "menu");
             break;
         }
         if (menuType == MENU_TYPE_MAIN && mainMenuGridColumns > 1 &&
@@ -965,8 +985,22 @@ int loopOptions(
                 Serial.print("Forcely ");
             }
             if (chosen >= options.size() || !options[chosen].enabled) continue;
-            Serial.println("Selected: " + String(options[chosen].label));
+            // Copy before invoking the callback: menu handlers (FM, nested
+            // menus, ...) may clear/rebuild the global options vector from
+            // inside the operation.
+            String actionLabel = options[chosen].label;
+            Serial.println("Selected: " + actionLabel);
+            // Real-time activity trace: every app/menu launch lands in the log,
+            // which makes a crash reproducible (last line = action in progress).
+            NZLOGI(
+                "MENU", "[%s] -> %s", (subText != nullptr && subText[0] != '\0') ? subText : "menu",
+                actionLabel.c_str()
+            );
             options[chosen].operation();
+            NZLOGD(
+                "MENU", "[%s] <- %s heap=%u", (subText != nullptr && subText[0] != '\0') ? subText : "menu",
+                actionLabel.c_str(), (unsigned)ESP.getFreeHeap()
+            );
             break;
         }
         // interpreter_start -> running the interpreter
@@ -992,6 +1026,7 @@ static void drawBackChevron(int cx, int cy, uint16_t color) {
 }
 
 void progressHandler(int progress, size_t total, const String &message) {
+    if (total > 0 && (size_t)progress >= total) NZLOGI("TASK", "done: %s", message.c_str());
     static String s_lastMsg = "";
     static int s_lastPct = -1;
 

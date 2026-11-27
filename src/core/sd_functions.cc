@@ -1,5 +1,6 @@
 #include "sd_functions.h"
 #include "bus_HAL.h"
+#include "core/logging/nzlog.h"
 #include "display.h" // using displayRedStripe as error msg
 #include "i18n.h"
 #include "modules/badusb_ble/ducky_typer.h"
@@ -117,10 +118,15 @@ bool setupSdCard(uint8_t maxFiles) {
             bruceConfigPins.SDCARD_bus.cs
         );
         sdcardMounted = false;
+        NZLOGE("SD", "mount failed (pins SCK=%d MISO=%d MOSI=%d CS=%d)", bruceConfigPins.SDCARD_bus.sck,
+               bruceConfigPins.SDCARD_bus.miso, bruceConfigPins.SDCARD_bus.mosi, bruceConfigPins.SDCARD_bus.cs);
         return false;
     } else {
         Serial.println("SDCARD mounted successfully");
         sdcardMounted = true;
+        NZLOGI("SD", "mounted successfully");
+        // (Re)open the real-time log file now that the card is available.
+        nzlog::begin();
         return true;
     }
 }
@@ -130,6 +136,9 @@ bool setupSdCard(uint8_t maxFiles) {
 ** Description:   Turn Off SDCard, set sdcardMounted state to false
 ***************************************************************************************/
 void closeSdCard() {
+    // Release the log file before the filesystem goes away, otherwise the next
+    // log write would touch a closed FAT volume.
+    nzlog::end();
     SD.end();
     Serial.println("SD Card Unmounted...");
     sdcardMounted = false;

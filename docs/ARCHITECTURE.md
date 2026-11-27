@@ -108,7 +108,12 @@ flowchart TD
 ### 4. Memory Architecture & Data Structures
 - Full memory-tier specifications, container patterns, concurrency rules, and audit fixes are documented in [MEMORY_AND_DATA_STRUCTURES.md](MEMORY_AND_DATA_STRUCTURES.md) ([简体中文版本](MEMORY_AND_DATA_STRUCTURES_ZH.md)).
 
-### 5. Build, CI & Branching Pipeline (`scripts/build/`, `partitions/`, `Makefile`, `.github/workflows/ci.yml`)
+### 5. Real-Time Diagnostics (`src/core/logging/`, `docs/LOGGING.md`)
+- Android-logcat-style `V/D/I/W/E/F` logger with fixed 320-byte stack lines, no RAM history and immediate SD append/flush to `/NezhaLogs/nezha.log`.
+- 512 KiB rotation, boot/reset-reason/crash banner, heap/PSRAM snapshots, recursive-mutex task safety.
+- On-device live viewer (`Config → System Log`), serial CLI (`log tail/level/info/clear`) and WebUI (`/logs`, `/logs?html=1`).
+
+### 6. Build, CI & Branching Pipeline (`scripts/build/`, `partitions/`, `Makefile`, `.github/workflows/ci.yml`)
 - **Compiler & Linker policy**: `-Os -flto -ffunction-sections -fdata-sections -Wl,--gc-sections -Werror=odr` (strict One Definition Rule across translation units).
 - **Partition validation**: `scripts/build/build.py` verifies firmware size against the target partition table and emits ready-to-flash merged binaries (`NezhaCyber-<env>.bin`).
 - **Branch workflow**: All feature and bugfix pull requests target `development` (verified by CI across `lilygo-t-deck`, `m5stack-cplus1_1`, `m5stack-cardputer`, and `lilygo-t-embed-cc1101`); only the maintainer promotes `development` → `main`.

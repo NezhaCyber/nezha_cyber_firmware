@@ -1,5 +1,7 @@
 #include "rf_send.h"
+#include "core/display.h"
 #include "core/led_control.h"
+#include "core/logging/nzlog.h"
 #include "core/type_convertion.h"
 #include "protocols/rf_config.h"
 #include "protocols/rf_encoder.h"
@@ -191,8 +193,13 @@ void loopEmulate(RfCodes &data) {
             blinkLed();
 
             if (data.serial == 0) {
-                for (int i = 0; uint64_t key : keyList) {
-                    data.Bit = bitList[i++];
+                size_t bitIndex = 0;
+                for (uint64_t key : keyList) {
+                    // A malformed .sub may have more Key: lines than Bit: lines
+                    // (or a stale bitList from a previous file). Never index
+                    // past the vector's end.
+                    if (bitIndex < bitList.size()) { data.Bit = bitList[bitIndex]; }
+                    ++bitIndex;
                     data.key = key;
                     sendRfCommand(data);
                 }
@@ -259,6 +266,13 @@ bool readSubFile(FS *fs, const String &filepath, RfCodes &data) {
     }
     Serial.println("Opened sub file.");
     selected_code.filepath = filepath.substring(1 + filepath.lastIndexOf("/"));
+
+    // Reset the shared replay vectors: otherwise a previous file's Key:/Bit:
+    // entries leak into this one and the sizes no longer correspond.
+    bitList.clear();
+    bitRawList.clear();
+    keyList.clear();
+    rawDataList.clear();
 
     if (!databaseFile) Serial.println("Fail opening file");
     // Store the code(s) in the signal
@@ -484,14 +498,13 @@ void sendRfCommand(struct RfCodes rfcode, bool hideDefaultUI) {
         for (size_t i = 0; rawPtr[i] != '\0'; ++i) {
             if (rawPtr[i] == ' ') buff_size++;
         }
-
         // Prefer PSRAM for large RAW timing buffers, falling back to internal DRAM.
         int *transmittimings = nullptr;
         if (psramFound()) transmittimings = (int *)ps_calloc(buff_size + 1, sizeof(int));
         if (!transmittimings) transmittimings = (int *)calloc(buff_size + 1, sizeof(int));
         if (!transmittimings) {
-            log_e("txSubFile: failed to allocate %u RAW timing entries", (unsigned)buff_size);
-            if (!hideDefaultUI) displayError("Not Enough RAM", true);
+            NZLOGE("RF", "RAW send: out of memory (%u timings)", (unsigned)(buff_size + 1));
+            if (!hideDefaultUI) displayError("Out of memory", true);
             deinitRfModule();
             return;
         }

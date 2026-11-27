@@ -89,6 +89,7 @@ JSValue native_wifiScan(JSContext *ctx, JSValue *this_val, int argc, JSValue *ar
         JS_SetPropertyStr(ctx, obj, "channel", JS_NewInt32(ctx, WiFi.channel(i)));
         JS_SetPropertyUint32(ctx, arr, idx++, obj);
     }
+    WiFi.scanDelete(); // the JS array owns copies
     return arr;
 }
 
@@ -110,7 +111,12 @@ JSValue native_httpFetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *a
         return JS_ThrowTypeError(ctx, "httpFetch(url:string, options?:object|headers?:array)");
 
     const char *url = JS_ToCString(ctx, argv[0], &stringBuffer);
-    http.begin(url);
+    if (url == nullptr || url[0] == '\0') {
+        return JS_ThrowTypeError(ctx, "httpFetch: invalid url");
+    }
+    if (!http.begin(url)) {
+        return JS_ThrowTypeError(ctx, "httpFetch: invalid/unsupported url");
+    }
 
     // handle headers if a simple array of pairs was passed as second arg
     if (argc > 1 && JS_GetClassID(ctx, argv[1]) == JS_CLASS_ARRAY) {
@@ -132,15 +138,21 @@ JSValue native_httpFetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *a
 
     // options object handling (body, method, responseType, headers)
     const char *bodyRequest = NULL;
+    String bodyRequestStorage;
     size_t bodyRequestLength = 0U;
-    const char *requestType = "GET";
+    String requestTypeStorage = "GET";
+    const char *requestType = requestTypeStorage.c_str();
     uint8_t returnResponseType = 0; // 0 = string, 1 = arraybuffer, 2 = json
 
     if (argc > 1 && JS_IsObject(ctx, argv[1])) {
         JSValue jsvBody = JS_GetPropertyStr(ctx, argv[1], "body");
         if (!JS_IsUndefined(jsvBody)) {
             if (JS_IsString(ctx, jsvBody) || JS_IsNumber(ctx, jsvBody) || JS_IsBool(jsvBody)) {
-                bodyRequest = JS_ToCString(ctx, jsvBody, &stringBuffer);
+                const char *b = JS_ToCString(ctx, jsvBody, &stringBuffer);
+                if (b != nullptr) {
+                    bodyRequestStorage = b;
+                    bodyRequest = bodyRequestStorage.c_str();
+                }
             } else if (JS_IsObject(ctx, jsvBody)) {
                 JSValue global = JS_GetGlobalObject(ctx);
                 JSValue json = JS_GetPropertyStr(ctx, global, "JSON");
@@ -153,7 +165,11 @@ JSValue native_httpFetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *a
                     if (!JS_IsException(jsvBodyRequest) &&
                         (JS_IsString(ctx, jsvBodyRequest) || JS_IsNumber(ctx, jsvBodyRequest) ||
                          JS_IsBool(jsvBodyRequest))) {
-                        bodyRequest = JS_ToCString(ctx, jsvBodyRequest, &stringBuffer);
+                        const char *b = JS_ToCString(ctx, jsvBodyRequest, &stringBuffer);
+                        if (b != nullptr) {
+                            bodyRequestStorage = b;
+                            bodyRequest = bodyRequestStorage.c_str();
+                        }
                     }
                 }
             }
@@ -162,15 +178,19 @@ JSValue native_httpFetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *a
 
         JSValue jsvMethod = JS_GetPropertyStr(ctx, argv[1], "method");
         if (!JS_IsUndefined(jsvMethod) && JS_IsString(ctx, jsvMethod)) {
-            requestType = JS_ToCString(ctx, jsvMethod, &stringBuffer);
+            const char *m = JS_ToCString(ctx, jsvMethod, &stringBuffer);
+            if (m != nullptr) {
+                requestTypeStorage = m;
+                requestType = requestTypeStorage.c_str();
+            }
         }
 
         JSValue jsvResponseType = JS_GetPropertyStr(ctx, argv[1], "responseType");
         if (!JS_IsUndefined(jsvResponseType) && JS_IsString(ctx, jsvResponseType)) {
             const char *responseType = JS_ToCString(ctx, jsvResponseType, &stringBuffer);
-            if (strcmp(responseType, "binary") == 0) {
+            if (responseType != nullptr && strcmp(responseType, "binary") == 0) {
                 returnResponseType = 1;
-            } else if (strcmp(responseType, "json") == 0) {
+            } else if (responseType != nullptr && strcmp(responseType, "json") == 0) {
                 returnResponseType = 2;
             }
         }

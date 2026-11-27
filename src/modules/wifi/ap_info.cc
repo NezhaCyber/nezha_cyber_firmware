@@ -1,6 +1,7 @@
 #include "ap_info.h"
 
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/net_utils.h"
 #include "core/scrollableTextArea.h"
@@ -72,7 +73,7 @@ String getChannelWidth(wifi_second_chan_t secondChannel) {
 }
 
 void fillInfo(ScrollableTextArea &area) {
-    wifi_ap_record_t ap_info;
+    wifi_ap_record_t ap_info = {};
     esp_err_t res;
     if ((res = esp_wifi_sta_get_ap_info(&ap_info)) != ESP_OK) {
         String err;
@@ -84,10 +85,17 @@ void fillInfo(ScrollableTextArea &area) {
 
         area.addLine(err);
         area.show();
-
-        while (check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(1)); }
-        while (!check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(1)); }
+        // ap_info is uninitialised when the driver call failed: using its BSSID
+        // / SSID here read stack garbage (and could over-read the SSID array).
+        NZLOGW("APINFO", "get_ap_info failed: %s", err.c_str());
+        return;
     }
+
+    // The driver's SSID field is 33 bytes and nominally NUL-terminated; copy it
+    // explicitly so a full-length SSID can never make String() over-read.
+    char ssid[33];
+    memcpy(ssid, ap_info.ssid, 32);
+    ssid[32] = '\0';
 
     const auto mac = MAC(ap_info.bssid);
 
@@ -95,8 +103,8 @@ void fillInfo(ScrollableTextArea &area) {
 
     // in promiscius mode also Rx/Tx can be gathered
     // organized in the most to least usable
-    area.addLine("SSID: " + String((char *)ap_info.ssid));
-    area.addLine("PSK: " + bruceConfig.getWifiPassword((char *)ap_info.ssid));
+    area.addLine("SSID: " + String(ssid));
+    area.addLine("PSK: " + bruceConfig.getWifiPassword(ssid));
     area.addLine("Internet: " + String(internetConnection() ? "avail" : "unavail"));
     area.addLine("Modes: " + phyModes2String(ap_info));
     area.addLine("Signal strength: " + String(ap_info.rssi) + "db");

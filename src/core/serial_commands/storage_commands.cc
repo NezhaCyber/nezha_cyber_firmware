@@ -148,17 +148,32 @@ uint32_t writeCallback(cmd *c) {
     if (!filepath.startsWith("/")) filepath = "/" + filepath;
 
     if (fileSize < SAFE_STACK_BUFFER_SIZE) fileSize = SAFE_STACK_BUFFER_SIZE;
+    if (fileSize > 16 * 1024 * 1024) {
+        serialDevice->println("Refusing upload larger than 16 MiB");
+        return false;
+    }
 
     FS *fs;
     if (!getFsStorage(fs)) return false;
 
-    char *txt = _readFileFromSerial(fileSize + 2);
-    if (strlen(txt) == 0) return false;
+    char *txt = _readFileFromSerial((size_t)fileSize + 2);
+    if (txt == nullptr) {
+        serialDevice->println("Out of memory reading serial input");
+        return false;
+    }
+    size_t txtLen = strlen(txt);
+    if (txtLen == 0) {
+        free(txt);
+        return false;
+    }
 
     File f = fs->open(filepath, FILE_WRITE, true);
-    if (!f) return false;
+    if (!f) {
+        free(txt);
+        return false;
+    }
 
-    f.write((const uint8_t *)txt, strlen(txt));
+    f.write((const uint8_t *)txt, txtLen);
     f.close();
     free(txt);
 
