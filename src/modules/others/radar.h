@@ -15,6 +15,7 @@ enum RadarInitialView {
     RADAR_VIEW_SCOPE = 0,
     RADAR_VIEW_TABLE = 1,
     RADAR_VIEW_FOX_SPEC = 2,
+    RADAR_VIEW_THREAT = 3,
 };
 
 void radar_setup(

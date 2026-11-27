@@ -303,17 +303,18 @@ void begin_tft() {
  **  Draw boot screen
  *********************************************************************/
 static int bootSplashBarY() {
-    return (tftHeight < 180) ? (tftHeight - 14) : (tftHeight - 18);
+    return (tftHeight < 180) ? (tftHeight - 16) : (tftHeight - 24);
 }
 
 void boot_screen() {
     uint16_t pri = bruceConfig.priColor;
     uint16_t sec = bruceConfig.secColor;
     uint16_t ink = 0xF7BE;
-    uint16_t muted = 0x8C71;
     int cx = tftWidth / 2;
+    const bool compact = (tftHeight < 180);
+    const bool isNezha2 = (bruceConfig.nezhaThemeStyle >= 4);
 
-    // Pure jet black so the Nezha Demon Child (哪吒魔童) emblem blends seamlessly
+    // Pure jet black so the 哪吒魔童 emblem blends seamlessly
     tft.fillScreen(TFT_BLACK);
 
     int titleY = 0;
@@ -322,27 +323,24 @@ void boot_screen() {
         int imgX = (tftWidth - NEZHA_SPLASH_W) / 2;
         int imgY = 4;
         showJpeg(NEZHA_SPLASH_JPG, sizeof(NEZHA_SPLASH_JPG), imgX, imgY, false);
-        titleY = imgY + NEZHA_SPLASH_H + 5;
+        titleY = imgY + NEZHA_SPLASH_H + 3;
     } else
 #endif
     {
         // Compact crisp 哪吒魔童 vector emblem (Qiankun ring + ribbons + twin buns + chibi face + lotus flame)
-        int cy = (tftHeight < 160) ? 31 : (tftHeight / 2 - 36);
-        int r = (tftHeight < 160) ? 15 : 22;
-        // Qiankun Ring Halo & Hun Tian Ling ribbon curves
+        int cy = (tftHeight < 160) ? 28 : (tftHeight / 2 - 36);
+        int r = (tftHeight < 160) ? 14 : 22;
         tft.drawCircle(cx, cy, r + 2, sec);
         tft.drawCircle(cx, cy, r + 1, sec);
         tft.drawLine(cx - r - 9, cy + 7, cx - r + 2, cy - 1, pri);
         tft.drawLine(cx + r + 9, cy + 7, cx + r - 2, cy - 1, pri);
         tft.drawLine(cx - r - 8, cy + 9, cx - r + 3, cy + 1, sec);
         tft.drawLine(cx + r + 8, cy + 9, cx + r - 3, cy + 1, sec);
-        // Twin Demon-Child hair buns
         int bunR = (tftHeight < 160) ? 5 : 7;
         tft.fillCircle(cx - r + 2, cy - r + 3, bunR + 1, pri);
         tft.fillCircle(cx + r - 2, cy - r + 3, bunR + 1, pri);
         tft.fillCircle(cx - r + 2, cy - r + 3, bunR, 0x18C4);
         tft.fillCircle(cx + r - 2, cy - r + 3, bunR, 0x18C4);
-        // Chibi head + bangs + smoky eyes + forehead lotus flame
         int fr = r - 4;
         tft.fillCircle(cx, cy, fr + 1, 0x18C4);
         tft.fillCircle(cx, cy + 1, fr - 1, 0xFED6);
@@ -352,26 +350,28 @@ void boot_screen() {
         tft.drawPixel(cx - 4, cy + 2, pri);
         tft.drawPixel(cx + 4, cy + 2, pri);
         drawNezhaCrest(cx, cy - 4, (tftHeight < 160) ? 4 : 6, pri, sec, max(1, bruceConfig.nezhaThemeStyle));
-        titleY = cy + r + 8;
+        titleY = cy + r + 6;
     }
 
-    uiDrawText16(bruce_i18n::tr("Nezha Cyber"), cx, titleY, tftWidth - 16, ink, TFT_BLACK, 1);
+    // Boot splash is always rendered in Chinese regardless of active UI locale
+    uiDrawText16("哪吒网络安全", cx, titleY, tftWidth - 16, ink, TFT_BLACK, 1);
 
+    const char *subZh = compact ? "我命由我不由天"
+                                : (isNezha2 ? "我命由我不由天 · 魔童闹海" : "我命由我不由天 · 魔童降世");
     tft.setTextSize(FP);
     tft.setTextColor(sec, TFT_BLACK);
-    String sub = String(BRUCE_VERSION) + "  " + bruce_i18n::tr("My fate is mine!");
-    if (bruce_i18n::containsNonAscii(sub)) {
-        uiDrawText16(sub, cx, titleY + 18, tftWidth - 16, sec, TFT_BLACK, 1);
-    } else {
-        tft.setTextColor(muted, TFT_BLACK);
-        tft.drawCentreString(sub, cx, titleY + 21, 1);
-    }
+    tft.drawCentreString(subZh, cx, titleY + 18, 1);
 
-    int barW = min(200, tftWidth - 48);
+    int barW = min(188, tftWidth - 56);
     int barY = bootSplashBarY();
-    int barH = (tftHeight < 180) ? 4 : 5;
+    int barH = compact ? 4 : 5;
     if (barY + barH < tftHeight) {
         tft.fillRoundRect(cx - barW / 2, barY, barW, barH, 2, 0x18C3);
+    }
+    if (!compact && barY + barH + 14 <= tftHeight) {
+        tft.setTextSize(FP);
+        tft.setTextColor(0x6B4D, TFT_BLACK);
+        tft.drawCentreString("钟智强 · 哪吒魔童安全系统", cx, barY + barH + 3, 1);
     }
 }
 
@@ -434,11 +434,11 @@ void boot_screen_anim() {
         const unsigned long splashDurMs = 5000;
         const bool compact = (tftHeight < 180);
         const int cx = tftWidth / 2;
-        const int barW = min(200, tftWidth - 48);
+        const int barW = min(188, tftWidth - 56);
         const int barX = cx - barW / 2;
-        const int barY = compact ? (tftHeight - 14) : (tftHeight - 18);
+        const int barY = bootSplashBarY();
         const int barH = compact ? 4 : 5;
-        const int tickerY = compact ? (barY - 12) : (barY - 15);
+        const int tickerY = compact ? (barY - 15) : (barY - 18);
         const uint16_t pri = bruceConfig.priColor;
         const uint16_t sec = bruceConfig.secColor;
         const uint16_t sparkCyan = 0x3EBF;
@@ -477,12 +477,12 @@ void boot_screen_anim() {
         }
 
         static const char *kBootStages[] = {
-            "IGNITING WIND-FIRE CORE...",
-            "ARMING RF & SUB-GHZ ARRAY...",
-            "SYNCING BLE & WIFI RADAR...",
-            "AWAKENING NEZHA MOTONG...",
-            "LOADING CYBER ARSENAL...",
-            "MY FATE IS MINE! READY"
+            "点燃风火核心引擎...",
+            "激活射频与全频阵列...",
+            "同步无线战术雷达...",
+            "唤醒哪吒魔童真身...",
+            "装载网络安全武器库...",
+            "我命由我不由天·系统就绪!"
         };
         constexpr int kStageCount = 6;
         int lastStage = -1;
@@ -562,14 +562,14 @@ void boot_screen_anim() {
                 }
             }
 
-            // 4. Dynamic Boot Subsystem Ticker
+            // 4. Dynamic All-Chinese Boot Subsystem Ticker (12px CJK crisp render)
             int stage = min(kStageCount - 1, (pct * kStageCount) / 100);
             if (stage != lastStage) {
                 lastStage = stage;
-                tft.fillRect(18, tickerY, tftWidth - 36, 11, TFT_BLACK);
+                tft.fillRect(16, tickerY - 1, tftWidth - 32, 15, TFT_BLACK);
                 tft.setTextSize(FP);
-                tft.setTextColor((stage == kStageCount - 1) ? sec : 0xAD55, TFT_BLACK);
-                tft.drawCentreString(kBootStages[stage], cx, tickerY + 1, 1);
+                tft.setTextColor((stage == kStageCount - 1) ? sec : 0xCE79, TFT_BLACK);
+                tft.drawCentreString(kBootStages[stage], cx, tickerY, 1);
             }
 
             // 5. Animated Dual-Tone Wind-Fire Progress Bar + Percentage

@@ -715,14 +715,33 @@ void playTone(unsigned int frequency, unsigned long duration, short waveType, Pl
             return v;
         });
     } else if (waveType == 2) {
-        // Crisp decaying sonar ping sine wave (smooth attack + exponential-like tail, ideal for Radar)
-        file->addAudioGenerators([volumeScale, hz, toneSec](const float time) {
+        // Crisp, clearly audible military sonar ping for I2S amps (MAX98357A needs ~20ms BCLK wakeup,
+        // and out->SetGain() already scales by bruceConfig.soundVolume — avoid double attenuation!)
+        const float pingGain = 0.62f;
+        file->addAudioGenerators([pingGain, hz, toneSec](const float time) {
             if (time >= toneSec || toneSec <= 0.0f) return 0.0f;
-            float env = 1.0f - (time / toneSec);
-            if (time < 0.004f) env *= (time / 0.004f); // 4ms anti-click ramp
-            float v = sin(TWO_PI * hz * time) * env * env;
-            v *= volumeScale * 0.72f;
-            return v;
+            float norm = time / toneSec;
+            // Hold strong through initial 45% (covers I2S amp wakeup), then smooth exponential tail
+            float env = (norm < 0.04f) ? (norm / 0.04f)
+                                       : ((norm < 0.45f) ? 1.0f : (1.0f - (norm - 0.45f) / 0.55f));
+            float s = 0.84f * sinf(TWO_PI * hz * time) + 0.16f * sinf(TWO_PI * hz * 2.0f * time);
+            return s * env * pingGain;
+        });
+    } else if (waveType == 3) {
+        // Rising fighter-jet dual-chirp (target lock / threat klaxon) inside one seamless async buffer
+        const float pingGain = 0.65f;
+        const float hz2 = hz * 1.42f;
+        file->addAudioGenerators([pingGain, hz, hz2, toneSec](const float time) {
+            if (time >= toneSec || toneSec <= 0.0f) return 0.0f;
+            float norm = time / toneSec;
+            // Brief 8% gap between chirp 1 and chirp 2 for crisp separation
+            if (norm > 0.46f && norm < 0.54f) return 0.0f;
+            float f = (norm < 0.5f) ? hz : hz2;
+            float local = (norm < 0.5f) ? (norm / 0.46f) : ((norm - 0.54f) / 0.46f);
+            float env = (local < 0.08f) ? (local / 0.08f)
+                                        : ((local < 0.70f) ? 1.0f : (1.0f - (local - 0.70f) / 0.30f));
+            float s = 0.82f * sinf(TWO_PI * f * time) + 0.18f * sinf(TWO_PI * f * 2.0f * time);
+            return s * env * pingGain;
         });
     }
 
