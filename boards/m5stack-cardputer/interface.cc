@@ -107,6 +107,7 @@ void _setup_gpio() {
     bruceConfigPins.irRx = 1;
     bruceConfigPins.rotation = 1;
     bruceConfigPins.badusb_bus = {(gpio_num_t)1, (gpio_num_t)2}; // rx, tx (CH9329)
+    bruceConfigPins.uart_bus = {(gpio_num_t)1, (gpio_num_t)2};   // rx, tx (Grove)
     // Board's default/generic SPI bus, shared with SDCARD (used by drivers without their own bus,
     // e.g. the RC522-SPI RFID2 driver)
     bruceConfigPins.outer_bus = {(gpio_num_t)40, (gpio_num_t)39, (gpio_num_t)14, (gpio_num_t)1};
