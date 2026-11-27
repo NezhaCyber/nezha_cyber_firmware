@@ -8,8 +8,9 @@
 
 // Interactive bus tools, shared by the Wire Tools menu and the serial command interface.
 
-// UART terminal: baudrate presets/custom, remappable pins, live send/receive view
+// UART terminal: baudrate presets/custom, remappable pins, live send/receive view, USB bridge
 void uart_terminal_setup();
+void uart_usb_bridge();
 // I2C: device scan on sys_i2c and i2c_bus, register read/write/dump on the bus the device is on
 void i2c_bus_setup();
 // SPI: JEDEC flash detection and raw transaction console on bruceConfigPins.outer_bus
@@ -36,6 +37,7 @@ void wire_uart_end();
 int wire_uart_send(const String &text);
 int wire_uart_read(String &out, uint32_t timeoutMs);
 String wire_uart_status();
+uint32_t wire_uart_autobaud(int8_t rx = -1, uint32_t timeoutMs = 400);
 
 struct WireI2cDevice {
     I2CBusId bus;

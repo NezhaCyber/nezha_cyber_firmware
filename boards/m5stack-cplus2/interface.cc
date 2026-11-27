@@ -32,6 +32,7 @@ void _setup_gpio() {
     bruceConfigPins.irRx = 33;
     bruceConfigPins.rotation = 3;
     bruceConfigPins.badusb_bus = {(gpio_num_t)33, (gpio_num_t)32}; // rx, tx (Grove)
+    bruceConfigPins.uart_bus = {(gpio_num_t)33, (gpio_num_t)32};   // rx, tx (Grove)
     // Board's default/generic SPI bus (used by drivers without their own bus, e.g. RC522-SPI)
     bruceConfigPins.outer_bus = {(gpio_num_t)0, (gpio_num_t)33, (gpio_num_t)32, (gpio_num_t)26};
     // No dedicated PN532 pins on this board; reuse the shared/outer SPI slot (same convention

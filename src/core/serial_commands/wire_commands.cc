@@ -73,6 +73,18 @@ uint32_t wireUartStatusCallback(cmd *c) {
     return true;
 }
 
+uint32_t wireUartAutoBaudCallback(cmd *c) {
+    Command command(c);
+    int rx = (int)strtol(command.getArgument("rx").getValue().c_str(), nullptr, 10);
+    uint32_t baud = wire_uart_autobaud((int8_t)rx, 500);
+    if (baud == 0) {
+        serialDevice->println("ERROR: no UART traffic detected");
+        return false;
+    }
+    serialDevice->println("OK baud=" + String(baud));
+    return true;
+}
+
 /*********************************************************************
 **  wire i2c ...
 **********************************************************************/
@@ -246,6 +258,8 @@ void createWireUartCommand(Command *wireCmd) {
 
     wireUartCmd.addCommand("end", wireUartEndCallback);
     wireUartCmd.addCommand("status", wireUartStatusCallback);
+    Command autoBaudCmd = wireUartCmd.addCommand("autobaud", wireUartAutoBaudCallback);
+    autoBaudCmd.addPosArg("rx", "-1");
 }
 
 void createWireI2cCommand(Command *wireCmd) {
