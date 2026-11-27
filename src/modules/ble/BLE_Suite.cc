@@ -24,10 +24,12 @@
 #include "modules/NRF24/nrf_jammer_api.h"
 #include <SD.h>
 #include <algorithm>
+#include <cctype>
 #include <functional>
 #include <esp_heap_caps.h>
 #include <esp_random.h>
 #include <globals.h>
+#include <new>
 
 int showSubMenu(const char *title, const char *options[], int optionCount);
 
@@ -77,23 +79,46 @@ const char *SAMSUNG_MAC_OUIS[] = {"00:1E:DF", "00:23:E7", "00:24:FE", "00:26:5C"
                                   "00:78:2C", "00:7A:04", "00:7C:2E", "00:7E:58", "00:80:82"};
 const int SAMSUNG_MAC_OUIS_COUNT = sizeof(SAMSUNG_MAC_OUIS) / sizeof(SAMSUNG_MAC_OUIS[0]);
 
-bool isSamsungDevice(const NimBLEAddress &address) {
-    String mac = String(address.toString().c_str());
-    return isSamsungDevice(mac);
+static int compareOuiPrefix8(const char *mac, const char *oui) {
+    for (int i = 0; i < 8; ++i) {
+        unsigned char c = static_cast<unsigned char>(toupper(static_cast<unsigned char>(mac[i])));
+        unsigned char o = static_cast<unsigned char>(oui[i]);
+        if (c != o) return (c < o) ? -1 : 1;
+    }
+    return 0;
 }
 
-bool isSamsungDevice(const String &mac) {
-    for (int i = 0; i < SAMSUNG_MAC_OUIS_COUNT; i++) {
-        if (mac.startsWith(SAMSUNG_MAC_OUIS[i])) return true;
+static bool isSamsungMacCstr(const char *mac) {
+    if (!mac) return false;
+    for (int i = 0; i < 8; ++i) {
+        if (mac[i] == '\0') return false;
+    }
+    int lo = 0;
+    int hi = SAMSUNG_MAC_OUIS_COUNT - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2;
+        int cmp = compareOuiPrefix8(mac, SAMSUNG_MAC_OUIS[mid]);
+        if (cmp == 0) return true;
+        if (cmp < 0) hi = mid - 1;
+        else lo = mid + 1;
     }
     return false;
 }
+
+bool isSamsungDevice(const NimBLEAddress &address) {
+    std::string mac = address.toString();
+    return isSamsungMacCstr(mac.c_str());
+}
+
+bool isSamsungDevice(const String &mac) { return isSamsungMacCstr(mac.c_str()); }
 
 FastPairVersion detectFastPairVersion(NimBLEAddress target) { return FP_VERSION_2; }
 
 //=============================================================================
 // ScannerData Implementation with Snapshot Support
 //=============================================================================
+
+static constexpr size_t MAX_SCANNER_DEVICES = 64;
 
 ScannerData::ScannerData() {
     mutex = xSemaphoreCreateMutex();
@@ -111,6 +136,7 @@ ScannerData::~ScannerData() {
 void ScannerData::addDevice(
     const String &name, const String &address, int rssi, bool fastPair, bool hasHFP, uint8_t type
 ) {
+    if (!mutex) return;
     if (xSemaphoreTake(mutex, 10 / portTICK_PERIOD_MS)) {
         bool isDuplicate = false;
         for (size_t i = 0; i < deviceAddresses.size(); i++) {
@@ -121,18 +147,50 @@ void ScannerData::addDevice(
             }
         }
         if (!isDuplicate) {
-            deviceNames.push_back(name);
-            deviceAddresses.push_back(address);
-            deviceRssi.push_back(rssi);
-            deviceFastPair.push_back(fastPair);
-            deviceHasHFP.push_back(hasHFP);
-            deviceTypes.push_back(type);
-            foundCount++;
-            dataVersion++;
+            if (deviceAddresses.size() < MAX_SCANNER_DEVICES) {
+                deviceNames.push_back(name);
+                deviceAddresses.push_back(address);
+                deviceRssi.push_back(rssi);
+                deviceFastPair.push_back(fastPair);
+                deviceHasHFP.push_back(hasHFP);
+                deviceTypes.push_back(type);
+                foundCount++;
+                dataVersion++;
 
-            if (snapshotCache) {
-                delete snapshotCache;
-                snapshotCache = nullptr;
+                if (snapshotCache) {
+                    delete snapshotCache;
+                    snapshotCache = nullptr;
+                }
+            } else {
+                // Bounded eviction: replace weakest non-priority entry if the new device is stronger
+                // or advertises FastPair/HFP, preventing unbounded DRAM growth in crowded RF spaces.
+                size_t victim = 0;
+                bool foundVictim = false;
+                for (size_t i = 0; i < deviceRssi.size(); ++i) {
+                    bool entryPriority = deviceFastPair[i] || deviceHasHFP[i];
+                    bool newPriority = fastPair || hasHFP;
+                    if (entryPriority && !newPriority) continue;
+                    if (!foundVictim || deviceRssi[i] < deviceRssi[victim]) {
+                        victim = i;
+                        foundVictim = true;
+                    }
+                }
+                if (foundVictim &&
+                    (((fastPair || hasHFP) && !(deviceFastPair[victim] || deviceHasHFP[victim])) ||
+                     rssi > deviceRssi[victim])) {
+                    deviceNames[victim] = name;
+                    deviceAddresses[victim] = address;
+                    deviceRssi[victim] = rssi;
+                    deviceFastPair[victim] = fastPair;
+                    deviceHasHFP[victim] = hasHFP;
+                    deviceTypes[victim] = type;
+                    dataVersion++;
+
+                    if (snapshotCache) {
+                        delete snapshotCache;
+                        snapshotCache = nullptr;
+                    }
+                }
             }
         }
         xSemaphoreGive(mutex);
@@ -140,15 +198,24 @@ void ScannerData::addDevice(
 }
 
 DeviceSnapshot *ScannerData::getSnapshot() {
-    if (snapshotCache && (millis() - cacheTimestamp) < 1000) { return snapshotCache; }
-
+    if (!mutex) return nullptr;
     if (xSemaphoreTake(mutex, 50 / portTICK_PERIOD_MS)) {
+        if (snapshotCache && (millis() - cacheTimestamp) < 1000) {
+            DeviceSnapshot *cached = snapshotCache;
+            xSemaphoreGive(mutex);
+            return cached;
+        }
+
         if (snapshotCache) {
             delete snapshotCache;
             snapshotCache = nullptr;
         }
 
-        snapshotCache = new DeviceSnapshot();
+        snapshotCache = new (std::nothrow) DeviceSnapshot();
+        if (!snapshotCache) {
+            xSemaphoreGive(mutex);
+            return nullptr;
+        }
         snapshotCache->version = dataVersion;
         snapshotCache->count = deviceAddresses.size();
         snapshotCache->timestamp = millis();
@@ -160,14 +227,16 @@ DeviceSnapshot *ScannerData::getSnapshot() {
         snapshotCache->types = deviceTypes;
 
         cacheTimestamp = millis();
+        DeviceSnapshot *result = snapshotCache;
         xSemaphoreGive(mutex);
-        return snapshotCache;
+        return result;
     }
     return nullptr;
 }
 
 bool ScannerData::getDeviceInfo(int index, DeviceInfo &info) {
     bool success = false;
+    if (!mutex) return false;
     if (xSemaphoreTake(mutex, 10 / portTICK_PERIOD_MS)) {
         if (index >= 0 && index < (int)deviceAddresses.size()) {
             info.address = deviceAddresses[index];
@@ -184,13 +253,20 @@ bool ScannerData::getDeviceInfo(int index, DeviceInfo &info) {
 }
 
 void ScannerData::clear() {
+    if (!mutex) return;
     if (xSemaphoreTake(mutex, 50 / portTICK_PERIOD_MS)) {
         deviceNames.clear();
+        deviceNames.shrink_to_fit();
         deviceAddresses.clear();
+        deviceAddresses.shrink_to_fit();
         deviceRssi.clear();
+        deviceRssi.shrink_to_fit();
         deviceFastPair.clear();
+        deviceFastPair.shrink_to_fit();
         deviceHasHFP.clear();
+        deviceHasHFP.shrink_to_fit();
         deviceTypes.clear();
+        deviceTypes.shrink_to_fit();
         foundCount = 0;
         dataVersion++;
 
@@ -204,6 +280,7 @@ void ScannerData::clear() {
 
 size_t ScannerData::size() {
     size_t result = 0;
+    if (!mutex) return 0;
     if (xSemaphoreTake(mutex, 10 / portTICK_PERIOD_MS)) {
         result = deviceAddresses.size();
         xSemaphoreGive(mutex);
@@ -4312,8 +4389,7 @@ String selectTargetFromScan(const char *title) {
         return "";
     }
 
-    // size_t deviceCount = snapshot->count;
-    size_t deviceCount = scannerData.deviceAddresses.size();
+    size_t deviceCount = snapshot->count;
 
     for (size_t i = 0; i < deviceCount - 1; i++) {
         for (size_t j = i + 1; j < deviceCount; j++) {
@@ -4430,7 +4506,7 @@ String selectMultipleTargetsFromScan(const char *title, std::vector<NimBLEAddres
         return "";
     }
 
-    size_t deviceCount = scannerData.deviceAddresses.size();
+    size_t deviceCount = snapshot->count;
     std::vector<bool> picked(deviceCount, false);
 
     // The old screen advertised "NEXT: Confirm" but no key ever confirmed, so
