@@ -43,6 +43,9 @@ jobs:
           python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py tools/gen_web_manifests.py tools/hil_smoke_test.py
           python3 tools/hil_smoke_test.py --mock
 
+      - name: Run host-native C++ & Python unit test suite
+        run: bash test/run_tests.sh
+
   build:
     name: Build (${{ matrix.env }})
     needs: verify
