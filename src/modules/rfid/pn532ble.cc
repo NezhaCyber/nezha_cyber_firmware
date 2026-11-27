@@ -199,7 +199,7 @@ void Pn532ble::loadNdefEmulateMenu() {
     String prefix = "";
 
     options = {
-        {"Visit Nezha", [&]() { prefix = "https://github.com/ctkqiang/nezha_cyber_firmware"; }},
+        {"Visit Nezha", [&]() { prefix = "https://github.com/NezhaCyber/nezha_cyber_firmware"; }},
         {"Open Url",    [&]() { prefix = "https://"; }              },
         {"Phone Call",  [&]() { prefix = "tel:"; }                  },
         {"Send Email",  [&]() { prefix = "mailto:"; }               },

@@ -118,7 +118,7 @@ public:
 
     std::vector<QrCodeEntry> qrCodes = {
         {"Nezha AP",   "WIFI:T:WPA;S:NezhaNet;P:nezhanet;;"                 },
-        {"Nezha Repo", "https://github.com/ctkqiang/nezha_cyber_firmware"   },
+        {"Nezha Repo", "https://github.com/NezhaCyber/nezha_cyber_firmware"   },
         {"Rickroll",   "https://youtu.be/dQw4w9WgXcQ"                       }
     };
 

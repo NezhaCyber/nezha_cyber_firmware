@@ -463,7 +463,7 @@ void BruceConfig::fromFile(bool checkFS) {
                        content.indexOf("pr3y/Bruce") >= 0 || content.indexOf("bruce.computer") >= 0 ||
                        content.indexOf("ctkqiang/bruce_firmware") >= 0) {
                 menuName = "Nezha Repo";
-                content = "https://github.com/ctkqiang/nezha_cyber_firmware";
+                content = "https://github.com/NezhaCyber/nezha_cyber_firmware";
                 count++;
             }
             qrCodes.push_back({menuName, content});
