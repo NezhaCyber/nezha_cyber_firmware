@@ -722,6 +722,9 @@ String generalKeyboard(
                 const int boxH = compactBtnY - boxY - 8;
                 tft.fillRoundRect(boxX, boxY, boxW, boxH, 6, surfCol);
                 tft.drawRoundRect(boxX, boxY, boxW, boxH, 6, priCol);
+                if (bruceConfig.nezhaThemeStyle > 0) {
+                    drawNezhaCornerBrackets(boxX, boxY, boxW, boxH, priCol, bruceConfig.secColor);
+                }
 
                 const int innerPad = 8;
                 const int innerW = boxW - innerPad * 2;

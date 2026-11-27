@@ -365,23 +365,30 @@ void setUIColor() {
 
 /*********************************************************************
 **  Function: setNezhaCrestMenu
-**  Choose the 哪吒魔童 UI motif / crest style across HUD & Launcher
+**  Choose the 哪吒1 / 哪吒2 UI motif / crest style across HUD & Launcher
 **********************************************************************/
 void setNezhaCrestMenu() {
     std::vector<Option> crestOptions = {
-        {"Motong Flame",  []() { bruceConfig.setNezhaThemeStyle(1); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 1},
-        {"Lotus Seal",    []() { bruceConfig.setNezhaThemeStyle(2); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 2},
-        {"Ice-Fire Twin", []() { bruceConfig.setNezhaThemeStyle(3); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 3},
-        {"Minimal",       []() { bruceConfig.setNezhaThemeStyle(0); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 0},
-        {"Back",          []() {}                                                                                                  },
+        {"Nezha 1: Flame",       []() { bruceConfig.setNezhaThemeStyle(1); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 1},
+        {"Nezha 2: Sea Rage",    []() { bruceConfig.setNezhaThemeStyle(4); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 4},
+        {"Nezha 2: Dragon Seal", []() { bruceConfig.setNezhaThemeStyle(5); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 5},
+        {"Lotus Seal",           []() { bruceConfig.setNezhaThemeStyle(2); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 2},
+        {"Ice-Fire Twin",        []() { bruceConfig.setNezhaThemeStyle(3); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 3},
+        {"Minimal",              []() { bruceConfig.setNezhaThemeStyle(0); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 0},
+        {"Back",                 []() {}                                                                                                  },
     };
-    int initialIdx = (bruceConfig.nezhaThemeStyle == 0) ? 3 : (bruceConfig.nezhaThemeStyle - 1);
+    int initialIdx = 0;
+    if (bruceConfig.nezhaThemeStyle == 4) initialIdx = 1;
+    else if (bruceConfig.nezhaThemeStyle == 5) initialIdx = 2;
+    else if (bruceConfig.nezhaThemeStyle == 2) initialIdx = 3;
+    else if (bruceConfig.nezhaThemeStyle == 3) initialIdx = 4;
+    else if (bruceConfig.nezhaThemeStyle == 0) initialIdx = 5;
     loopOptions(crestOptions, MENU_TYPE_SUBMENU, "Theme Crest", initialIdx);
 }
 
 /*********************************************************************
 **  Function: setNezhaThemeGallery
-**  Live interactive 20-pack 哪吒魔童 (Nezha Demon Child) Theme Studio
+**  Live interactive 24-pack 哪吒1 (魔童降世) & 哪吒2 (魔童闹海) Theme Studio
 **********************************************************************/
 void setNezhaThemeGallery() {
     int idx = 0;
@@ -418,7 +425,7 @@ void setNezhaThemeGallery() {
     };
 
 #if defined(BRUCE_COMPACT_CJK_FONT)
-    // Compact 4MB Flash boards: clean direct list of all 20 哪吒魔童 theme packs
+    // Compact 4MB Flash boards: clean direct list of all 24 哪吒1 & 哪吒2 theme packs
     std::vector<Option> packOpts;
     packOpts.reserve(NEZHA_THEME_COUNT + 1);
     for (int i = 0; i < NEZHA_THEME_COUNT; i++) {
@@ -439,6 +446,7 @@ void setNezhaThemeGallery() {
 
     auto drawGallery = [&](int i, bool justApplied) {
         const auto &p = NEZHA_THEME_PACKS[i];
+        const bool isChapter2 = (p.chapter == 2);
         uint16_t bg = p.bgColor;
         uint16_t pri = p.priColor;
         uint16_t sec = p.secColor;
@@ -452,7 +460,7 @@ void setNezhaThemeGallery() {
 
         tft.fillScreen(bg);
 
-        // Top Header Bar (edge-to-edge full-screen, zero dead gap)
+        // Top Header Bar (edge-to-edge full-screen, with tappable Chapter 1 / Chapter 2 jump pill)
         int hy = 0;
         int hh = compact ? 18 : 24;
         int tx = 8;
@@ -468,33 +476,57 @@ void setNezhaThemeGallery() {
 #endif
         drawNezhaCrest(tx + 4, hy + hh / 2, compact ? 4 : 5, pri, sec, p.crestStyle);
         tx += compact ? 12 : 14;
-        uiDrawText16(bruce_i18n::tr("Nezha Themes"), tx, hy + (hh - 16) / 2, tftWidth - tx - 56, bright, bg, 0);
+        const char *hdrKey = isChapter2 ? "Nezha 2 Edition" : "Nezha 1 Edition";
+        uiDrawText16(bruce_i18n::tr(hdrKey), tx, hy + (hh - 16) / 2, tftWidth - tx - 92, bright, bg, 0);
+
+        // Top-right tappable chapter toggle badge + counter
+        int chPillW = compact ? 42 : 48;
+        int chPillH = compact ? 14 : 18;
+        int chPillX = tftWidth - chPillW - (compact ? 38 : 44);
+        int chPillY = hy + (hh - chPillH) / 2;
+        uint16_t chFill = isChapter2 ? sec : pri;
+        uint16_t chFg = uiTextOnAccentColor(chFill);
+        tft.fillRoundRect(chPillX, chPillY, chPillW, chPillH, 4, chFill);
+        tft.setTextSize(FP);
+        tft.setTextColor(chFg, chFill);
+        String chTag = bruce_i18n::tr(isChapter2 ? "Nezha 2" : "Nezha 1");
+        int chTh = (FP == 1 && bruce_i18n::containsNonAscii(chTag)) ? 12 : (LH * FP);
+        tft.drawCentreString(
+            bruce_i18n::utf8TruncateToWidth(chTag, chPillW - 4, FP),
+            chPillX + chPillW / 2,
+            chPillY + (chPillH - chTh) / 2,
+            1
+        );
 
         char cnt[16];
         snprintf(cnt, sizeof(cnt), "%02d/%02d", i + 1, NEZHA_THEME_COUNT);
         tft.setTextSize(FP);
         tft.setTextColor(sec, bg);
-        tft.drawRightString(cnt, tftWidth - 8, hy + (hh - LH * FP) / 2, 1);
+        tft.drawRightString(cnt, tftWidth - 6, hy + (hh - LH * FP) / 2, 1);
 
-        // Hun Tian Ling dual-tone accent underline
+        // Hun Tian Ling (哪吒1) / Sea-Flame (哪吒2) accent underline
         int lineY = hy + hh + 1;
         tft.drawFastHLine(6, lineY, tftWidth - 12, brd);
         tft.drawFastHLine(6, lineY, (tftWidth - 12) / 3, pri);
         tft.drawFastHLine(6 + (tftWidth - 12) / 3, lineY, 24, sec);
+        if (isChapter2) {
+            tft.drawFastHLine(tftWidth - 28, lineY, 22, sec);
+        }
 
         // Bottom 3-Button Dock geometry
-        int dockH = compact ? 22 : 26;
+        int dockH = compact ? 22 : 28;
         int dockY = tftHeight - dockH - (compact ? 3 : 6);
 
-        // Main Live Preview Card
+        // Main Live Preview Card with 哪吒魔童 corner seal brackets
         int cardX = compact ? 4 : 8;
         int cardY = lineY + (compact ? 4 : 7);
         int cardW = tftWidth - cardX * 2;
         int cardH = dockY - cardY - (compact ? 4 : 7);
         tft.fillRoundRect(cardX, cardY, cardW, cardH, compact ? 6 : 8, surf);
         tft.drawRoundRect(cardX, cardY, cardW, cardH, compact ? 6 : 8, pri);
+        drawNezhaCornerBrackets(cardX, cardY, cardW, cardH, pri, sec);
 
-        // Left: Live 哪吒魔童 Medallion rendered in this theme's exact palette
+        // Left: Live 哪吒1 (魔童降世) or 哪吒2 (魔童闹海) Medallion rendered in this theme's palette
         int medW = compact ? 66 : 108;
         int medX = cardX + (compact ? 4 : 8);
         int medY = cardY + (compact ? 4 : 8);
@@ -503,18 +535,29 @@ void setNezhaThemeGallery() {
         tft.drawRoundRect(medX, medY, medW, medH, 6, brd);
 
         int mx = medX + medW / 2;
-        int my = medY + medH / 2 + (compact ? 2 : 4);
+        int my = medY + medH / 2 + (compact ? 2 : (isChapter2 ? 2 : 4));
         int mr = compact ? 16 : 26;
 
-        // Qiankun Ring Halo
-        tft.drawCircle(mx, my, mr + (compact ? 3 : 6), sec);
-        if (!compact) tft.drawCircle(mx, my, mr + 5, blendColors(bg, sec, 180));
-        // Sweeping Hun Tian Ling Ribbon Arcs
-        tft.drawLine(mx - mr - (compact ? 6 : 11), my + (compact ? 6 : 12), mx - mr + 2, my - 2, pri);
-        tft.drawLine(mx + mr + (compact ? 6 : 11), my + (compact ? 6 : 12), mx + mr - 2, my - 2, pri);
-        tft.drawLine(mx - mr - (compact ? 5 : 10), my + (compact ? 8 : 14), mx - mr + 3, my, sec);
-        tft.drawLine(mx + mr + (compact ? 5 : 10), my + (compact ? 8 : 14), mx + mr - 3, my, sec);
-        // Twin Demon-Child Hair Buns + Red Ties
+        if (isChapter2) {
+            // 哪吒2·魔童闹海: Blazing Flame Aura + Crashing Sea-Wave Base
+            tft.drawCircle(mx, my, mr + (compact ? 3 : 7), pri);
+            if (!compact) tft.drawCircle(mx, my, mr + 4, sec);
+            // Blazing flame aura tongues behind hair
+            int fTop = my - mr - (compact ? 4 : 8);
+            tft.fillTriangle(mx, fTop, mx - (compact ? 6 : 10), my - (compact ? 6 : 10), mx + (compact ? 6 : 10), my - (compact ? 6 : 10), pri);
+            tft.fillTriangle(mx - (compact ? 8 : 14), fTop + 4, mx - (compact ? 12 : 20), my - 2, mx - 3, my - (compact ? 6 : 10), sec);
+            tft.fillTriangle(mx + (compact ? 8 : 14), fTop + 4, mx + (compact ? 12 : 20), my - 2, mx + 3, my - (compact ? 6 : 10), sec);
+        } else {
+            // 哪吒1·魔童降世: Sacred Qiankun Ring Halo + Sweeping Hun Tian Ling Ribbons
+            tft.drawCircle(mx, my, mr + (compact ? 3 : 6), sec);
+            if (!compact) tft.drawCircle(mx, my, mr + 5, blendColors(bg, sec, 180));
+            tft.drawLine(mx - mr - (compact ? 6 : 11), my + (compact ? 6 : 12), mx - mr + 2, my - 2, pri);
+            tft.drawLine(mx + mr + (compact ? 6 : 11), my + (compact ? 6 : 12), mx + mr - 2, my - 2, pri);
+            tft.drawLine(mx - mr - (compact ? 5 : 10), my + (compact ? 8 : 14), mx - mr + 3, my, sec);
+            tft.drawLine(mx + mr + (compact ? 5 : 10), my + (compact ? 8 : 14), mx + mr - 3, my, sec);
+        }
+
+        // Twin 哪吒魔童 Hair Buns + Silk Ties
         int bunR = compact ? 5 : 8;
         int bunDx = (mr * 3) / 4;
         int bunDy = (mr * 3) / 4;
@@ -522,39 +565,50 @@ void setNezhaThemeGallery() {
         tft.fillCircle(mx + bunDx, my - bunDy, bunR + 1, pri);
         tft.fillCircle(mx - bunDx, my - bunDy, bunR, 0x18C4);
         tft.fillCircle(mx + bunDx, my - bunDy, bunR, 0x18C4);
-        tft.fillRoundRect(mx - bunDx - 3, my - bunDy + bunR - 2, 8, 2, 1, pri);
-        tft.fillRoundRect(mx + bunDx - 5, my - bunDy + bunR - 2, 8, 2, 1, pri);
-        // Stylized 哪吒魔童 Face Silhouette + Layered Bangs + Crest
+        tft.fillRoundRect(mx - bunDx - 3, my - bunDy + bunR - 2, 8, 2, 1, isChapter2 ? sec : pri);
+        tft.fillRoundRect(mx + bunDx - 5, my - bunDy + bunR - 2, 8, 2, 1, isChapter2 ? sec : pri);
+
+        // Stylized 哪吒魔童 Face Silhouette + Layered Bangs + Forehead Crest
         int faceR = compact ? 11 : 17;
         tft.fillCircle(mx, my, faceR + 1, 0x18C4);
         tft.fillCircle(mx, my + 1, faceR - 1, 0xFED6);
         tft.fillRect(mx - faceR + 1, my - faceR, (faceR - 1) * 2, compact ? 5 : 7, 0x18C4);
         tft.fillTriangle(mx - faceR + 2, my - (compact ? 6 : 10), mx - (compact ? 5 : 8), my - (compact ? 1 : 2), mx - 2, my - (compact ? 6 : 10), 0x18C4);
         tft.fillTriangle(mx + faceR - 2, my - (compact ? 6 : 10), mx + (compact ? 5 : 8), my - (compact ? 1 : 2), mx + 2, my - (compact ? 6 : 10), 0x18C4);
-        // Smoky eyes in theme primary
+        // Smoky eyes (哪吒2 adds glowing inner iris highlight)
         int ex = compact ? 4 : 6;
         int ey = my + (compact ? 2 : 3);
         tft.fillRoundRect(mx - ex - 3, ey - 2, 6, 4, 1, 0x18C4);
         tft.fillRoundRect(mx + ex - 3, ey - 2, 6, 4, 1, 0x18C4);
         tft.fillCircle(mx - ex, ey, compact ? 1 : 2, pri);
-        tft.fillCircle(mx + ex, ey, compact ? 1 : 2, pri);
+        tft.fillCircle(mx + ex, ey, compact ? 1 : 2, isChapter2 ? sec : pri);
         tft.drawPixel(mx - ex - 1, ey - 1, TFT_WHITE);
         tft.drawPixel(mx + ex - 1, ey - 1, TFT_WHITE);
-        // Signature Forehead Crest
+        // Signature Forehead Crest (chapter-matched!)
         drawNezhaCrest(mx, my - (compact ? 4 : 6), compact ? 4 : 6, pri, sec, p.crestStyle);
-        // Confident Demon-Child grin
+        // Confident grin
         tft.drawLine(mx - (compact ? 3 : 4), my + (compact ? 7 : 10), mx + (compact ? 3 : 5), my + (compact ? 6 : 9), 0x18C4);
+
+        if (isChapter2) {
+            // Crashing Sea Waves along the base of the 哪吒2 medallion
+            int wy = medY + medH - (compact ? 6 : 10);
+            int step = compact ? 8 : 12;
+            for (int wx = medX + 4; wx + step < medX + medW - 4; wx += step) {
+                tft.drawLine(wx, wy + 3, wx + step / 2, wy - 2, sec);
+                tft.drawLine(wx + step / 2, wy - 2, wx + step, wy + 3, pri);
+            }
+        }
 
         // Right: Live Theme Details & Swatches
         int rx = medX + medW + (compact ? 6 : 10);
         int rw = cardX + cardW - rx - (compact ? 5 : 8);
-        int ry = medY + (compact ? 1 : 6);
+        int ry = medY + (compact ? 1 : 4);
 
         uiDrawText16(bruce_i18n::tr(p.name), rx, ry, rw, bright, surf, 0);
-        ry += compact ? 16 : 22;
+        ry += compact ? 15 : 21;
 
         uiDrawText16(bruce_i18n::tr(p.motto), rx, ry, rw, sec, surf, 0);
-        ry += compact ? 17 : 26;
+        ry += compact ? 16 : 24;
 
         // 3 Live Color Swatches (PRI / SEC / BG)
         int swGap = 4;
@@ -570,7 +624,7 @@ void setNezhaThemeGallery() {
             tft.setTextColor(uiTextOnAccentColor(swCols[s]), swCols[s]);
             tft.drawCentreString(swLbls[s], sx + swW / 2, ry + (swH - LH * FP) / 2, 1);
         }
-        ry += swH + (compact ? 5 : 12);
+        ry += swH + (compact ? 5 : 10);
 
         // Live UI Progress Preview (non-compact)
         if (!compact) {
@@ -578,7 +632,7 @@ void setNezhaThemeGallery() {
             tft.fillRoundRect(rx, ry, rw, barH, 3, bg);
             tft.fillRoundRect(rx + 1, ry + 1, (rw - 2) * 2 / 3, barH - 2, 2, pri);
             tft.fillRoundRect(rx + 1 + (rw - 2) * 2 / 3 - 4, ry + 1, 10, barH - 2, 2, sec);
-            ry += barH + 12;
+            ry += barH + 10;
         }
 
         const char *badgeKey = justApplied ? "Applied!" : (isActive ? "Active" : "Tap Apply");
@@ -608,10 +662,12 @@ void setNezhaThemeGallery() {
 
     bool dirty = true;
     bool justApplied = false;
+    inputLock();
     SelPress = EscPress = PrevPress = NextPress = UpPress = DownPress = false;
 #if defined(HAS_TOUCH)
     touchPoint.Clear();
 #endif
+    inputUnlock();
 
     while (true) {
         if (dirty) {
@@ -638,37 +694,53 @@ void setNezhaThemeGallery() {
         }
 
 #if defined(HAS_TOUCH)
-        if (touchPoint.pressed) {
-            int tx = touchPoint.x;
-            int ty = touchPoint.y;
-            touchPoint.Clear();
-
-            if (!compact && tx < 42 && ty <= 28) {
-                break;
+        {
+            bool hasTouch = false;
+            int tx = 0;
+            int ty = 0;
+            inputLock();
+            if (touchPoint.pressed) {
+                hasTouch = true;
+                tx = touchPoint.x;
+                ty = touchPoint.y;
+                touchPoint.Clear();
             }
+            inputUnlock();
 
-            int dockH = compact ? 22 : 26;
-            int dockY = tftHeight - dockH - (compact ? 3 : 6);
-            if (ty >= dockY - 4) {
-                int third = tftWidth / 3;
-                if (tx < third) {
-                    idx = (idx + NEZHA_THEME_COUNT - 1) % NEZHA_THEME_COUNT;
+            if (hasTouch) {
+                if (!compact && tx < 64 && ty <= 34) {
+                    break;
+                }
+                // Tap top-right Chapter pill to jump directly between 哪吒1 (0) and 哪吒2 (12)
+                if (ty <= 34 && tx >= tftWidth - 104) {
+                    idx = (NEZHA_THEME_PACKS[idx].chapter == 1) ? NEZHA_CHAPTER2_START : 0;
                     justApplied = false;
-                    dirty = true;
-                } else if (tx < third * 2) {
-                    applyPack(idx);
-                    justApplied = true;
                     dirty = true;
                 } else {
-                    idx = (idx + 1) % NEZHA_THEME_COUNT;
-                    justApplied = false;
-                    dirty = true;
+                    int dockH = compact ? 22 : 28;
+                    int dockY = tftHeight - dockH - (compact ? 3 : 6);
+                    if (ty >= dockY - 8) {
+                        int third = tftWidth / 3;
+                        if (tx < third) {
+                            idx = (idx + NEZHA_THEME_COUNT - 1) % NEZHA_THEME_COUNT;
+                            justApplied = false;
+                            dirty = true;
+                        } else if (tx < third * 2) {
+                            applyPack(idx);
+                            justApplied = true;
+                            dirty = true;
+                        } else {
+                            idx = (idx + 1) % NEZHA_THEME_COUNT;
+                            justApplied = false;
+                            dirty = true;
+                        }
+                    } else if (ty > 34) {
+                        // Tap preview card directly to Apply
+                        applyPack(idx);
+                        justApplied = true;
+                        dirty = true;
+                    }
                 }
-            } else if (ty > 28) {
-                // Tap preview card directly to Apply
-                applyPack(idx);
-                justApplied = true;
-                dirty = true;
             }
         }
 #endif
@@ -677,7 +749,9 @@ void setNezhaThemeGallery() {
 
 #if defined(HAS_TOUCH)
     touchZoneOutsideFooterEnabled = prevTouchZone;
+    inputLock();
     touchPoint.Clear();
+    inputUnlock();
 #endif
     SelPress = EscPress = PrevPress = NextPress = UpPress = DownPress = false;
     tft.fillScreen(bruceConfig.bgColor);

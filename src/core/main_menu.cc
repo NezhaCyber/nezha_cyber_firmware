@@ -404,7 +404,8 @@ void MainMenu::drawGridCell(int index, bool selected, bool compactTiles) {
         tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, pri);
         tft.drawRoundRect(cardX + 1, cardY + 1, cardW - 2, cardH - 2, 7, pri);
         if (bruceConfig.nezhaThemeStyle > 0 && cardW >= 46) {
-            drawNezhaCrest(cardX + cardW - 9, cardY + 9, 3, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
+            drawNezhaCornerBrackets(cardX, cardY, cardW, cardH, pri, bruceConfig.secColor);
+            drawNezhaCrest(cardX + cardW - 10, cardY + 10, 3, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
         }
     }
 
@@ -612,7 +613,8 @@ void MainMenu::drawCards(int index) {
     tft.drawRoundRect(heroX, heroY, heroW, heroH, hr, pri);
     tft.drawRoundRect(heroX + 1, heroY + 1, heroW - 2, heroH - 2, hr - 1, pri);
     if (bruceConfig.nezhaThemeStyle > 0) {
-        drawNezhaCrest(heroX + 12, heroY + (compactScreen ? 10 : 13), compactScreen ? 3 : 4, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
+        drawNezhaCornerBrackets(heroX, heroY, heroW, heroH, pri, bruceConfig.secColor);
+        drawNezhaCrest(heroX + 13, heroY + (compactScreen ? 11 : 14), compactScreen ? 3 : 4, pri, bruceConfig.secColor, bruceConfig.nezhaThemeStyle);
     }
 
     MenuItemInterface *heroItem = static_cast<MenuItemInterface *>(options[index].hoverPointer);
@@ -695,6 +697,9 @@ void MainMenu::drawDock(int index) {
 
     tft.fillRoundRect(padX, stageY, stageW, stageH, compactScreen ? 7 : 10, surf);
     tft.drawRoundRect(padX, stageY, stageW, stageH, compactScreen ? 7 : 10, bdim);
+    if (bruceConfig.nezhaThemeStyle > 0) {
+        drawNezhaCornerBrackets(padX, stageY, stageW, stageH, pri, bruceConfig.secColor);
+    }
 
     char cnt[12];
     snprintf(cnt, sizeof(cnt), "%02d/%02d", index + 1, itemCount);

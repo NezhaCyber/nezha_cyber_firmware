@@ -56,20 +56,28 @@ constexpr float RADAR_PI = 3.14159265f;
 constexpr float RADAR_MAX_DIST_M = 30.0f;
 constexpr float RADAR_TRIANGULATE_STEP_M = 2.0f;
 
-// 哪吒魔童 (Nezha Motong) Wind-Fire & Qiankun Ring RGB565 Radar Palette
-constexpr uint16_t COL_GRID_DIM = 0x3041;     // Deep volcanic crimson-ember grid
-constexpr uint16_t COL_GRID_MID = 0x60A2;     // Crimson-bronze range ring
-constexpr uint16_t COL_SPOKE_DIM = 0x2000;    // Faint Wind-Fire Wheel diagonal spoke
-constexpr uint16_t COL_QIANKUN_DIM = 0x6A60;  // Burnished Qiankun bronze outer bezel
-constexpr uint16_t COL_QIANKUN_GOLD = 0xFEA0; // Radiant Qiankun gold
-constexpr uint16_t COL_SWEEP_T3 = 0x2800;     // Ember fade far
-constexpr uint16_t COL_SWEEP_T2 = 0x6040;     // Hun Tian Ling crimson mid trail
-constexpr uint16_t COL_SWEEP_T1 = 0xC160;     // Blazing flame-orange near trail
-constexpr uint16_t COL_SWEEP_LEAD = 0xFE60;   // Wind-Fire gold leading beam
-constexpr uint16_t COL_BLE_SAMSUNG = 0x4C5F;  // Sky blue
-constexpr uint16_t COL_BLE_MS = 0x5EBF;       // Teal
-constexpr uint16_t COL_ROW_SEL = 0x3861;      // Dark crimson-lacquer row highlight
-constexpr uint16_t COL_HEADER_BG = 0x2041;    // Crimson-obsidian table header strip
+// 哪吒魔童 × Military EW Tactical Radar Palette (哪吒1 Wind-Fire Gold & 哪吒2 Abyssal Sea-Flame)
+constexpr uint16_t COL_GRID_DIM = 0x3041;      // Deep volcanic crimson-ember grid
+constexpr uint16_t COL_GRID_MID = 0x60A2;      // Crimson-bronze range ring
+constexpr uint16_t COL_SPOKE_DIM = 0x2000;     // Faint Wind-Fire Wheel diagonal spoke
+constexpr uint16_t COL_QIANKUN_DIM = 0x6A60;   // Burnished Qiankun bronze outer bezel
+constexpr uint16_t COL_QIANKUN_GOLD = 0xFEA0;  // Radiant Qiankun tactical gold
+constexpr uint16_t COL_SWEEP_T4 = 0x1800;      // Deep ember afterglow
+constexpr uint16_t COL_SWEEP_T3 = 0x3000;      // Ember fade far
+constexpr uint16_t COL_SWEEP_T2 = 0x6840;      // Hun Tian Ling crimson mid trail
+constexpr uint16_t COL_SWEEP_T1 = 0xC960;      // Blazing flame-orange near trail
+constexpr uint16_t COL_SWEEP_LEAD = 0xFE80;    // Wind-Fire gold leading EW beam
+constexpr uint16_t COL_N2_GRID_DIM = 0x0984;   // 哪吒2 deep abyssal sonar grid
+constexpr uint16_t COL_N2_GRID_MID = 0x1327;   // 哪吒2 tactical steel-cyan ring
+constexpr uint16_t COL_N2_SWEEP_T2 = 0x0B46;   // 哪吒2 sea-wave mid trail
+constexpr uint16_t COL_N2_SWEEP_T1 = 0x15AE;   // 哪吒2 sea-surge near trail
+constexpr uint16_t COL_N2_SWEEP_LEAD = 0x3F7F; // 哪吒2 blazing cyan-white EW beam
+constexpr uint16_t COL_TAC_GREEN = 0x2F49;     // Military HUD nominal green
+constexpr uint16_t COL_BLE_SAMSUNG = 0x4C5F;   // Sky blue
+constexpr uint16_t COL_BLE_MS = 0x5EBF;        // Teal
+constexpr uint16_t COL_ROW_SEL = 0x3861;       // Dark crimson-lacquer row highlight
+constexpr uint16_t COL_HEADER_BG = 0x2041;     // Crimson-obsidian armored header strip
+constexpr uint16_t COL_PANEL_BG = 0x1021;      // Stealth cockpit sub-panel fill
 
 // Pentest threat/alert bitmask
 constexpr uint8_t RFLAG_TRACKER = 0x01;   // AirTag / SmartTag / Tile / iBeacon / Eddystone
@@ -738,61 +746,96 @@ static void lockOnTarget(RadarContext &ctx, const RadarTarget &t) {
 }
 
 // =====================================================================
-// VIEW 0: TACTICAL PPI RADAR SCOPE + SIDE INTEL HUD
+// VIEW 0: MILITARY-GRADE EW TACTICAL PPI RADAR SCOPE × 哪吒魔童
 // =====================================================================
 static void drawRadarScope(
     int cx, int cy, int r, float sweepRad, const std::vector<RadarTarget> &list, const RadarContext &ctx
 ) {
     const uint16_t bg = bruceConfig.bgColor;
-    tft.fillCircle(cx, cy, r + 2, bg);
+    const bool isNezha2 = (bruceConfig.nezhaThemeStyle >= 4);
+    const uint16_t gridDim = isNezha2 ? COL_N2_GRID_DIM : COL_GRID_DIM;
+    const uint16_t gridMid = isNezha2 ? COL_N2_GRID_MID : COL_GRID_MID;
+    const uint16_t bezelCol = isNezha2 ? COL_N2_SWEEP_T1 : COL_QIANKUN_DIM;
+    const uint16_t accentGold = isNezha2 ? COL_N2_SWEEP_LEAD : COL_QIANKUN_GOLD;
 
-    // 哪吒魔童 Qiankun Ring bezel + distance-calibrated range rings (2m, 8m, 30m)
+    // Clear scope square viewport and frame with military corner acquisition brackets
+    tft.fillRect(cx - r - 4, cy - r - 4, (r + 4) * 2 + 1, (r + 4) * 2 + 1, bg);
+    drawNezhaCornerBrackets(cx - r - 3, cy - r - 3, (r + 3) * 2 + 1, (r + 3) * 2 + 1, bruceConfig.priColor, accentGold);
+
+    // Calibrated range rings (2m, 8m, 30m) + 45-deg Wind-Fire radials + stadiametric crosshairs
     int r2 = distToRadius(2.0f, r);
     int r8 = distToRadius(8.0f, r);
     int diag = (int)(r * 0.7071f);
-    // Faint 45-degree Wind-Fire Wheel diagonal spokes behind cardinal axes
     tft.drawLine(cx - diag, cy - diag, cx + diag, cy + diag, COL_SPOKE_DIM);
     tft.drawLine(cx - diag, cy + diag, cx + diag, cy - diag, COL_SPOKE_DIM);
-    tft.drawFastHLine(cx - r, cy, 2 * r + 1, COL_GRID_DIM);
-    tft.drawFastVLine(cx, cy - r, 2 * r + 1, COL_GRID_DIM);
+    tft.drawFastHLine(cx - r, cy, 2 * r + 1, gridDim);
+    tft.drawFastVLine(cx, cy - r, 2 * r + 1, gridDim);
 
-    // Concentric rings: golden-bronze outer Qiankun Ring + crimson inner rings
-    tft.drawCircle(cx, cy, r, COL_QIANKUN_DIM);
-    if (r >= 24) tft.drawCircle(cx, cy, r - 1, COL_GRID_MID);
-    tft.drawCircle(cx, cy, r8, COL_GRID_DIM);
-    tft.drawCircle(cx, cy, r2, COL_GRID_DIM);
+    // Stadiametric range hash ticks along cardinal axes (military gunsight reticle)
+    for (int s = 1; s <= 3; ++s) {
+        int off = (r * s) / 4;
+        tft.drawFastVLine(cx - off, cy - 2, 5, gridMid);
+        tft.drawFastVLine(cx + off, cy - 2, 5, gridMid);
+        tft.drawFastHLine(cx - 2, cy - off, 5, gridMid);
+        tft.drawFastHLine(cx - 2, cy + off, 5, gridMid);
+    }
 
-    // 30-degree compass bezel ticks (Qiankun gold on N/E/S/W, crimson on 30-deg marks)
-    for (int deg = 0; deg < 360; deg += 30) {
-        float a = (float)deg * (RADAR_PI / 180.0f);
+    // Double-ring armored Qiankun / EW bezel + inner range rings
+    tft.drawCircle(cx, cy, r, bezelCol);
+    if (r >= 24) tft.drawCircle(cx, cy, r - 2, gridMid);
+    tft.drawCircle(cx, cy, r8, gridDim);
+    tft.drawCircle(cx, cy, r2, gridDim);
+
+    // Mil-spec compass bezel ticks every 10 deg (bold 90 deg, medium 30 deg, fine 10 deg)
+    for (int deg = 0; deg < 360; deg += 10) {
         bool card = (deg % 90 == 0);
-        int tickLen = card ? 6 : 3;
+        bool major = (deg % 30 == 0);
+        if (!major && r < 46) continue;
+        float a = (float)deg * (RADAR_PI / 180.0f);
+        int tickLen = card ? 7 : (major ? 4 : 2);
         int x1 = cx + (int)(cosf(a) * r);
         int y1 = cy + (int)(sinf(a) * r);
         int x2 = cx + (int)(cosf(a) * (r - tickLen));
         int y2 = cy + (int)(sinf(a) * (r - tickLen));
-        tft.drawLine(x1, y1, x2, y2, card ? COL_QIANKUN_GOLD : COL_GRID_MID);
+        tft.drawLine(x1, y1, x2, y2, card ? accentGold : (major ? gridMid : gridDim));
     }
 
+    // Military 3-digit azimuth bearings (000 / 090 / 180 / 270) + range markers
     if (r >= 48) {
         tft.setTextSize(1);
+        tft.setTextColor(accentGold, bg);
+        tft.drawCentreString("000", cx, cy - r + 8, 1);
+        tft.drawRightString("090", cx + r - 8, cy - 3, 1);
+        tft.drawCentreString("180", cx, cy + r - 15, 1);
+        tft.drawString("270", cx - r + 8, cy - 3, 1);
+        tft.setTextColor(gridMid, bg);
+        tft.drawString("2m", cx + 3, cy - r2 + 1, 1);
+        tft.drawString("8m", cx + 3, cy - r8 + 1, 1);
+
+        // Live sweep azimuth readout tucked cleanly in bottom-left corner of scope
+        int azDeg = ((int)roundf(sweepRad * (180.0f / RADAR_PI)) + 90) % 360;
+        if (azDeg < 0) azDeg += 360;
+        char azBuf[10];
+        snprintf(azBuf, sizeof(azBuf), "AZ%03d", azDeg);
         tft.setTextColor(COL_QIANKUN_GOLD, bg);
-        tft.drawString("N", cx - 2, cy - r + 7, 1);
-        tft.setTextColor(COL_GRID_MID, bg);
-        tft.drawString("2m", cx + 2, cy - r2 + 1, 1);
-        tft.drawString("8m", cx + 2, cy - r8 + 1, 1);
+        tft.drawString(azBuf, cx - r - 1, cy + r - 6, 1);
     }
 
-    // Blazing 4-ray Wind-Fire Wheel sweep wedge + ember spark on outer rim
-    float t3 = sweepRad - 0.34f;
-    float t2 = sweepRad - 0.21f;
-    float t1 = sweepRad - 0.09f;
-    tft.drawLine(cx, cy, cx + (int)(cosf(t3) * (r - 2)), cy + (int)(sinf(t3) * (r - 2)), COL_SWEEP_T3);
-    tft.drawLine(cx, cy, cx + (int)(cosf(t2) * (r - 2)), cy + (int)(sinf(t2) * (r - 2)), COL_SWEEP_T2);
-    tft.drawLine(cx, cy, cx + (int)(cosf(t1) * (r - 2)), cy + (int)(sinf(t1) * (r - 2)), COL_SWEEP_T1);
-    int leadX = cx + (int)(cosf(sweepRad) * (r - 2));
-    int leadY = cy + (int)(sinf(sweepRad) * (r - 2));
-    tft.drawLine(cx, cy, leadX, leadY, COL_SWEEP_LEAD);
+    // 5-ray Military Phased-Array / Wind-Fire Wheel sweep wedge + hot emitter dot on outer rim
+    const float trailOff[4] = {0.42f, 0.30f, 0.19f, 0.09f};
+    const uint16_t trailCol[4] = {
+        COL_SWEEP_T4,
+        isNezha2 ? COL_N2_GRID_DIM : COL_SWEEP_T3,
+        isNezha2 ? COL_N2_SWEEP_T2 : COL_SWEEP_T2,
+        isNezha2 ? COL_N2_SWEEP_T1 : COL_SWEEP_T1,
+    };
+    for (int t = 0; t < 4; ++t) {
+        float ang = sweepRad - trailOff[t];
+        tft.drawLine(cx, cy, cx + (int)(cosf(ang) * (r - 3)), cy + (int)(sinf(ang) * (r - 3)), trailCol[t]);
+    }
+    int leadX = cx + (int)(cosf(sweepRad) * (r - 3));
+    int leadY = cy + (int)(sinf(sweepRad) * (r - 3));
+    tft.drawLine(cx, cy, leadX, leadY, isNezha2 ? COL_N2_SWEEP_LEAD : COL_SWEEP_LEAD);
     tft.fillCircle(leadX, leadY, 2, bruceConfig.priColor);
     tft.drawPixel(leadX, leadY, TFT_WHITE);
 
@@ -811,7 +854,7 @@ static void drawRadarScope(
 
         int tw = (int)tag.length() * LW;
         int th = LH;
-        int lx = (bx + 5 + tw <= cx + r) ? (bx + 5) : (bx - tw - 4);
+        int lx = (bx + 6 + tw <= cx + r) ? (bx + 6) : (bx - tw - 5);
         int ly = constrain(by - 4, cy - r + 2, cy + r - th - 2);
         lx = constrain(lx, cx - r + 2, cx + r - tw - 2);
 
@@ -836,11 +879,20 @@ static void drawRadarScope(
         bool locked = ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0;
         uint16_t col = categoryColor(t.category, t.flags);
         if (locked) {
-            tft.drawLine(cx, cy, bx, by, TFT_YELLOW);
-            tft.drawCircle(bx, by, 6, TFT_RED);
-            tft.drawCircle(bx, by, 4, TFT_YELLOW);
-            tft.fillCircle(bx, by, 2, TFT_WHITE);
-            tryDrawCallout(bx, by, t, TFT_YELLOW, true);
+            // Fighter-jet square target acquisition reticle + bearing vector line
+            tft.drawLine(cx, cy, bx, by, COL_QIANKUN_GOLD);
+            const int b = 6;
+            tft.drawFastHLine(bx - b, by - b, 4, TFT_RED);
+            tft.drawFastVLine(bx - b, by - b, 4, TFT_RED);
+            tft.drawFastHLine(bx + b - 3, by - b, 4, TFT_RED);
+            tft.drawFastVLine(bx + b, by - b, 4, TFT_RED);
+            tft.drawFastHLine(bx - b, by + b, 4, TFT_RED);
+            tft.drawFastVLine(bx - b, by + b - 3, 4, TFT_RED);
+            tft.drawFastHLine(bx + b - 3, by + b, 4, TFT_RED);
+            tft.drawFastVLine(bx + b, by + b - 3, 4, TFT_RED);
+            tft.drawRect(bx - 3, by - 3, 7, 7, COL_QIANKUN_GOLD);
+            tft.fillCircle(bx, by, 1, TFT_WHITE);
+            tryDrawCallout(bx, by, t, COL_QIANKUN_GOLD, true);
         } else {
             drawCategoryGlyph(bx, by, t.category, col, t.flags);
             if (i < 4 || (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV))) {
@@ -849,8 +901,9 @@ static void drawRadarScope(
         }
     }
 
-    // Center 哪吒魔童 lotus-flame core emblem
-    drawNezhaCrest(cx, cy, (r >= 48) ? 4 : 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
+    // Center tactical bore-sight ring + 哪吒魔童 crest (auto-matches 哪吒1 / 哪吒2 style!)
+    tft.drawCircle(cx, cy, (r >= 48) ? 7 : 5, gridMid);
+    drawNezhaCrest(cx, cy, (r >= 48) ? 4 : 3, bruceConfig.priColor, accentGold, max(1, bruceConfig.nezhaThemeStyle));
 }
 
 static void drawRadarHud(
@@ -864,7 +917,7 @@ static void drawRadarHud(
     const int lineStep = (FP == 1 && bruce_i18n::isChinese()) ? 13 : (LH + 2);
     const int maxChars = max(6, hudW / LW);
 
-    int wifiCnt = 0, bleCnt = 0, alertCnt = 0;
+    int wifiCnt = 0, bleCnt = 0, alertCnt = 0, weakCnt = 0;
     const RadarTarget *lockedTarget = nullptr;
     float anchorSumX = 0.0f, anchorSumY = 0.0f;
     int anchorCnt = 0;
@@ -881,29 +934,34 @@ static void drawRadarHud(
             }
         }
         if (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) ++alertCnt;
+        if (t.flags & RFLAG_WEAK_SEC) ++weakCnt;
         if (ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0) {
             lockedTarget = &t;
         }
     }
 
     int y = hudY;
-    // Header: Mode + active radio + CX/TS + Alert badge
-    tft.setTextColor(bruceConfig.priColor, bg);
-    String radioBadge = scanningWifi ? "[W*]" : (scanningBle ? "[B*]" : "[..]");
-    String hdr = String(modeShort(mode)) + " " + radioBadge + (timeSliced ? " TS" : " CX");
-    tft.drawString(hdr, hudX, y, 1);
-    if (alertCnt > 0) {
-        tft.setTextColor(TFT_RED, bg);
-        tft.drawRightString("!" + String(alertCnt), hudX + hudW - 1, y, 1);
-    }
-    y += LH + 2;
+    // Armored Military EW Callsign Strip + DEFCON Threat Pill
+    tft.fillRect(hudX, y, hudW, LH + 4, COL_HEADER_BG);
+    drawNezhaCrest(hudX + 5, y + (LH + 4) / 2, 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
+    tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
+    String radioBadge = scanningWifi ? "W*" : (scanningBle ? "B*" : "..");
+    String hdr = String(modeShort(mode)) + ":" + radioBadge + (timeSliced ? "/T" : "/C");
+    tft.drawString(hdr, hudX + 11, y + 2, 1);
 
-    // Live GPS, RF-Anchor Fix, Saved Location, or Relative BLE-Anchor line
+    const char *thrtLbl = (alertCnt > 0) ? "CRIT" : ((weakCnt > 0) ? "WARN" : "NORM");
+    uint16_t thrtCol = (alertCnt > 0) ? TFT_RED : ((weakCnt > 0) ? COL_QIANKUN_GOLD : COL_TAC_GREEN);
+    tft.fillRect(hudX + hudW - 28, y + 1, 27, LH + 2, thrtCol);
+    tft.setTextColor(uiTextOnAccentColor(thrtCol), thrtCol);
+    tft.drawCentreString(thrtLbl, hudX + hudW - 14, y + 2, 1);
+    y += LH + 6;
+
+    // Live Military Grid / GPS / RF-Anchor Telemetry
     char locLine[36];
     if (bruceLocation.hasLocation()) {
         uint16_t locCol = bruceLocation.hasLiveGps()
-                              ? TFT_GREEN
-                              : ((bruceLocation.source() == "RF-FIX") ? TFT_CYAN : TFT_YELLOW);
+                              ? COL_TAC_GREEN
+                              : ((bruceLocation.source() == "RF-FIX") ? TFT_CYAN : COL_QIANKUN_GOLD);
         tft.setTextColor(locCol, bg);
         snprintf(
             locLine,
@@ -918,73 +976,80 @@ static void drawRadarHud(
         snprintf(
             locLine,
             sizeof(locLine),
-            "REF:%d (%.1f,%.1f)m",
+            "VEC:%d %+.1f,%+.1fm",
             anchorCnt,
             anchorSumX / anchorCnt,
             anchorSumY / anchorCnt
         );
     } else {
         tft.setTextColor(TFT_DARKGREY, bg);
-        snprintf(locLine, sizeof(locLine), "Loc: scanning...");
+        snprintf(locLine, sizeof(locLine), "GRID: ACQUIRING...");
     }
     tft.drawString(String(locLine).substring(0, maxChars), hudX, y, 1);
     y += LH + 2;
 
-    // Live radio counts bar
-    tft.fillRect(hudX, y + 1, 5, 5, TFT_CYAN);
-    tft.setTextColor(TFT_CYAN, bg);
-    tft.drawString("W:" + String(wifiCnt), hudX + 7, y, 1);
+    // Tabular EW Contact Counter Strip (AP / BT / AL)
+    tft.fillRect(hudX, y, hudW, LH + 3, COL_PANEL_BG);
+    tft.fillRect(hudX + 2, y + 3, 4, 4, TFT_CYAN);
+    tft.setTextColor(TFT_CYAN, COL_PANEL_BG);
+    tft.drawString("AP:" + String(wifiCnt), hudX + 8, y + 1, 1);
 
     int col2 = hudX + hudW / 3 + 2;
-    tft.fillCircle(col2 + 2, y + 3, 2, TFT_MAGENTA);
-    tft.setTextColor(TFT_MAGENTA, bg);
-    tft.drawString("B:" + String(bleCnt), col2 + 7, y, 1);
+    tft.fillCircle(col2 + 2, y + 5, 2, TFT_MAGENTA);
+    tft.setTextColor(TFT_MAGENTA, COL_PANEL_BG);
+    tft.drawString("BT:" + String(bleCnt), col2 + 6, y + 1, 1);
 
     if (hudW >= 116) {
         int col3 = hudX + (hudW * 2) / 3 + 2;
-        tft.fillTriangle(col3 + 2, y, col3, y + 3, col3 + 4, y + 3, TFT_RED);
-        tft.fillTriangle(col3 + 2, y + 6, col3, y + 3, col3 + 4, y + 3, TFT_RED);
-        tft.setTextColor(alertCnt > 0 ? TFT_RED : TFT_DARKGREY, bg);
-        tft.drawString("A:" + String(alertCnt), col3 + 7, y, 1);
+        tft.fillTriangle(col3 + 2, y + 1, col3, y + 4, col3 + 4, y + 4, alertCnt > 0 ? TFT_RED : TFT_DARKGREY);
+        tft.fillTriangle(col3 + 2, y + 8, col3, y + 4, col3 + 4, y + 4, alertCnt > 0 ? TFT_RED : TFT_DARKGREY);
+        tft.setTextColor(alertCnt > 0 ? TFT_RED : TFT_DARKGREY, COL_PANEL_BG);
+        tft.drawString("AL:" + String(alertCnt), col3 + 6, y + 1, 1);
     }
-    y += LH + 3;
+    y += LH + 5;
 
     drawNezhaRibbonRule(hudX, y, hudW);
     y += 4;
 
     if (ctx.hasLocked) {
-        tft.setTextColor(TFT_YELLOW, bg);
-        tft.drawString(bruce_i18n::tr("Lock Target"), hudX, y, 1);
-        y += lineStep;
+        int lockBoxH = max(40, hudY + hudH - y - 1);
+        tft.fillRect(hudX, y, hudW, lockBoxH, COL_PANEL_BG);
+        drawNezhaCornerBrackets(hudX, y, hudW, lockBoxH, TFT_RED, COL_QIANKUN_GOLD);
+        int ly = y + 4;
+        int lx = hudX + 5;
+        int lw = hudW - 10;
+
+        tft.setTextColor(COL_QIANKUN_GOLD, COL_PANEL_BG);
+        tft.drawString("TGT LOCK", lx, ly, 1);
+        ly += LH + 2;
 
         if (lockedTarget) {
             uint16_t catCol = categoryColor(lockedTarget->category, lockedTarget->flags);
-            drawCategoryGlyph(hudX + 3, y + 3, lockedTarget->category, catCol, lockedTarget->flags);
-            tft.setTextColor(catCol, bg);
+            drawCategoryGlyph(lx + 3, ly + 3, lockedTarget->category, catCol, lockedTarget->flags);
+            tft.setTextColor(catCol, COL_PANEL_BG);
             String catTag = bruce_i18n::tr(categoryName(lockedTarget->category));
-            catTag = bruce_i18n::utf8TruncateToWidth(catTag, hudW - 10, FP);
-            tft.drawString(catTag, hudX + 9, y, 1);
-            y += lineStep;
+            catTag = bruce_i18n::utf8TruncateToWidth(catTag, lw - 10, FP);
+            tft.drawString(catTag, lx + 9, ly, 1);
+            ly += lineStep;
 
             String label = targetDisplayName(*lockedTarget);
-            tft.setTextColor(TFT_WHITE, bg);
-            tft.drawString(label.substring(0, maxChars), hudX, y, 1);
-            y += LH + 2;
+            tft.setTextColor(TFT_WHITE, COL_PANEL_BG);
+            tft.drawString(label.substring(0, max(5, lw / LW)), lx, ly, 1);
+            ly += LH + 2;
 
-            // Distance + RSSI + trend arrow
             int pct = constrain((lockedTarget->rssi + 95) * 100 / 60, 0, 100);
-            uint16_t barCol = (pct > 66) ? TFT_GREEN : ((pct > 33) ? TFT_YELLOW : TFT_RED);
+            uint16_t barCol = (pct > 66) ? COL_TAC_GREEN : ((pct > 33) ? COL_QIANKUN_GOLD : TFT_RED);
             char trend = (lockedTarget->rssi > lockedTarget->prevRssi + 1)
                              ? '+'
                              : ((lockedTarget->rssi < lockedTarget->prevRssi - 1) ? '-' : '=');
-            tft.setTextColor(barCol, bg);
+            tft.setTextColor(barCol, COL_PANEL_BG);
             tft.drawString(
                 formatDistShort(lockedTarget->distM) + " " + String(lockedTarget->rssi) + "dB " + trend,
-                hudX,
-                y,
+                lx,
+                ly,
                 1
             );
-            y += LH + 2;
+            ly += LH + 2;
 
             char coordBuf[32];
             if (lockedTarget->hasTriangulated) {
@@ -992,10 +1057,11 @@ static void drawRadarHud(
                 snprintf(
                     coordBuf,
                     sizeof(coordBuf),
-                    "X%+.1f Y%+.1f %s",
+                    "BRG:%03d %s %+.0f,%+.0f",
+                    (int)roundf(brg),
+                    bearingToCardinal(brg),
                     lockedTarget->relX,
-                    lockedTarget->relY,
-                    bearingToCardinal(brg)
+                    lockedTarget->relY
                 );
             } else {
                 snprintf(
@@ -1006,23 +1072,30 @@ static void drawRadarHud(
                     formatDwell(lockedTarget->firstSeenMs, millis()).c_str()
                 );
             }
-            tft.setTextColor(TFT_LIGHTGREY, bg);
-            tft.drawString(String(coordBuf).substring(0, maxChars), hudX, y, 1);
-            y += LH + 3;
+            tft.setTextColor(TFT_LIGHTGREY, COL_PANEL_BG);
+            tft.drawString(String(coordBuf).substring(0, max(5, lw / LW)), lx, ly, 1);
+            ly += LH + 3;
 
-            if (y + 10 <= hudY + hudH) {
-                tft.drawRect(hudX, y, hudW - 2, 9, bruceConfig.secColor);
-                int fillW = ((hudW - 4) * pct) / 100;
-                if (fillW > 0) tft.fillRect(hudX + 1, y + 1, fillW, 7, barCol);
+            // Segmented 10-cell military signal strength bar
+            if (ly + 10 <= y + lockBoxH - 3) {
+                const int segs = 10;
+                const int segGap = 2;
+                int segW = max(3, (lw - segGap * (segs - 1)) / segs);
+                int lit = (pct * segs + 50) / 100;
+                for (int s = 0; s < segs; ++s) {
+                    uint16_t sc = (s < lit) ? ((s >= 7) ? COL_TAC_GREEN : ((s >= 4) ? COL_QIANKUN_GOLD : TFT_RED))
+                                            : COL_GRID_DIM;
+                    tft.fillRect(lx + s * (segW + segGap), ly, segW, 7, sc);
+                }
             }
         } else {
-            tft.setTextColor(TFT_RED, bg);
-            tft.drawString(bruce_i18n::tr("Lost signal..."), hudX, y, 1);
+            tft.setTextColor(TFT_RED, COL_PANEL_BG);
+            tft.drawString(bruce_i18n::tr("Lost signal..."), lx, ly, 1);
         }
         return;
     }
 
-    // Closest targets with category glyph, trend, and meters
+    // Closest tactical contacts feed (numbered IDs + MIL-STD glyph + range)
     int rowH = LH + 2;
     int maxRows = max(1, (hudY + hudH - y - 2) / rowH);
     for (int i = 0; i < (int)list.size() && i < maxRows; ++i) {
@@ -1039,7 +1112,7 @@ static void drawRadarHud(
 
         tft.setTextColor(col, bg);
         tft.drawString(nm, hudX + 9, y, 1);
-        tft.setTextColor(TFT_LIGHTGREY, bg);
+        tft.setTextColor(COL_QIANKUN_GOLD, bg);
         tft.drawRightString(distStr, hudX + hudW - 1, y, 1);
         y += rowH;
     }
@@ -1072,27 +1145,33 @@ static void drawIntelTable(
         if (t.flags & (RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV)) ++alertCnt;
     }
 
-    tft.setTextColor(bruceConfig.priColor, bg);
-    String topInfo = String(modeShort(mode)) + (scanningWifi ? " [W*]" : (scanningBle ? " [B*]" : " [..]")) +
-                     (timeSliced ? " TS" : " CX") + "  W:" + String(wifiCnt) + " B:" + String(bleCnt);
-    tft.drawString(topInfo, x + 2, y, 1);
+    // Armored SIGINT top summary bar + 哪吒 crest
+    tft.fillRect(x, y, w, LH + 4, COL_PANEL_BG);
+    drawNezhaCrest(x + 5, y + (LH + 4) / 2, 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
+    tft.setTextColor(COL_QIANKUN_GOLD, COL_PANEL_BG);
+    String topInfo = "SIGINT " + String(modeShort(mode)) + (scanningWifi ? " [W*]" : (scanningBle ? " [B*]" : " [..]")) +
+                     " AP:" + String(wifiCnt) + " BT:" + String(bleCnt);
+    tft.drawString(topInfo, x + 12, y + 2, 1);
     if (alertCnt > 0) {
-        tft.setTextColor(TFT_RED, bg);
-        tft.drawRightString("ALRT:" + String(alertCnt), x + w - 2, y, 1);
+        tft.fillRect(x + w - 42, y + 1, 41, LH + 2, TFT_RED);
+        tft.setTextColor(TFT_WHITE, TFT_RED);
+        tft.drawCentreString("ALRT:" + String(alertCnt), x + w - 21, y + 2, 1);
     }
-    int curY = y + LH + 2;
+    int curY = y + LH + 5;
+    drawNezhaRibbonRule(x, curY, w);
+    curY += 2;
 
-    // Column headers (crimson-obsidian lacquer strip + Qiankun gold labels)
+    // Column headers (crimson-obsidian lacquer strip + Qiankun gold military labels)
     tft.fillRect(x, curY, w, LH + 2, COL_HEADER_BG);
     tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
     int colName = x + 10;
     int colTag = x + (w * 48) / 100;
     int colRssi = x + (w * 73) / 100;
     int colDist = x + w - 2;
-    tft.drawString("TARGET", colName, curY + 1, 1);
-    if (w >= 210) tft.drawString("TAG/CH", colTag, curY + 1, 1);
+    tft.drawString("CALLSIGN", colName, curY + 1, 1);
+    if (w >= 210) tft.drawString("CH/SIG", colTag, curY + 1, 1);
     tft.drawString("dBm", colRssi, curY + 1, 1);
-    tft.drawRightString("DIST", colDist, curY + 1, 1);
+    tft.drawRightString("RNG", colDist, curY + 1, 1);
     curY += LH + 3;
 
     if (total == 0) {
@@ -1206,11 +1285,18 @@ static void drawFoxHuntOrSpectrum(
             tft.drawString(String(meta).substring(0, max(10, w / LW)), x + 2, curY, 1);
             curY += LH + 3;
 
-            // Horizontal proximity meter bar
+            // Segmented 16-cell military proximity meter bar
             int barH = 10;
-            tft.drawRect(x + 2, curY, w - 4, barH, bruceConfig.secColor);
-            int fillW = ((w - 6) * pct) / 100;
-            if (fillW > 0) tft.fillRect(x + 3, curY + 1, fillW, barH - 2, sigCol);
+            tft.drawRect(x + 2, curY, w - 4, barH, COL_GRID_MID);
+            const int segs = 16;
+            const int sGap = 2;
+            int segW = max(3, (w - 8 - sGap * (segs - 1)) / segs);
+            int lit = (pct * segs + 50) / 100;
+            for (int s = 0; s < segs; ++s) {
+                uint16_t sc = (s < lit) ? ((s >= 11) ? COL_TAC_GREEN : ((s >= 6) ? COL_QIANKUN_GOLD : TFT_RED))
+                                        : COL_GRID_DIM;
+                tft.fillRect(x + 4 + s * (segW + sGap), curY + 2, segW, barH - 4, sc);
+            }
             curY += barH + 5;
         } else {
             tft.setTextSize(FM);
@@ -1278,14 +1364,17 @@ static void drawFoxHuntOrSpectrum(
         if (chCount[c] > chCount[busyCh]) busyCh = c;
     }
 
+    tft.fillRect(x, y, w, LH + 4, COL_HEADER_BG);
+    drawNezhaCrest(x + 5, y + (LH + 4) / 2, 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
     tft.setTextSize(1);
-    tft.setTextColor(COL_QIANKUN_GOLD, bg);
+    tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
     char hdr[48];
-    snprintf(hdr, sizeof(hdr), "2.4G CH1-13  CLEAN:C%d  BUSY:C%d(%d)", bestCh, busyCh, chCount[busyCh]);
-    tft.drawString(String(hdr).substring(0, max(10, w / LW)), x + 2, y, 1);
+    snprintf(hdr, sizeof(hdr), "EW 2.4G  CLR:C%d  BUSY:C%d(%d)", bestCh, busyCh, chCount[busyCh]);
+    tft.drawString(String(hdr).substring(0, max(10, (w - 14) / LW)), x + 12, y + 2, 1);
+    drawNezhaRibbonRule(x, y + LH + 4, w);
 
     // Threat summary strip
-    int curY = y + LH + 3;
+    int curY = y + LH + 7;
     char threat[56];
     snprintf(
         threat,
@@ -1302,11 +1391,12 @@ static void drawFoxHuntOrSpectrum(
     tft.drawString(String(threat).substring(0, max(10, w / LW)), x + 2, curY, 1);
     curY += LH + 4;
 
-    // Channel bar chart (1..13)
+    // Channel bar chart (1..13) with military tactical brackets & golden peak caps
     int chartTop = curY;
     int chartBot = y + h - LH - 4;
     int chartH = max(20, chartBot - chartTop);
-    tft.drawFastHLine(x + 2, chartBot, w - 4, COL_GRID_MID);
+    tft.drawFastHLine(x + 2, chartBot, w - 4, COL_QIANKUN_DIM);
+    tft.drawFastHLine(x + 2, chartTop + chartH / 2, w - 4, COL_GRID_DIM);
 
     int maxCount = 1;
     for (int c = 1; c <= 13; ++c) {
@@ -1321,13 +1411,14 @@ static void drawFoxHuntOrSpectrum(
             int bh = max(4, (chCount[c] * (chartH - 10)) / maxCount);
             uint16_t bCol = (chCount[c] >= 4 || chPeak[c] > -55)
                                 ? TFT_RED
-                                : ((chCount[c] >= 2) ? TFT_YELLOW : TFT_GREEN);
+                                : ((chCount[c] >= 2) ? COL_QIANKUN_GOLD : COL_TAC_GREEN);
             tft.fillRect(bx, chartBot - bh, barW, bh, bCol);
+            tft.drawFastHLine(bx, chartBot - bh, barW, TFT_WHITE);
             tft.setTextColor(TFT_WHITE, bg);
             tft.drawCentreString(String(chCount[c]), bx + barW / 2, chartBot - bh - LH - 1, 1);
         }
         // Highlight non-overlapping standard channels 1, 6, 11
-        tft.setTextColor((c == 1 || c == 6 || c == 11) ? TFT_CYAN : TFT_LIGHTGREY, bg);
+        tft.setTextColor((c == 1 || c == 6 || c == 11) ? COL_QIANKUN_GOLD : TFT_LIGHTGREY, bg);
         tft.drawCentreString(String(c), bx + barW / 2, chartBot + 2, 1);
     }
 }

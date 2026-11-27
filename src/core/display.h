@@ -130,10 +130,12 @@ uint16_t uiBorderDimColor();
 uint16_t uiTextBrightColor();
 uint16_t uiTextMutedColor();
 uint16_t uiTextOnAccentColor(uint16_t accent = bruceConfig.priColor);
-// Crisp vector 哪吒魔童 crest emblem (style: 1=Motong Flame, 2=Lotus Seal, 3=Ice-Fire Twin)
+// Crisp vector 哪吒魔童 crest emblem (1=Nezha1 Flame, 2=Lotus Seal, 3=Ice-Fire Twin, 4=Nezha2 Sea Rage, 5=Nezha2 Dragon Seal)
 void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t style);
-// Subtle 1px hardware divider with restrained 哪吒魔童 dual-tone Hun Tian Ling lead accent
+// Subtle 1-2px hardware divider with 哪吒1 Hun Tian Ling / 哪吒2 Sea-Flame dual-tone accent
 void drawNezhaRibbonRule(int x, int y, int w);
+// Crisp 哪吒魔童 corner seal brackets for active cards, dialogs, and input frames
+void drawNezhaCornerBrackets(int x, int y, int w, int h, uint16_t pri, uint16_t sec);
 // Shared Nezha Cyber elevated hardware card, status pill badge, and aligned key-value row helpers
 void uiDrawCard(int x, int y, int w, int h, bool accentRule = false);
 int16_t uiDrawBadge(int x, int y, const String &text, uint16_t fillCol, int h = 16);
