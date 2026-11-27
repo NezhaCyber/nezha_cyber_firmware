@@ -17,16 +17,15 @@ void i2c_bus_setup();
 void spi_bus_setup();
 // JTAG: bitbang IDCODE reader (TAP reset + DR shift) with user-assigned TCK/TMS/TDI/TDO
 void jtag_scan_setup();
-// Logic analyzer: RMT edge capture on 1-4 GPIOs, on-device waveform viewer, CSV export,
-// SUMP/OLS ("PulseView") slave mode on the UART pins or the USB CDC port.
-// TODO(logic-analyzer): feature-complete but held back from this release — not exposed in
-// the Wire Tools menu or the serial CLI yet (see WireToolsMenu.cc / wire_commands.cc)
+// Logic analyzer (8/16 MB boards): RMT edge capture on 1-4 GPIOs, waveform viewer,
+// UART/I2C/SPI/1-Wire decoders, CSV/VCD export, and SUMP/OLS ("PulseView") slave mode.
+#if !defined(BRUCE_COMPACT_CJK_FONT)
 void logic_analyzer_setup();
-// SUMP/OLS protocol server. `usb=true` drives the device's USB CDC port (suspending
-// the serial CLI task for the duration); otherwise it runs on bruceConfigPins.uart_bus
 void sump_server_run(uint32_t baud, bool usb = false);
-// Baudrate/port picker + SUMP server entry shown in the Logic Analyzer menu
 void sump_menu();
+// Native ESP32/ESP32-S3 TWAI CAN Bus & OBD-II pocket sniffer
+void can_bus_setup();
+#endif
 // Multimeter: continuity tests only (pin-to-pin and pin-to-GND) with beeper feedback
 void continuity_tester_setup();
 
@@ -49,15 +48,18 @@ int wire_i2c_scan(std::vector<WireI2cDevice> &found, int8_t sda, int8_t scl);
 // sda/scl >= 0 select the bus by pins; otherwise `bus` (I2CBusId::Sys or I2CBusId::User).
 String wire_i2c_read_reg(uint8_t addr, uint8_t reg, I2CBusId bus, int8_t sda, int8_t scl);
 String wire_i2c_write_reg(uint8_t addr, uint8_t reg, uint8_t value, I2CBusId bus, int8_t sda, int8_t scl);
+String wire_i2c_dump_eeprom(uint8_t addr, uint32_t sizeBytes, bool addr16, I2CBusId bus);
 
 bool wire_spi_begin(int8_t sck, int8_t miso, int8_t mosi, int8_t cs, uint32_t freqHz);
 void wire_spi_end();
 String wire_spi_transfer(const String &hexBytes); // returns response as hex string
 String wire_spi_flash_detect();
+String wire_spi_dump_flash(uint32_t sizeBytes, String &outPath);
 
 // Returns "OK <idcode_hex>" or an error description; -1 pins keep the current assignment
 String wire_jtag_read_idcode(int8_t tck, int8_t tms, int8_t tdi, int8_t tdo);
 
+#if !defined(BRUCE_COMPACT_CJK_FONT)
 // Logic analyzer (RMT edge capture). Resolutions: 100k/200k/500k/1M/2M/5M/10M/20M ticks per second,
 // depth = symbol buffer per channel (1024/2048/4096). Pins < 0 reuse the Logic Analyzer menu's
 // session pins. Returns "OK ..." or "ERR: ..." (captures into the session shared with the UI).
@@ -72,14 +74,12 @@ uint8_t wire_la_channels();
 // Session resolution, for display only
 uint32_t wire_la_resolution();
 // Single-shot RMT capture on the session pins with the given resolution, then streams
-// nSamples bytes over `out` (probe c -> bit c), sampling at `rate` Hz. Applies the
-// Stage-0 trigger by skipping samples before the first (sample & trigMask)==trigVals
-// match. Streams directly with no large intermediate buffer, so it works on tight
-// heaps. Used by the SUMP server. Returns false on failure or abort.
+// nSamples bytes over `out` (probe c -> bit c), sampling at `rate` Hz.
 bool wire_la_sump_stream(
     uint32_t resolutionHz, double rate, uint32_t nSamples, uint16_t trigMask, uint16_t trigVals,
     Print &out
 );
+#endif
 
 // Continuity one-shot: pinB >= 0 tests A<->B (A driven LOW, B pulled up); pinB < 0 tests A to GND.
 // Returns "OK SHORT ..." or "OK OPEN", or "ERR: ..."

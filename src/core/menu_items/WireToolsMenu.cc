@@ -7,23 +7,21 @@
 #include "modules/others/flipper_tools.h"
 
 void WireToolsMenu::optionsMenu() {
-    options = {
+    std::vector<Option> localOpts = {
         {"UART Terminal",   []() { uart_terminal_setup(); }  },
         {"I2C Bus",         []() { i2c_bus_setup(); }        },
         {"SPI Bus",         []() { spi_bus_setup(); }        },
         {"JTAG Scanner",    []() { jtag_scan_setup(); }      },
         {"Multimeter",      []() { continuity_tester_setup();}},
 #if !defined(BRUCE_COMPACT_CJK_FONT)
-        {"GPIO Control",    []() { flipper_gpio_control(); }  },
+        {"Logic Analyzer",  []() { logic_analyzer_setup(); } },
+        {"CAN Bus / OBD-II", []() { can_bus_setup(); }       },
+        {"GPIO Control",    []() { flipper_gpio_control(); } },
 #endif
-        // TODO(logic-analyzer): feature-complete (logic_analyzer.cc + sump_server.cc) but held
-        // back from this release; re-enable by restoring this entry and the
-        // createWireLaCommand() registration in wire_commands.cc:
-        // {"Logic Analyzer", logic_analyzer_setup()},
+        {"Main Menu",       []() { backToMenu(); }           },
     };
-    addOptionToMainMenu();
 
-    loopOptions(options, MENU_TYPE_SUBMENU, "Wire Tools");
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "Wire Tools");
 }
 
 void WireToolsMenu::drawIcon(float scale) {
