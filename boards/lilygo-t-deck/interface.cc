@@ -286,10 +286,8 @@ void InputHandler(void) {
         KeyStroke.Clear();
     }
 
-    // 3. Poll GT911 touch and trackball center click (SEL_BTN) with 160ms debounce
-    BruceTouchPoint t;
-    bool touched = hal_touch_read(touchCfg(), t);
-
+    // 3. Poll trackball center click (SEL_BTN) and GT911 touch only outside cooldown so GT911's
+    //    point buffer is never read and discarded while throttled.
     if (now - tm < 160 && !LongPress) return;
 
     if (digitalRead(SEL_BTN) == BTN_ACT) {
@@ -298,9 +296,11 @@ void InputHandler(void) {
             AnyKeyPress = true;
         } else return;
         SelPress = true;
+        return;
     }
 
-    if (touched && ((now - tm) >= 160 || LongPress)) { // responsive touch polling
+    BruceTouchPoint t;
+    if (hal_touch_read(touchCfg(), t)) {
         tm = now;
         hal_touch_apply(t);
         return;

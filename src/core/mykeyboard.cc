@@ -496,7 +496,7 @@ String generalKeyboard(
     bool redraw = true;
     unsigned long last_input_time = millis(); // used for button input debouncing
 #if defined(HAS_TOUCH)
-    unsigned long last_touch_time = millis(); // separate snappy touch cooldown
+    unsigned long last_touch_time = 0; // immediate first tap; short 80ms guard (HAL already debounces)
 #endif
     bool show_password = false;
 #if defined(HAS_KEYBOARD)
@@ -564,7 +564,8 @@ String generalKeyboard(
     };
 
 #if defined(HAS_KEYBOARD)
-    // Compact top action bar used when physical-keyboard dialog mode is active (showOnScreenKeys == false)
+    // Large, comfortable bottom action bar for physical-keyboard dialog mode (showOnScreenKeys == false),
+    // placed well away from the top display bezel so OK / DEL / EXIT / KB are effortless to tap.
     enum CompactAction : uint8_t { COMPACT_OK = 0, COMPACT_DEL, COMPACT_CANCEL, COMPACT_PASS, COMPACT_KB };
     struct CompactPill {
         int x;
@@ -574,28 +575,57 @@ String generalKeyboard(
         bool smallFont;
         bool primaryOutline;
     };
+    const int compactHintH = LH * FP + 6;
+    const int compactBtnH = (tftHeight >= 200) ? 30 : 22;
+    const int compactBtnY = tftHeight - compactHintH - compactBtnH - 4;
     CompactPill compactPills[5];
     int compactPillCount = 0;
     auto rebuildCompactPills = [&]() {
         compactPillCount = 0;
-        const int pillW = 3 * LW * FM + 4;
-        int cx = PAD + 2;
-        compactPills[compactPillCount++] = {cx, pillW, COMPACT_OK, "Ok", false, true};
-        cx += pillW + PAD + 2;
-        compactPills[compactPillCount++] = {cx, pillW, COMPACT_DEL, "<-", false, false};
-        cx += pillW + PAD + 2;
-        compactPills[compactPillCount++] = {cx, pillW, COMPACT_CANCEL, "Ex", false, false};
-        cx += pillW + PAD + 2;
+        CompactAction actions[5];
+        const char *labels[5];
+        bool smallF[5];
+        bool priOut[5];
+        int n = 0;
+        actions[n] = COMPACT_OK;
+        labels[n] = "OK";
+        smallF[n] = false;
+        priOut[n] = true;
+        n++;
+        actions[n] = COMPACT_DEL;
+        labels[n] = "DEL";
+        smallF[n] = (tftWidth < 260);
+        priOut[n] = false;
+        n++;
+        actions[n] = COMPACT_CANCEL;
+        labels[n] = "EXIT";
+        smallF[n] = (tftWidth < 260);
+        priOut[n] = false;
+        n++;
         if (mask_input) {
-            int pw = 4 * LW * FP + 12;
-            compactPills[compactPillCount++] = {
-                cx, pw, COMPACT_PASS, show_password ? "Hide" : "Show", true, false
-            };
+            actions[n] = COMPACT_PASS;
+            labels[n] = show_password ? "Hide" : "Show";
+            smallF[n] = true;
+            priOut[n] = false;
+            n++;
         }
 #if defined(HAS_TOUCH)
-        const int kbW = 3 * LW * FM + 4;
-        compactPills[compactPillCount++] = {tftWidth - kbW - PAD - 2, kbW, COMPACT_KB, "KB", false, false};
+        actions[n] = COMPACT_KB;
+        labels[n] = "KB";
+        smallF[n] = false;
+        priOut[n] = false;
+        n++;
 #endif
+        const int marginX = 6;
+        const int gap = 5;
+        int totalW = tftWidth - marginX * 2 - gap * (n - 1);
+        int eachW = totalW / n;
+        int cx = marginX;
+        for (int i = 0; i < n; ++i) {
+            int w = (i == n - 1) ? (tftWidth - marginX - cx) : eachW;
+            compactPills[compactPillCount++] = {cx, w, actions[i], labels[i], smallF[i], priOut[i]};
+            cx += w + gap;
+        }
     };
     rebuildCompactPills();
     int compactFocus = 0;
@@ -628,7 +658,7 @@ String generalKeyboard(
         }
     }
     const int buttons_start_index = k;
-    // Setup buttons_strings touch boxes
+    // Setup buttons_strings touch boxes (generous vertical reach down to textbox_y so top pills never miss)
     for (int i = 0; i < buttons_number; i++) {
         box_list[k].key = ' ';
         box_list[k].key_sh = ' ';
@@ -636,7 +666,7 @@ String generalKeyboard(
         box_list[k].x = btns_layout[i][0];
         box_list[k].y = 0;
         box_list[k].w = btns_layout[i][1];
-        box_list[k].h = KBLH + 4;
+        box_list[k].h = textbox_y - 1;
         k++;
     }
 
@@ -670,33 +700,11 @@ String generalKeyboard(
                 rebuildCompactPills();
                 if (compactFocus >= compactPillCount) compactFocus = 0;
 
-                // 1. Clean top action pills (Ok / <- / Ex / [Show] / [KB])
-                tft.fillRect(0, 0, tftWidth, KBLH + 5, bgCol);
-                tft.setTextSize(FM);
-                for (int i = 0; i < compactPillCount; ++i) {
-                    const CompactPill &p = compactPills[i];
-                    bool focused = (i == compactFocus);
-                    bool activeToggle = (p.action == COMPACT_PASS && show_password);
-                    uint16_t fill = focused ? priCol : (activeToggle ? surfHiCol : surfCol);
-                    uint16_t fg = focused ? onAccentCol : (activeToggle ? priCol : brightCol);
-                    uint16_t outline = focused ? priCol : (p.primaryOutline ? priCol : bdimCol);
-                    tft.fillRoundRect(p.x, 3, p.w, KBLH, 4, fill);
-                    if (!focused) tft.drawRoundRect(p.x, 3, p.w, KBLH, 4, outline);
-                    tft.setTextColor(fg, fill);
-                    if (p.smallFont) {
-                        tft.setTextSize(FP);
-                        tft.drawCentreString(p.label, p.x + p.w / 2, 3 + (KBLH - LH * FP) / 2, 1);
-                        tft.setTextSize(FM);
-                    } else {
-                        tft.drawCentreString(p.label, p.x + p.w / 2, 3 + (KBLH - LH * FM) / 2, 1);
-                    }
-                }
-
-                // 2. Title, live counter, and restrained 哪吒魔童 ribbon divider
-                const int titleY = KBLH + 10;
+                // 1. Clean header: title, live counter, and restrained 哪吒魔童 ribbon divider
+                const int titleY = 6;
                 tft.setTextSize(FP);
                 String chars_counter = String(current_text.length()) + "/" + String(max_size);
-                tft.fillRect(0, titleY - 1, tftWidth, LH * FP + 8, bgCol);
+                tft.fillRect(0, 0, tftWidth, titleY + LH * FP + 8, bgCol);
                 tft.setTextColor(mutedCol, bgCol);
                 tft.drawRightString(chars_counter, tftWidth - 6, titleY, 1);
 
@@ -707,12 +715,11 @@ String generalKeyboard(
                 tft.drawString(bruce_i18n::utf8TruncateToWidth(trTitle, maxTitlePx, FP), 6, titleY);
                 drawNezhaRibbonRule(6, titleY + LH * FP + 4, tftWidth - 12);
 
-                // 3. Generous multi-line rounded text input box with visible caret
+                // 2. Generous multi-line rounded text input box with visible caret
                 const int boxX = 6;
                 const int boxY = titleY + LH * FP + 11;
-                const int hintH = LH * FP + 10;
                 const int boxW = tftWidth - 12;
-                const int boxH = tftHeight - boxY - hintH - 4;
+                const int boxH = compactBtnY - boxY - 8;
                 tft.fillRoundRect(boxX, boxY, boxW, boxH, 6, surfCol);
                 tft.drawRoundRect(boxX, boxY, boxW, boxH, 6, priCol);
 
@@ -762,15 +769,41 @@ String generalKeyboard(
                     }
                 }
 
-                // 4. Concise bottom keyboard hint bar
-                const int hintY = tftHeight - LH * FP - 5;
-                tft.fillRect(0, hintY - 2, tftWidth, LH * FP + 7, bgCol);
+                // 3. Large bottom action bar (OK / DEL / EXIT / [Show] / [KB]) — easy to tap, zero bezel clip
+                tft.fillRect(0, compactBtnY - 3, tftWidth, compactBtnH + 6, bgCol);
+                tft.setTextSize(FM);
+                for (int i = 0; i < compactPillCount; ++i) {
+                    const CompactPill &p = compactPills[i];
+                    bool focused = (i == compactFocus);
+                    bool activeToggle = (p.action == COMPACT_PASS && show_password);
+                    uint16_t fill = focused ? priCol : (activeToggle ? surfHiCol : surfCol);
+                    uint16_t fg = focused ? onAccentCol : (activeToggle ? priCol : brightCol);
+                    uint16_t outline = focused ? priCol : (p.primaryOutline ? priCol : bdimCol);
+                    tft.fillRoundRect(p.x, compactBtnY, p.w, compactBtnH, 5, fill);
+                    if (!focused) tft.drawRoundRect(p.x, compactBtnY, p.w, compactBtnH, 5, outline);
+                    tft.setTextColor(fg, fill);
+                    if (p.smallFont) {
+                        tft.setTextSize(FP);
+                        tft.drawCentreString(
+                            p.label, p.x + p.w / 2, compactBtnY + (compactBtnH - LH * FP) / 2, 1
+                        );
+                        tft.setTextSize(FM);
+                    } else {
+                        tft.drawCentreString(
+                            p.label, p.x + p.w / 2, compactBtnY + (compactBtnH - LH * FM) / 2, 1
+                        );
+                    }
+                }
+
+                // 4. Concise bottom keyboard hint strip
+                const int hintY = tftHeight - LH * FP - 3;
+                tft.fillRect(0, hintY - 1, tftWidth, LH * FP + 4, bgCol);
                 tft.setTextSize(FP);
                 tft.setTextColor(mutedCol, bgCol);
 #if defined(HAS_TOUCH)
-                const char *hintText = "Enter: OK  Del: Erase  [Ex]: Back  [KB]: Touch";
+                const char *hintText = "Enter:OK  Del:Erase  Fn+Del:Exit  KB:Touch";
 #else
-                const char *hintText = "Enter: OK  Del: Erase  Ex: Back";
+                const char *hintText = "Enter:OK  Del:Erase  Fn+Del:Exit";
 #endif
                 tft.drawCentreString(
                     bruce_i18n::utf8TruncateToWidth(hintText, tftWidth - 8, FP), tftWidth / 2, hintY, 1
@@ -999,7 +1032,7 @@ String generalKeyboard(
             }
             inputUnlock();
 
-            if (hasTouch && (millis() - last_touch_time >= 140)) {
+            if (hasTouch && (last_touch_time == 0 || (millis() - last_touch_time >= 80))) {
                 last_touch_time = millis();
                 wakeUpScreen();
                 SelPress = false;
@@ -1013,36 +1046,38 @@ String generalKeyboard(
                 if (!showOnScreenKeys) {
                     bool exitOk = false;
                     bool exitCancel = false;
-                    for (int i = 0; i < compactPillCount; ++i) {
-                        const CompactPill &p = compactPills[i];
-                        if (tx >= p.x && tx < p.x + p.w && ty >= 0 && ty < KBLH + 8) {
-                            compactFocus = i;
-                            switch (p.action) {
-                                case COMPACT_OK: exitOk = true; break;
-                                case COMPACT_DEL:
-                                    if (current_text.length() > 0) {
-                                        current_text.remove(current_text.length() - 1);
+                    if (ty >= compactBtnY - 8 && ty <= tftHeight) {
+                        for (int i = 0; i < compactPillCount; ++i) {
+                            const CompactPill &p = compactPills[i];
+                            if (tx >= p.x - 3 && tx < p.x + p.w + 3) {
+                                compactFocus = i;
+                                switch (p.action) {
+                                    case COMPACT_OK: exitOk = true; break;
+                                    case COMPACT_DEL:
+                                        if (current_text.length() > 0) {
+                                            current_text.remove(current_text.length() - 1);
+                                            redraw = true;
+                                        }
+                                        break;
+                                    case COMPACT_CANCEL:
+                                        current_text = "\x1B";
+                                        exitCancel = true;
+                                        break;
+                                    case COMPACT_PASS:
+                                        show_password = !show_password;
                                         redraw = true;
-                                    }
-                                    break;
-                                case COMPACT_CANCEL:
-                                    current_text = "\x1B";
-                                    exitCancel = true;
-                                    break;
-                                case COMPACT_PASS:
-                                    show_password = !show_password;
-                                    redraw = true;
-                                    break;
-                                case COMPACT_KB:
-                                    showOnScreenKeys = true;
-                                    tft.fillScreen(bruceConfig.bgColor);
-                                    x = 0;
-                                    y = -1;
-                                    firstGridDraw = true;
-                                    redraw = true;
-                                    break;
+                                        break;
+                                    case COMPACT_KB:
+                                        showOnScreenKeys = true;
+                                        tft.fillScreen(bruceConfig.bgColor);
+                                        x = 0;
+                                        y = -1;
+                                        firstGridDraw = true;
+                                        redraw = true;
+                                        break;
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
                     if (exitOk || exitCancel) break;

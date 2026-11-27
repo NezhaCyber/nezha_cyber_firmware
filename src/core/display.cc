@@ -381,16 +381,30 @@ int8_t displayMessage(
     int8_t selected = 0;
     bool redraw = true;
 
+    inputLock();
+    touchPoint.Clear();
+    SelPress = false;
+    EscPress = false;
+    inputUnlock();
+
     while (true) {
 #if defined(HAS_TOUCH)
-        if (touchPoint.pressed) {
-            int tx = touchPoint.x;
-            int ty = touchPoint.y;
-            touchPoint.pressed = false;
-            if (ty >= btnY - 4 && ty <= btnY + btnH + 4) {
+        {
+            bool hasTouch = false;
+            int tx = 0;
+            int ty = 0;
+            inputLock();
+            if (touchPoint.pressed) {
+                hasTouch = true;
+                tx = touchPoint.x;
+                ty = touchPoint.y;
+                touchPoint.Clear();
+            }
+            inputUnlock();
+            if (hasTouch && ty >= btnY - 10 && ty <= btnY + btnH + 10) {
                 for (int8_t i = 0; i < totalButtons; i++) {
                     int bx = btnX0 + i * (btnW + btnGap);
-                    if (tx >= bx && tx < bx + btnW) {
+                    if (tx >= bx - 4 && tx < bx + btnW + 4) {
                         selected = i;
                         SelPress = true;
                         break;
@@ -691,12 +705,12 @@ int loopOptions(
     unsigned long menuOpenTs =
         0; // timestamp when this menu was first rendered (per-invocation, not shared across nested menus)
 #if defined(HAS_TOUCH)
-    // Integrated top-left "<" back button zone inside the menu header (replaces floating [X] box)
+    // Generous top-left "< Back" button zone covering both the chevron and the "Back"/"返回" label
     bool showEscButton = useTapToSelect && (menuType == MENU_TYPE_REGULAR || menuType == MENU_TYPE_SUBMENU);
-    const int escX = 4;
-    const int escY = STATUS_BAR_HEIGHT - 3;
-    const int escW = 36;
-    const int escH = 22;
+    const int escX = 0;
+    const int escY = 0;
+    const int escW = 84;
+    const int escH = STATUS_BAR_HEIGHT + 24;
 #endif
     if (!compact) drawMainBorder();
     while (1) {
