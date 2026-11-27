@@ -102,7 +102,7 @@ JSValue native_setTextAlign(JSContext *ctx, JSValue *this_val, int argc, JSValue
                 else if (s[0] == 'r') align = 2;
             }
         } else if (JS_IsNumber(ctx, argv[0])) {
-            int32_t v = 0;
+            int v = 0;
             JS_ToInt32(ctx, &v, argv[0]);
             if (v < 0) v = 0;
             if (v > 2) v = 2;
@@ -120,7 +120,7 @@ JSValue native_setTextAlign(JSContext *ctx, JSValue *this_val, int argc, JSValue
                 else if (s[0] == 'a') baseline = 3;
             }
         } else if (JS_IsNumber(ctx, argv[1])) {
-            int32_t v = 0;
+            int v = 0;
             JS_ToInt32(ctx, &v, argv[1]);
             if (v < 0) v = 0;
             if (v > 3) v = 3;
@@ -781,23 +781,23 @@ JSValue native_createSprite(JSContext *ctx, JSValue *this_val, int argc, JSValue
     int16_t height = tft.height();
     uint8_t colorDepth = 16;
     uint8_t frames = 1;
-    // JS_ToInt32 writes 4 bytes: never point it at int16_t/uint8_t locals.
+    // JS_ToInt32 writes 4 bytes (int*): never point it at int16_t/uint8_t locals.
     if (argc > 0 && JS_IsNumber(ctx, argv[0])) {
-        int32_t v = width;
+        int v = width;
         JS_ToInt32(ctx, &v, argv[0]);
         if (v < 1) v = 1;
         if (v > 1024) v = 1024;
         width = (int16_t)v;
     }
     if (argc > 1 && JS_IsNumber(ctx, argv[1])) {
-        int32_t v = height;
+        int v = height;
         JS_ToInt32(ctx, &v, argv[1]);
         if (v < 1) v = 1;
         if (v > 1024) v = 1024;
         height = (int16_t)v;
     }
     if (argc > 2 && JS_IsNumber(ctx, argv[2])) {
-        int32_t v = colorDepth;
+        int v = colorDepth;
         JS_ToInt32(ctx, &v, argv[2]);
         if (v < 1) v = 1;
         if (v > 16) v = 16;

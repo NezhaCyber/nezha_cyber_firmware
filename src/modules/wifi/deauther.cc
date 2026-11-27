@@ -1421,7 +1421,7 @@ void clientSnifferCallback(void *buf, wifi_promiscuous_pkt_type_t type) {
     portEXIT_CRITICAL(&clientSnifferMux);
 }
 
-void scanClientsOnAP(uint8_t *targetMAC, int channel) {
+void scanClientsOnAP(const uint8_t *targetMAC, int channel) {
     if (targetMAC == nullptr) return;
     WiFiState savedState = saveWiFiState();
     bool wasConnected = savedState.was_connected;
@@ -1514,7 +1514,7 @@ void scanClientsOnAP(uint8_t *targetMAC, int channel) {
     detectedClients.shrink_to_fit();
 }
 
-void showClientSelectionForDeauth(const std::vector<Host> &clients, uint8_t *targetMAC, int channel) {
+void showClientSelectionForDeauth(const std::vector<Host> &clients, const uint8_t *targetMAC, int channel) {
     options.clear();
 
     uint8_t apBssid[6];

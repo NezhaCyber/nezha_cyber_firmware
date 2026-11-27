@@ -120,13 +120,14 @@ void _setup_gpio() {
     }; // sck,miso,mosi,cs,rst,dio0
 #endif
 
-    delay(500);           // time to ESP32C3 start and enable the keyboard
-    setSysI2CBus(&Wire1); // Keyboard + GT911 touch both live on the default Wire object
+    // Power on peripheral rail first so ESP32-C3 keyboard MCU and GT911 boot before I2C init
+    pinMode(PIN_POWER_ON, OUTPUT);
+    digitalWrite(PIN_POWER_ON, HIGH);
+    delay(500);           // wait for ESP32-C3 keyboard MCU to boot after PIN_POWER_ON
+    setSysI2CBus(&Wire1); // Keyboard (0x55) + GT911 touch both live on Wire1
     if (!Wire1.begin(bruceConfigPins.sys_i2c.sda, bruceConfigPins.sys_i2c.scl))
         Serial.println("Fail starting ESP32-C3 keyboard");
 
-    pinMode(PIN_POWER_ON, OUTPUT);
-    digitalWrite(PIN_POWER_ON, HIGH);
     pinMode(SEL_BTN, INPUT);
 
     pinMode(9, OUTPUT); // LoRa Radio CS Pin to HIGH (Inhibit the SPI Communication for this module)
@@ -153,7 +154,9 @@ void _setup_gpio() {
 ** Description:   second stage gpio setup to make a few functions work
 ***************************************************************************************/
 void _post_setup_gpio() {
-    if (!hal_touch_init(touchCfg())) { Serial.println("Failed to find GT911 - check your wiring!"); }
+    if (!hal_touch_init(touchCfg(), 0x5D) && !hal_touch_init(touchCfg(), 0x14)) {
+        Serial.println("Failed to find GT911 (0x5D/0x14) - check your wiring!");
+    }
     // Brightness control must be initialized after tft in this case @Pirata
     hal_bright_attach(TFT_BL);
     hal_bright_set(TFT_BL, 100);
@@ -242,31 +245,52 @@ void InputHandler(void) {
         }
     }
 
-    BruceTouchPoint t;
-    bool touched = hal_touch_read(touchCfg(), t);
-    Wire1.requestFrom(LILYGO_KB_SLAVE_ADDRESS, 1);
-    while (Wire1.available() > 0) {
-        keyValue = Wire1.read();
+    static unsigned long lastKbMs = 0;
+
+    // 2. Poll the ESP32-C3 I2C keyboard without the 160ms touch/button throttle: reading 0x55 pops
+    //    the hardware key buffer, so discarding it or clearing KeyStroke on the next idle tick drops input.
+    if (Wire1.requestFrom(LILYGO_KB_SLAVE_ADDRESS, 1) == 1 && Wire1.available() > 0) {
+        keyValue = static_cast<char>(Wire1.read());
     }
 
-    if (now - tm < 160 && !LongPress) return;
-
-    if (keyValue != (char)0x00) {
+    const uint8_t kbByte = static_cast<uint8_t>(keyValue);
+    if (kbByte != 0x00 && kbByte != 0xFF) {
         if (!wakeUpScreen()) {
             AnyKeyPress = true;
         } else return;
-        KeyStroke.Clear();
+
+        if (!KeyStroke.pressed || (now - lastKbMs > 400)) { KeyStroke.Clear(); }
         KeyStroke.hid_keys.push_back(keyValue);
-        if (keyValue == ' ') KeyStroke.exit_key = true; // key pressed to try to exit
-        if (keyValue == (char)0x08) KeyStroke.del = true;
-        if (keyValue == (char)0x0D) KeyStroke.enter = true;
+        if (keyValue == (char)0x08) {
+            if (!KeyStroke.word.empty()) {
+                KeyStroke.word.pop_back();
+            } else {
+                KeyStroke.del = true;
+            }
+            EscPress = true;
+        } else if (keyValue == (char)0x0D || keyValue == (char)0x0A) {
+            KeyStroke.enter = true;
+            SelPress = true;
+        } else if (keyValue == (char)0x1B) {
+            KeyStroke.exit_key = true;
+            EscPress = true;
+        } else {
+            if (keyValue == ' ') KeyStroke.exit_key = true; // Fn+Space exit in HID/Ducky modes
+            KeyStroke.word.push_back(keyValue);
+        }
         if (digitalRead(SEL_BTN) == BTN_ACT) KeyStroke.fn = true;
-        KeyStroke.word.push_back(keyValue);
-        if (KeyStroke.del) EscPress = true;
-        if (KeyStroke.enter) SelPress = true;
         KeyStroke.pressed = true;
-        tm = now;
-    } else KeyStroke.pressed = false;
+        lastKbMs = now;
+    } else if (KeyStroke.pressed && (now - lastKbMs > 350)) {
+        // Expire unconsumed keystrokes when on screens that do not drain _getKeyPress()
+        KeyStroke.Clear();
+    }
+
+    // 3. Poll GT911 touch and trackball center click (SEL_BTN) with 160ms debounce
+    BruceTouchPoint t;
+    bool touched = hal_touch_read(touchCfg(), t);
+
+    if (now - tm < 160 && !LongPress) return;
 
     if (digitalRead(SEL_BTN) == BTN_ACT) {
         tm = now;
@@ -276,12 +300,10 @@ void InputHandler(void) {
         SelPress = true;
     }
 
-    if ((now - tm) > 160 || LongPress) { // responsive touch polling
-        if (touched) {
-            tm = now;
-            hal_touch_apply(t);
-            return;
-        }
+    if (touched && ((now - tm) >= 160 || LongPress)) { // responsive touch polling
+        tm = now;
+        hal_touch_apply(t);
+        return;
     }
 }
 

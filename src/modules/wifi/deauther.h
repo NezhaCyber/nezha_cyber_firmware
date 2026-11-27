@@ -33,8 +33,8 @@ void runDeauthAll(const uint8_t *targetMAC, int channel);
 // Deauth Target List submenu functions
 void deauthTargetListMenu();
 void showAPSelectionForClientDeauth();
-void scanClientsOnAP(uint8_t *targetMAC, int channel);
-void showClientSelectionForDeauth(const std::vector<Host> &clients, uint8_t *targetMAC, int channel);
+void scanClientsOnAP(const uint8_t *targetMAC, int channel);
+void showClientSelectionForDeauth(const std::vector<Host> &clients, const uint8_t *targetMAC, int channel);
 void runDeauthTargetList(const std::vector<Host> &targets, const uint8_t *targetMAC, int channel);
 
 // Client sniffer callback

@@ -19,9 +19,9 @@ enum class MotionState : uint8_t {
 };
 
 enum class Sensitivity : uint8_t {
-    LOW = 0,
-    MEDIUM = 1,
-    HIGH = 2,
+    Low = 0,
+    Medium = 1,
+    High = 2,
 };
 
 // Extract AGC-normalized subcarrier amplitude profile from raw ESP-IDF CSI I/Q bytes.
@@ -72,7 +72,7 @@ struct CsiMotionTracker {
     uint32_t totalPackets = 0;
     uint8_t motionScore = 0; // 0..100
     MotionState state = MotionState::CALIBRATING;
-    Sensitivity sensitivity = Sensitivity::MEDIUM;
+    Sensitivity sensitivity = Sensitivity::Medium;
 
     static constexpr uint32_t CALIB_TARGET_SAMPLES = 24;
 
@@ -93,9 +93,9 @@ struct CsiMotionTracker {
 
     float sensitivityGain() const {
         switch (sensitivity) {
-            case Sensitivity::LOW: return 0.65f;
-            case Sensitivity::HIGH: return 1.55f;
-            case Sensitivity::MEDIUM:
+            case Sensitivity::Low: return 0.65f;
+            case Sensitivity::High: return 1.55f;
+            case Sensitivity::Medium:
             default: return 1.0f;
         }
     }
