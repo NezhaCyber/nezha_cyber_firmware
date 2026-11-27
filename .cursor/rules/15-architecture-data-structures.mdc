@@ -1,0 +1,40 @@
+---
+description: Core architecture layers, data structures, ownership invariants, and C++ module coding patterns
+globs:
+  - "src/**/*.cc"
+  - "src/**/*.h"
+  - "include/**/*.h"
+  - "boards/**/*.cc"
+alwaysApply: false
+---
+
+# Architecture, Data Structures & Coding Patterns — Nezha Cyber (哪吒网络安全)
+
+## 1. Layered Architecture & Boot Flow
+```text
+Presentation: MainMenu (7 styles) · src/core/menu_items/* · serial_commands/* · WebUI
+Modules:      src/modules/{wifi,ble,rf,ir,rfid,lora,wire,others/*}
+Core OS:      display · theme · i18n · config · configPins · sd_functions · radio_mem · location_state
+HAL:          bus_HAL (I2CLease / acquireSPIBus) · boards/<board>/interface.cc · lib/HAL
+```
+- **Boot Contract (`boards/<board>/interface.cc`)**: `_setup_gpio()` → TFT/Splash → `_pre_storage_gpio()` → LittleFS/SD + `BruceConfig`/`BruceConfigPins` → `_post_setup_gpio()` → `taskInputHandler` (`InputHandler()`) → `mainMenu.begin()`.
+- **Shared GUI + CLI Logic**: Keep parsers/encoders/protocol drivers inside `src/modules/` or `src/core/` (e.g., `RFIDInterface::loadFromFile()`, `buildNdefMessage()`) so menus and `serial_commands/` never diverge.
+
+## 2. Critical Data Structures & Ownership Rules
+- **Local `std::vector<Option>` Rule (UAF Prevention)**: Always declare a **local** `std::vector<Option> localOpts` inside submenus (see `src/core/menu_items/RadarMenu.cc`). Never reuse global `options` in nested menus — a child callback clearing global `options` destroys the currently executing lambda!
+- **`MenuItemInterface` (`include/MenuItemInterface.h`)**: Top-level apps inherit it (`optionsMenu`, `drawIcon`, `hasTheme`, `themePath`), registered in `MainMenu` (`src/core/main_menu.h`) and guarded by `#if !defined(LITE_VERSION)` when heavy/optional.
+- **RAII `I2CLease` (`src/core/bus_HAL.h`)**: Move-only RAII lease (`i2cLeaseDevice`/`i2cLeaseBus`/`i2cLeasePins`). Drivers storing `TwoWire*` **must** own the `I2CLease` as a member; never raw-`end()` `sys_i2c`. On M5Unified boards, guard `sys_i2c` with `lockSysI2CBus()` / `trylockSysI2CBus()` / `unlockSysI2CBus()`.
+- **SPI Bus Arbitration (`acquireSPIBus`)**: Obtain auxiliary SPI via `acquireSPIBus(sck, miso, mosi)` and handle `nullptr` cleanly (software SPI fallback or clean error).
+- **`BruceConfig` & `BruceConfigPins`**: New settings in `config.h` require default, setter, `validate*()`, JSON load/save, and `factoryReset()`. New peripheral pins use `BruceConfigPins` structs (`GPIO_NUM_NC` default, `fromJson`/`toJson`/`checkConflict`) populated in `_setup_gpio()`.
+- **Bounded POD Scan Tables**: Cap scan caches (`std::vector`) with `static constexpr size_t MAX_*` and fixed-size fields (`uint8_t mac[6]`, `char name[N]`, `int8_t rssi` — see `RfLocationAnchor` in `src/core/location_state.h`). Never grow unbounded `std::vector<String>` or `std::map<String, String>` during RF/Wi-Fi/BLE scans.
+- **Sorted `PROGMEM` Tables**: Use sorted `static const ... PROGMEM` arrays + `O(log N)` binary search (like `kZhCnTable`, `kCjkGlyphs`) for static lookup tables.
+- **Storage Abstraction (`FS &fs`)**: Accept `FS &fs` / `FS *fs` (`getFsStorage()` in `src/core/sd_functions.h`) instead of hardcoding `SD` so SD-less 4 MB boards work on `LittleFS`.
+
+## 3. Standard C++ Module Coding Blueprint
+- **Encapsulation**: Minimal public declarations in `.h`; internal state and helpers in anonymous `namespace { ... }` or `static` in `.cc` (clean `-flto` codegen).
+- **4-Phase Lifecycle**:
+  1. **Guard**: Check `radioHasMemForWifi()`/`radioHasMemForBle()`, `i2cLeaseDevice()`/`acquireSPIBus()`, or `getFsStorage()`. Fail early with `displayError(..., true)`.
+  2. **Init**: Reserve bounded buffers, optional PSRAM sprite (`psramFound()`), clear stale input via `check(...)`.
+  3. **Dirty-Flag Loop**: `while (!returnToMenu)` → exit on `check(EscPress)` → process input/touch → redraw only when `dirty` or at bounded FPS → `vTaskDelay(pdMS_TO_TICKS(10..20))`.
+  4. **Deterministic Teardown**: `deleteSprite()`, free `malloc`/`ps_malloc`/`rmt_symbol_word_t*` buffers, stop radios/timers/callbacks, release leases, restore `touchZoneOutsideFooterEnabled = true` if modified.
+- **Zero-Overhead Embedded C++**: No C++ exceptions (`try`/`catch`), no RTTI (`dynamic_cast`), no `<iostream>`, no `std::regex`. Return `bool` or scoped `enum ReturnCode`; always null-check allocations and bounds-check packet/file parsers.
