@@ -12,6 +12,10 @@
   - Gate heavy features with `#if !defined(LITE_VERSION)` / `#if !defined(BRUCE_COMPACT_CJK_FONT)`.
   - Gate Wi-Fi/BLE bring-up with `radioHasMemForWifi()` / `radioHasMemForBle()` / `radioSafeBleInit()` (`src/core/radio_mem.h`).
   - Maintain strict ODR (`-flto -Werror=odr`), SPI bus isolation (`sdcardSPI` vs `AUX_SPI`), and never alter `struct keyStroke` (`include/globals.h`).
+- **Architecture, Data Structures & Coding Patterns / 架构与数据结构**:
+  - Keep strict layering (`menu_items`/`serial_commands` → `src/modules/` → `src/core/` → `bus_HAL`/`boards/*/interface.cc`) and share protocol/file parsers across GUI & CLI.
+  - Use a **local** `std::vector<Option>` inside submenus (never global `options` in nested menus — prevents lambda UAF).
+  - Use RAII `I2CLease` (`i2cLeaseDevice`/`i2cLeaseBus`/`i2cLeasePins`), `acquireSPIBus()`, `FS &fs` (`getFsStorage()`), bounded `MAX_*` POD scan tables, sorted `PROGMEM` lookup arrays, and the 4-phase lifecycle (Guard → Init → Dirty-Flag Loop → Deterministic Teardown). Avoid C++ exceptions, RTTI, `<iostream>`, and `std::regex`.
 - **UI & i18n / 主题界面与中文字库**:
   - Use `src/core/display.h` theme helpers (`uiSurfaceColor()`, `uiTextBrightColor()`, `uiDrawText16()`, etc.) and support both touch+trackball and 3-button ergonomics.
   - Keep `src/core/lang_zh_cn.h` strictly ASCII-sorted; never hand-edit `src/core/cjk_font_data.h` — run `python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check`.
