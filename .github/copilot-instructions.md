@@ -22,11 +22,17 @@
    - Always gate Wi-Fi/NimBLE initialization through `radioHasMemForWifi()`, `radioHasMemForBle()`, and `radioSafeBleInit()` in `src/core/radio_mem.h`.
    - Respect `-flto -Werror=odr`, SPI host isolation (`sdcardSPI(VSPI)` vs `AUX_SPI(HSPI)`), `inputLock()`/`inputUnlock()`, and never modify `struct keyStroke` in `include/globals.h`.
 
-4. **UI & Bilingual i18n (`zh-CN` default + `en`)**
+4. **Architecture, Data Structures & Coding Patterns**
+   - Follow strict layering (`menu_items`/`serial_commands`/`WebUI` → `src/modules/` → `src/core/` → `bus_HAL`/`boards/*/interface.cc`) and keep shared parsers in `src/modules/` or `src/core/`.
+   - Always build a **local** `std::vector<Option>` inside submenus (never reuse global `options` in nested menus — avoids lambda UAF).
+   - Acquire I2C via move-only RAII `I2CLease` (`src/core/bus_HAL.h`), SPI via `acquireSPIBus()`, and storage via `FS &fs` (`getFsStorage()`).
+   - Cap scan caches with `MAX_*` + fixed POD fields, store static tables in sorted `PROGMEM` arrays, follow the 4-phase lifecycle (Guard → Init → Dirty-Flag Loop → Deterministic Teardown), and avoid C++ exceptions, RTTI, `<iostream>`, and `std::regex`.
+
+5. **UI & Bilingual i18n (`zh-CN` default + `en`)**
    - Use `src/core/display.h` theme helpers (`uiSurfaceColor()`, `uiBorderDimColor()`, `uiTextBrightColor()`, `uiTextOnAccentColor()`, `uiDrawText16()`) and responsive coordinates (`tftWidth`, `tftHeight`).
    - Route UI strings through `bruce_i18n::tr()`. Keep `src/core/lang_zh_cn.h` strictly ASCII `strcmp`-sorted. Never hand-edit `src/core/cjk_font_data.h`; regenerate with `python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check`.
 
-5. **Style, Build Verification & Security**
+6. **Style, Build Verification & Security**
    - Follow `.clang-format` (LLVM, 4 spaces, 110 columns, attached braces) for `.cc`/`.h` and Python 3.11+ (`py_compile`) for build/host scripts.
    - Required verification commands:
      - `python3 tools/gen_cjk_font.py --check-tables`
