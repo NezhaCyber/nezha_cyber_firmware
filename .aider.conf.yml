@@ -1,0 +1,8 @@
+# Aider configuration for Nezha Cyber (哪吒网络安全)
+# Automatically loads canonical AI engineering rules (works with DeepSeek, Claude, GPT, etc.)
+
+read:
+  - AGENTS.md
+
+# Prevent unreviewed AI slop from being auto-committed; contributors review and commit atomically
+auto-commits: false
