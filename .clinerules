@@ -19,12 +19,18 @@
    - Gate Wi-Fi/NimBLE startup with `radioHasMemForWifi()`, `radioHasMemForBle()`, and `radioSafeBleInit()` (`src/core/radio_mem.h`).
    - Respect `-flto -Werror=odr`, `sdcardSPI(VSPI)` vs `AUX_SPI(HSPI)` separation, `inputLock()`/`inputUnlock()`, watchdog yields (`vTaskDelay`), and never modify `struct keyStroke` (`include/globals.h`).
 
-4. **UI & Bilingual i18n (`zh-CN` default + `en`) / 界面与中文字库**
+4. **Architecture, Data Structures & Coding Patterns / 架构、数据结构与编码规范**
+   - Follow strict layering (`menu_items`/`serial_commands`/`WebUI` → `src/modules/` → `src/core/` → `bus_HAL`/`boards/*/interface.cc`); keep shared parsers in `src/modules/` or `src/core/` so GUI and CLI never diverge.
+   - Always use a **local** `std::vector<Option> localOpts` inside submenus (see `RadarMenu.cc`); never reuse global `options` in nested menus (prevents lambda UAF).
+   - Acquire I2C via RAII `I2CLease` (`src/core/bus_HAL.h`), SPI via `acquireSPIBus()`, and storage via `FS &fs` (`getFsStorage()`).
+   - Cap scan lists with `MAX_*` + fixed POD fields, store static tables in sorted `PROGMEM` arrays, follow the 4-phase lifecycle (Guard → Init → Dirty-Flag Loop → Deterministic Teardown), and avoid C++ exceptions, RTTI, `<iostream>`, and `std::regex`.
+
+5. **UI & Bilingual i18n (`zh-CN` default + `en`) / 界面与中文字库**
    - Use theme helpers in `src/core/display.h` (`uiSurfaceColor()`, `uiBorderDimColor()`, `uiTextBrightColor()`, `uiTextOnAccentColor()`, `uiDrawText16()`) and support both touch+trackball and 3-button boards.
    - Route UI strings through `bruce_i18n::tr()`. Keep `src/core/lang_zh_cn.h` strictly ASCII `strcmp`-sorted.
    - Never hand-edit `src/core/cjk_font_data.h`; regenerate with `python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check`.
 
-5. **Style, Verification & Git / 代码风格、验证与提交**
+6. **Style, Verification & Git / 代码风格、验证与提交**
    - Follow `.clang-format` (LLVM, 4 spaces, 110 columns, attached braces).
    - Verify before finishing:
      ```sh
