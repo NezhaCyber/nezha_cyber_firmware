@@ -102,7 +102,11 @@ JSValue native_setTextAlign(JSContext *ctx, JSValue *this_val, int argc, JSValue
                 else if (s[0] == 'r') align = 2;
             }
         } else if (JS_IsNumber(ctx, argv[0])) {
-            JS_ToInt32(ctx, (int *)&align, argv[0]);
+            int32_t v = 0;
+            JS_ToInt32(ctx, &v, argv[0]);
+            if (v < 0) v = 0;
+            if (v > 2) v = 2;
+            align = (uint8_t)v;
         }
     }
     if (argc > 1) {
@@ -116,7 +120,11 @@ JSValue native_setTextAlign(JSContext *ctx, JSValue *this_val, int argc, JSValue
                 else if (s[0] == 'a') baseline = 3;
             }
         } else if (JS_IsNumber(ctx, argv[1])) {
-            JS_ToInt32(ctx, (int *)&baseline, argv[1]);
+            int32_t v = 0;
+            JS_ToInt32(ctx, &v, argv[1]);
+            if (v < 0) v = 0;
+            if (v > 3) v = 3;
+            baseline = (uint8_t)v;
         }
     }
 
@@ -367,6 +375,9 @@ JSValue native_drawBitmap(JSContext *ctx, JSValue *this_val, int argc, JSValue *
     if (argc > 3 && JS_IsNumber(ctx, argv[3])) JS_ToInt32(ctx, &bitmapWidth, argv[3]);
     if (argc > 4 && JS_IsNumber(ctx, argv[4])) JS_ToInt32(ctx, &bitmapHeight, argv[4]);
     if (argc > 5 && JS_IsNumber(ctx, argv[5])) JS_ToInt32(ctx, &bpp, argv[5]);
+    if (bitmapWidth <= 0 || bitmapHeight <= 0 || bitmapWidth > 1024 || bitmapHeight > 1024) {
+        return JS_ThrowTypeError(ctx, "drawBitmap: invalid dimensions");
+    }
 
     size_t bitmapSize = 0;
     const uint8_t *bitmapPointer = NULL;
@@ -392,14 +403,14 @@ JSValue native_drawBitmap(JSContext *ctx, JSValue *this_val, int argc, JSValue *
     size_t expectedSize;
     bool bpp8 = false;
     if (bpp == 16) {
-        expectedSize = bitmapWidth * bitmapHeight * 2; // 16bpp (RGB565)
+        expectedSize = (size_t)bitmapWidth * (size_t)bitmapHeight * 2; // 16bpp (RGB565)
     } else if (bpp == 8) {
-        expectedSize = bitmapWidth * bitmapHeight; // 8bpp (RGB332)
+        expectedSize = (size_t)bitmapWidth * (size_t)bitmapHeight; // 8bpp (RGB332)
         bpp8 = true;
     } else if (bpp == 4) {
-        expectedSize = (bitmapWidth * bitmapHeight + 1) / 2; // 4bpp (2 pixels per byte)
+        expectedSize = ((size_t)bitmapWidth * (size_t)bitmapHeight + 1) / 2; // 4bpp
     } else if (bpp == 1) {
-        expectedSize = ((bitmapWidth + 7) / 8) * bitmapHeight; // 1bpp (8 pixels per byte)
+        expectedSize = (((size_t)bitmapWidth + 7) / 8) * (size_t)bitmapHeight; // 1bpp
     } else {
         return JS_ThrowTypeError(ctx, "%s: Unsupported bpp value! Use 16, 8, 4, or 1.", "drawBitmap");
     }
@@ -566,6 +577,7 @@ JSValue native_drawImage(JSContext *ctx, JSValue *this_val, int argc, JSValue *a
 }
 
 JSValue native_drawJpg(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
+    if (argc < 1) return JS_UNDEFINED;
     FileParamsJS file;
     int x = 0, y = 0, center = 0;
     int base = 0;
@@ -575,9 +587,9 @@ JSValue native_drawJpg(JSContext *ctx, JSValue *this_val, int argc, JSValue *arg
         base = file.paramOffset;
     }
 
-    if (argc > base && JS_IsNumber(ctx, argv[base + 1])) JS_ToInt32(ctx, &x, argv[base + 1]);
-    if (argc > base + 1 && JS_IsNumber(ctx, argv[base + 2])) JS_ToInt32(ctx, &y, argv[base + 2]);
-    if (argc > base + 2) {
+    if (argc > base + 1 && JS_IsNumber(ctx, argv[base + 1])) JS_ToInt32(ctx, &x, argv[base + 1]);
+    if (argc > base + 2 && JS_IsNumber(ctx, argv[base + 2])) JS_ToInt32(ctx, &y, argv[base + 2]);
+    if (argc > base + 3) {
         if (JS_IsBool(argv[base + 3])) center = JS_ToBool(ctx, argv[base + 3]);
         else if (JS_IsNumber(ctx, argv[base + 3])) JS_ToInt32(ctx, &center, argv[base + 3]);
     }
@@ -769,9 +781,28 @@ JSValue native_createSprite(JSContext *ctx, JSValue *this_val, int argc, JSValue
     int16_t height = tft.height();
     uint8_t colorDepth = 16;
     uint8_t frames = 1;
-    if (argc > 0 && JS_IsNumber(ctx, argv[0])) JS_ToInt32(ctx, (int *)&width, argv[0]);
-    if (argc > 1 && JS_IsNumber(ctx, argv[1])) JS_ToInt32(ctx, (int *)&height, argv[1]);
-    if (argc > 2 && JS_IsNumber(ctx, argv[2])) JS_ToInt32(ctx, (int *)&colorDepth, argv[2]);
+    // JS_ToInt32 writes 4 bytes: never point it at int16_t/uint8_t locals.
+    if (argc > 0 && JS_IsNumber(ctx, argv[0])) {
+        int32_t v = width;
+        JS_ToInt32(ctx, &v, argv[0]);
+        if (v < 1) v = 1;
+        if (v > 1024) v = 1024;
+        width = (int16_t)v;
+    }
+    if (argc > 1 && JS_IsNumber(ctx, argv[1])) {
+        int32_t v = height;
+        JS_ToInt32(ctx, &v, argv[1]);
+        if (v < 1) v = 1;
+        if (v > 1024) v = 1024;
+        height = (int16_t)v;
+    }
+    if (argc > 2 && JS_IsNumber(ctx, argv[2])) {
+        int32_t v = colorDepth;
+        JS_ToInt32(ctx, &v, argv[2]);
+        if (v < 1) v = 1;
+        if (v > 16) v = 16;
+        colorDepth = (uint8_t)v;
+    }
 
     d->sprite = new tft_sprite(static_cast<tft_display *>(&tft));
     if (!d->sprite) {

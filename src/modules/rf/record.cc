@@ -1,4 +1,5 @@
 #include "record.h"
+#include "core/logging/nzlog.h"
 #include "protocols/rf_config.h"
 #include "protocols/rf_decoder.h"
 #include "rf_utils.h"
@@ -330,6 +331,12 @@ void rf_raw_record_create(RawRecording &recorded, bool &returnToMenu) {
             if (rx_size >= 5) valid_signal = true;
             if (valid_signal) {         // ignore codes shorter than 5 items
                 rmt_symbol_word_t *code = (rmt_symbol_word_t *)malloc(rx_size * sizeof(rmt_symbol_word_t));
+                if (code == nullptr) {
+                    NZLOGW("RF", "record: out of memory for %u RMT symbols", (unsigned)rx_size);
+                    ESP_ERROR_CHECK(rmt_receive(rx_ch, item, sizeof(item), &receive_config));
+                    rx_size = 0;
+                    continue;
+                }
 
                 // Gap calculation
                 unsigned long long signalDuration = 0;

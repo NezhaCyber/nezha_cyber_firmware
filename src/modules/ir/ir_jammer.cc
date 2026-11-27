@@ -15,12 +15,15 @@
 #include "ir_jammer.h"
 #include "TV-B-Gone.h" // for checkIrTxPin()
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/settings.h"
 #include "core/utils.h"
 #include "ir_utils.h"
 #include <globals.h>
 #include <interface.h>
+
+#define IRJAM_TAG "IRJAM"
 
 // Common IR remote control frequencies in Hz
 // Covers most consumer devices (30-56kHz range)
@@ -699,7 +702,9 @@ void startIrJammer() {
 #ifdef USE_BOOST /// ENABLE 5V OUTPUT
     hal_pmic_enable_otg();
 #endif
-    // Initialize IR transmitter with configured pin
+    // Validate the pin before constructing the transmitter, otherwise IRsend
+    // keeps the stale configured pin even after checkIrTxPin() repairs it.
+    checkIrTxPin();
     IRsend irsend(bruceConfigPins.irTx);
 
     // Initialize jammer state structure
@@ -708,6 +713,10 @@ void startIrJammer() {
     // Set up hardware and state
     setupJammer(irsend);
     initJammerState(state);
+    NZLOGI(
+        IRJAM_TAG, "jammer start pin=%d freq=%ukHz mode=%s", bruceConfigPins.irTx,
+        (unsigned)(getFrequency(state.current_freq_idx) / 1000), getModeName(state.currentMode)
+    );
 
     // Main jammer loop - runs until ESC is pressed
     while (!check(EscPress)) {
@@ -718,6 +727,8 @@ void startIrJammer() {
         // Small delay to prevent system overload
         delay(5);
     }
+
+    NZLOGI(IRJAM_TAG, "jammer stopped: jams=%u runtime=%us", (unsigned)state.jamCount, (unsigned)state.runtime);
 
     // Clean up when exiting
     cleanupJammer(irsend);
@@ -730,7 +741,15 @@ void startIrJammer() {
  * @param index Index into the IR_FREQUENCIES array
  * @return Frequency value in Hz
  */
-uint16_t getFrequency(uint8_t index) { return pgm_read_word(&IR_FREQUENCIES[index]); }
+uint16_t getFrequency(uint8_t index) {
+    if (index >= NUM_FREQS) index = 3; // 38kHz
+    return pgm_read_word(&IR_FREQUENCIES[index]);
+}
+
+const char *getModeName(uint8_t index) {
+    if (index >= 5) index = 0;
+    return IR_MODE_NAMES[index];
+}
 
 /**
  * Get human-readable name for the current jamming mode
@@ -738,4 +757,3 @@ uint16_t getFrequency(uint8_t index) { return pgm_read_word(&IR_FREQUENCIES[inde
  * @param index Index from JamMode enum
  * @return String containing the mode name
  */
-const char *getModeName(uint8_t index) { return IR_MODE_NAMES[index]; }

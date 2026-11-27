@@ -2,6 +2,7 @@
 #include "../mykeyboard.h"
 #include "core/display.h"
 #include "core/i2c_finder.h"
+#include "core/logging/log_viewer.h"
 #include "core/main_menu.h"
 #include "core/settings.h"
 #include "core/utils.h"
@@ -46,6 +47,7 @@ void ConfigMenu::optionsMenu() {
             localOptions.push_back({"Dev Mode", [this]() { devMenu(); }});
         }
 
+        localOptions.push_back({"System Log", []() { systemLogMenu(); }});
         localOptions.push_back({"About", showDeviceInfo});
         localOptions.push_back({"Main Menu", []() {}});
 

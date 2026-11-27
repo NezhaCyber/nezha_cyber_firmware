@@ -1,5 +1,7 @@
 #include "rf_send.h"
+#include "core/display.h"
 #include "core/led_control.h"
+#include "core/logging/nzlog.h"
 #include "core/type_convertion.h"
 #include "protocols/rf_config.h"
 #include "protocols/rf_encoder.h"
@@ -191,8 +193,13 @@ void loopEmulate(RfCodes &data) {
             blinkLed();
 
             if (data.serial == 0) {
-                for (int i = 0; uint64_t key : keyList) {
-                    data.Bit = bitList[i++];
+                size_t bitIndex = 0;
+                for (uint64_t key : keyList) {
+                    // A malformed .sub may have more Key: lines than Bit: lines
+                    // (or a stale bitList from a previous file). Never index
+                    // past the vector's end.
+                    if (bitIndex < bitList.size()) { data.Bit = bitList[bitIndex]; }
+                    ++bitIndex;
                     data.key = key;
                     sendRfCommand(data);
                 }
@@ -259,6 +266,13 @@ bool readSubFile(FS *fs, const String &filepath, RfCodes &data) {
     }
     Serial.println("Opened sub file.");
     selected_code.filepath = filepath.substring(1 + filepath.lastIndexOf("/"));
+
+    // Reset the shared replay vectors: otherwise a previous file's Key:/Bit:
+    // entries leak into this one and the sizes no longer correspond.
+    bitList.clear();
+    bitRawList.clear();
+    keyList.clear();
+    rawDataList.clear();
 
     if (!databaseFile) Serial.println("Fail opening file");
     // Store the code(s) in the signal
@@ -488,6 +502,11 @@ void sendRfCommand(struct RfCodes rfcode, bool hideDefaultUI) {
         // alloc buffer for transmittimings
         int *transmittimings =
             (int *)calloc(sizeof(int), buff_size + 1); // should be smaller the data.length()
+        if (transmittimings == nullptr) {
+            NZLOGE("RF", "RAW send: out of memory (%d timings)", buff_size + 1);
+            displayError("Out of memory", true);
+            return;
+        }
         size_t transmittimings_idx = 0;
 
         // split data into words, convert to int, and store them in transmittimings

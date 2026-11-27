@@ -30,6 +30,7 @@
 | 分类 | 模块 |
 | :--- | :--- |
 | **界面与主题** | 7 种主菜单布局（网格/轮播/列表/卡片/停靠栏/分栏/紧凑网格）、哪吒魔童主题工坊（20 套主题 / 71 套配色）、3 种主题纹饰、默认简体中文 / 英文 |
+| **诊断与日志** | Logcat 风格实时系统日志（写入 SD 卡 `/NezhaLogs/nezha.log`）、设备端实时查看器、串口 CLI（`log tail/level/info/clear`）、WebUI `/logs` 实时页面、复位原因与崩溃检测 |
 | **Wi-Fi** | STA/AP、抓包嗅探、信道分析、2.4 GHz 热力瀑布图、干扰检测、Probe 监听、局域网端口与 Banner 审计、IDS 哨兵、Evil Portal、Responder、ARP 扫描、WireGuard、SSH/Telnet、SOCKS4 |
 | **BLE 蓝牙** | 可滚动 BLE 广播测试界面、BLE 扫描、GATT 探测与通知监听、BLE 文件传输、BadBLE 与蓝牙键盘 |
 | **战术雷达** | 实时 Wi-Fi / BLE 空间雷达、告警标记、全局 GPS/RF 定位状态、可开关雷达提示音 |

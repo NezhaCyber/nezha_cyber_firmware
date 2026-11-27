@@ -1,12 +1,15 @@
 #include "custom_ir.h"
 #include "TV-B-Gone.h" // for checkIrTxPin()
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/settings.h"
 #include "core/type_convertion.h"
 #include "ir_utils.h"
 #include <IRutils.h>
+
+#define IR_TAG "IR"
 
 uint32_t swap32(uint32_t value) {
     return ((value & 0x000000FF) << 24) | ((value & 0x0000FF00) << 8) | ((value & 0x00FF0000) >> 8) |
@@ -72,132 +75,114 @@ void selectRecentIrMenu() {
 }
 
 bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI) {
-    // SPAM all codes of the file
-
-    int total_codes = 0;
-    String line;
-
-    File databaseFile = fs->open(filepath, FILE_READ);
+    // Replay every code in a Flipper .ir file.
+    //
+    // The previous implementation used nested read loops that swallowed the
+    // next "type:" line whenever a block had no trailing '#' separator, which
+    // silently skipped codes. This is a single-pass state machine: a code is
+    // flushed when the next header/separator (or EOF) is reached, and every
+    // line is then processed normally.
+    if (fs == nullptr) return false;
 
     setup_ir_pin(bruceConfigPins.irTx, OUTPUT);
-    // digitalWrite(bruceConfigPins.irTx, LED_ON);
 
+    File databaseFile = fs->open(filepath, FILE_READ);
     if (!databaseFile) {
         Serial.println("Failed to open database file.");
+        NZLOGE(IR_TAG, "cannot open IR file \"%s\"", filepath.c_str());
         displayError("Fail to open file");
         delay(2000);
         return false;
     }
     Serial.println("Opened database file.");
 
-    bool endingEarly = false;
-    int codes_sent = 0;
-    uint16_t frequency = 0;
-    String rawData = "";
-    String protocol = "";
-    String address = "";
-    String command = "";
-    String value = "";
-    uint8_t bits = 32;
-
-    databaseFile.seek(0); // comes back to first position
-
-    // count the number of codes to replay
+    int total_codes = 0;
+    String line;
     while (databaseFile.available()) {
         line = databaseFile.readStringUntil('\n');
         if (line.startsWith("type:")) total_codes++;
     }
-
-    Serial.printf("\nStarted SPAM all codes with: %d codes", total_codes);
-    // comes back to first position, beggining of the file
     databaseFile.seek(0);
+
+    NZLOGI(IR_TAG, "replaying IR file \"%s\" (%d codes)", filepath.c_str(), total_codes);
+
+    bool endingEarly = false;
+    int codes_sent = 0;
+    IRCode current;
+    bool haveCode = false;
+
+    auto flushCode = [&]() {
+        if (!haveCode) return;
+        bool isRaw = current.type.equalsIgnoreCase("raw");
+        if (isRaw) {
+            if (current.frequency == 0) current.frequency = 38000;
+            if (current.frequency >= 30000 && current.frequency <= 60000 && current.data.length() > 0) {
+                sendIRCommand(&current, hideDefaultUI);
+                ++codes_sent;
+            } else {
+                NZLOGW(
+                    IR_TAG, "skip raw code: frequency=%u data_len=%u", (unsigned)current.frequency,
+                    (unsigned)current.data.length()
+                );
+            }
+        } else if (current.type.equalsIgnoreCase("parsed") || current.protocol.length() > 0) {
+            if (current.protocol.length() > 0) {
+                sendIRCommand(&current, hideDefaultUI);
+                ++codes_sent;
+            } else {
+                NZLOGW(IR_TAG, "skip parsed code without protocol");
+            }
+        }
+        current = IRCode();
+        haveCode = false;
+    };
+
     while (databaseFile.available()) {
         if (!hideDefaultUI) { progressHandler(codes_sent, total_codes); }
+
         line = databaseFile.readStringUntil('\n');
         if (line.endsWith("\r")) line.remove(line.length() - 1);
 
-        if (line.startsWith("type:")) {
-            codes_sent++;
-            String type = line.substring(5);
-            type.trim();
-            Serial.println("Type: " + type);
-            if (type == "raw") {
-                Serial.println("RAW code");
-                while (databaseFile.available()) {
-                    line = databaseFile.readStringUntil('\n');
-                    if (line.endsWith("\r")) line.remove(line.length() - 1);
-
-                    if (line.startsWith("frequency:")) {
-                        line = line.substring(10);
-                        line.trim();
-                        frequency = line.toInt();
-                        Serial.printf("Frequency: %d\n", frequency);
-                    } else if (line.startsWith("data:")) {
-                        rawData = line.substring(5);
-                        rawData.trim();
-                        Serial.println("RawData: " + rawData);
-                    } else if ((frequency != 0 && rawData != "") || line.startsWith("#")) {
-                        IRCode code;
-                        code.type = "raw";
-                        code.data = rawData;
-                        code.frequency = frequency;
-                        sendIRCommand(&code, hideDefaultUI);
-
-                        rawData = "";
-                        frequency = 0;
-                        type = "";
-                        line = "";
-                        break;
-                    }
-                }
-            } else if (type == "parsed") {
-                Serial.println("PARSED");
-                while (databaseFile.available()) {
-                    line = databaseFile.readStringUntil('\n');
-                    if (line.endsWith("\r")) line.remove(line.length() - 1);
-
-                    if (line.startsWith("protocol:")) {
-                        protocol = line.substring(9);
-                        protocol.trim();
-                        Serial.println("Protocol: " + protocol);
-                    } else if (line.startsWith("address:")) {
-                        address = line.substring(8);
-                        address.trim();
-                        Serial.println("Address: " + address);
-                    } else if (line.startsWith("command:")) {
-                        command = line.substring(8);
-                        command.trim();
-                        Serial.println("Command: " + command);
-                    } else if (line.startsWith("value:") || line.startsWith("state:")) {
-                        value = line.substring(6);
-                        value.trim();
-                        Serial.println("Value: " + value);
-                    } else if (line.startsWith("bits:")) {
-                        bits = line.substring(strlen("bits:")).toInt();
-                        Serial.println("bits: " + bits);
-                    } else if (line.indexOf("#") != -1) { // TODO: also detect EOF
-                        IRCode code(protocol, address, command, value, bits);
-                        sendIRCommand(&code, hideDefaultUI);
-
-                        protocol = "";
-                        address = "";
-                        command = "";
-                        value = "";
-                        bits = 32;
-                        type = "";
-                        line = "";
-                        break;
-                    }
-                }
-            }
+        if (line.startsWith("name:")) {
+            // A new signal starts here.
+            flushCode();
+        } else if (line.startsWith("type:")) {
+            flushCode();
+            current.type = line.substring(5);
+            current.type.trim();
+            haveCode = true;
+        } else if (line.startsWith("frequency:")) {
+            current.frequency = (uint16_t)line.substring(10).toInt();
+        } else if (line.startsWith("data:")) {
+            current.data = line.substring(5);
+            current.data.trim();
+        } else if (line.startsWith("protocol:")) {
+            current.protocol = line.substring(9);
+            current.protocol.trim();
+        } else if (line.startsWith("address:")) {
+            current.address = line.substring(8);
+            current.address.trim();
+        } else if (line.startsWith("command:")) {
+            current.command = line.substring(8);
+            current.command.trim();
+        } else if (line.startsWith("value:") || line.startsWith("state:")) {
+            current.data = line.substring(6);
+            current.data.trim();
+        } else if (line.startsWith("bits:")) {
+            long parsedBits = line.substring(5).toInt();
+            if (parsedBits < 1) parsedBits = 32;
+            if (parsedBits > 4096) parsedBits = 4096;
+            current.bits = (uint16_t)parsedBits;
+        } else if (line.startsWith("#")) {
+            flushCode();
         }
-        // if user is pushing (holding down) TRIGGER button, stop transmission early
-        if (check(SelPress)) // Pause TV-B-Gone
-        {
+
+        // Hold SELECT to pause; press ESC while paused to stop.
+        if (check(SelPress)) {
             while (check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(1)); }
             if (!hideDefaultUI) { displayTextLine("Paused"); }
 
-            while (!check(SelPress)) { // If Presses Select again, continues
+            while (!check(SelPress)) {
                 if (check(EscPress)) {
                     endingEarly = true;
                     break;
@@ -205,13 +190,16 @@ bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI) {
                 vTaskDelay(pdMS_TO_TICKS(1));
             }
             while (check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(1)); }
-            if (endingEarly) break; // Cancels  custom IR Spam
+            if (endingEarly) break;
             if (!hideDefaultUI) { displayTextLine("Running, Wait"); }
         }
-    } // end while file has lines to process
+    }
+    flushCode();
     databaseFile.close();
+    if (!hideDefaultUI) progressHandler(codes_sent, total_codes);
+
     Serial.println("closed");
-    Serial.println("EXTRA finished");
+    NZLOGI(IR_TAG, "IR file replay finished: sent=%d total=%d", codes_sent, total_codes);
 
     resetCodesArray();
     digitalWrite(bruceConfigPins.irTx, LED_OFF);
@@ -313,6 +301,12 @@ void sendIRCommand(IRCode *code, bool hideDefaultUI) {
         strToDecodeType(code->protocol.c_str()) != decode_type_t::UNKNOWN
     )
         sendDecodedCommand(code->protocol, code->data, code->bits, hideDefaultUI);
+    else {
+        NZLOGW(
+            IR_TAG, "unhandled IR code type=\"%s\" protocol=\"%s\"", code->type.c_str(),
+            code->protocol.c_str()
+        );
+    }
 }
 
 void sendNECCommand(String address, String command, bool hideDefaultUI) {
@@ -544,55 +538,74 @@ void sendKaseikyoCommand(String address, String command, bool hideDefaultUI) {
     digitalWrite(bruceConfigPins.irTx, LED_OFF);
 }
 
-bool sendDecodedCommand(String protocol, String value, uint8_t bits, bool hideDefaultUI) {
+bool sendDecodedCommand(String protocol, String value, uint16_t bits, bool hideDefaultUI) {
     // https://github.com/crankyoldgit/IRremoteESP8266/blob/master/examples/SmartIRRepeater/SmartIRRepeater.ino
 #if !defined(LITE_VERSION)
     decode_type_t type = strToDecodeType(protocol.c_str());
-    if (type == decode_type_t::UNKNOWN) return false;
+    if (type == decode_type_t::UNKNOWN) {
+        NZLOGW(IR_TAG, "unknown IR protocol \"%s\"", protocol.c_str());
+        return false;
+    }
 
-    IRsend irsend(bruceConfigPins.irTx); // Set the GPIO to be used to sending the message.
+    IRsend irsend(bruceConfigPins.irTx);
     irsend.begin();
     bool success = false;
     if (!hideDefaultUI) { displayTextLine("Sending.."); }
 
     if (hasACState(type)) {
-        // need to send the state (still passed from value)
-        uint8_t state[bits / 8] = {0};
+        // AC states are byte arrays; Flipper stores them as "AA BB CC ...".
+        // Fixed upper bound instead of the old VLA, whose size came straight
+        // from the file's "bits:" field (a corrupt file could smash the stack).
+        constexpr uint16_t kMaxStateBytes = 512;
+        uint8_t state[kMaxStateBytes] = {0};
+        uint16_t maxBytes = (bits + 7) / 8;
+        if (maxBytes > kMaxStateBytes) maxBytes = kMaxStateBytes;
+
         uint16_t state_pos = 0;
-        for (uint16_t i = 0; i < value.length(); i += 3) {
-            // parse  value -> state
-            uint8_t highNibble = hexCharToDecimal(value[i]);
-            uint8_t lowNibble = hexCharToDecimal(value[i + 1]);
-            state[state_pos] = (highNibble << 4) | lowNibble;
-            state_pos++;
+        for (uint16_t i = 0; i + 1 < value.length() && state_pos < maxBytes; i += 3) {
+            char hi = value[i];
+            char lo = value[i + 1];
+            bool validHi = (hi >= '0' && hi <= '9') || (hi >= 'A' && hi <= 'F') || (hi >= 'a' && hi <= 'f');
+            bool validLo = (lo >= '0' && lo <= '9') || (lo >= 'A' && lo <= 'F') || (lo >= 'a' && lo <= 'f');
+            if (!validHi || !validLo) {
+                NZLOGW(IR_TAG, "bad AC state hex at %u", i);
+                break;
+            }
+            state[state_pos++] =
+                (uint8_t)((hexCharToDecimal(hi) << 4) | hexCharToDecimal(lo));
         }
-        // success = irsend.send(type, state, bits / 8);
-        success = irsend.send(type, state, state_pos); // safer
+        if (state_pos == 0) {
+            NZLOGW(IR_TAG, "empty/invalid AC state");
+            return false;
+        }
+
+        success = irsend.send(type, state, state_pos);
 
         if (bruceConfigPins.irTxRepeats > 0) {
             for (uint8_t i = 1; i <= bruceConfigPins.irTxRepeats; i++) {
                 irsend.send(type, state, state_pos);
             }
         }
-
     } else {
+        if (bits < 1 || bits > 64) {
+            NZLOGW(IR_TAG, "invalid bit count %u for protocol %s", bits, protocol.c_str());
+            return false;
+        }
         value.replace(" ", "");
         uint64_t value_int = strtoull(value.c_str(), nullptr, 16);
 
-        success =
-            irsend.send(type, value_int, bits); // bool send(const decode_type_t type, const uint64_t data,
-                                                // const uint16_t nbits, const uint16_t repeat = kNoRepeat);
+        success = irsend.send(type, value_int, bits);
 
         if (bruceConfigPins.irTxRepeats > 0) {
-            for (uint8_t i = 1; i <= bruceConfigPins.irTxRepeats; i++) { irsend.send(type, value_int, bits); }
+            for (uint8_t i = 1; i <= bruceConfigPins.irTxRepeats; i++) {
+                irsend.send(type, value_int, bits);
+            }
         }
     }
 
     delay(20);
-    Serial.println(
-        "Sent Decoded Command" + (bruceConfigPins.irTxRepeats > 0
-                                      ? " (1 initial + " + String(bruceConfigPins.irTxRepeats) + " repeats)"
-                                      : "")
+    NZLOGD(
+        IR_TAG, "decoded send %s bits=%u success=%d", protocol.c_str(), (unsigned)bits, (int)success
     );
     digitalWrite(bruceConfigPins.irTx, LED_OFF);
     return success;
@@ -608,15 +621,31 @@ void sendRawCommand(uint16_t frequency, String rawData, bool hideDefaultUI) {
     hal_pmic_enable_otg();
 #endif
 
+    if (frequency < 30000 || frequency > 60000) {
+        NZLOGW(IR_TAG, "raw send: invalid frequency %u, using 38000", (unsigned)frequency);
+        frequency = 38000;
+    }
+    if (rawData.length() == 0) {
+        NZLOGW(IR_TAG, "raw send: empty data");
+        return;
+    }
+
     IRsend irsend(bruceConfigPins.irTx); // Set the GPIO to be used to sending the message.
     irsend.begin();
     if (!hideDefaultUI) { displayTextLine("Sending.."); }
 
-    uint16_t dataBufferSize = 1;
+    uint32_t dataBufferSize = 1;
     for (int i = 0; i < rawData.length(); i++) {
         if (rawData[i] == ' ') dataBufferSize += 1;
     }
-    uint16_t *dataBuffer = (uint16_t *)malloc((dataBufferSize) * sizeof(uint16_t));
+    if (dataBufferSize > 1024) dataBufferSize = 1024; // sanity cap for corrupt files
+
+    uint16_t *dataBuffer = (uint16_t *)malloc(dataBufferSize * sizeof(uint16_t));
+    if (dataBuffer == nullptr) {
+        NZLOGE(IR_TAG, "raw send: out of memory for %u samples", (unsigned)dataBufferSize);
+        displayError("Out of memory", true);
+        return;
+    }
 
     uint16_t count = 0;
     // Parse raw data string
@@ -628,12 +657,8 @@ void sendRawCommand(uint16_t frequency, String rawData, bool hideDefaultUI) {
         dataBuffer[count++] = (dataChunk.toInt());
     }
 
-    Serial.println("Parsing raw data complete.");
-    // Serial.println(count);
-    // Serial.println(dataBuffer[count-1]);
-    // Serial.println(dataBuffer[0]);
+    NZLOGD(IR_TAG, "raw send: freq=%u samples=%u", (unsigned)frequency, (unsigned)count);
 
-    // Send raw command
     irsend.sendRaw(dataBuffer, count, frequency);
 
     if (bruceConfigPins.irTxRepeats > 0) {
@@ -644,11 +669,6 @@ void sendRawCommand(uint16_t frequency, String rawData, bool hideDefaultUI) {
 
     free(dataBuffer);
 
-    Serial.println(
-        "Sent Raw Command" + (bruceConfigPins.irTxRepeats > 0
-                                  ? " (1 initial + " + String(bruceConfigPins.irTxRepeats) + " repeats)"
-                                  : "")
-    );
     digitalWrite(bruceConfigPins.irTx, LED_OFF);
 }
 
@@ -675,6 +695,12 @@ bool chooseCmdIrFile(FS *fs, const String &filepath) {
     String line;
     String txt;
     codes.push_back(new IRCode());
+    if (codes.back() == nullptr) {
+        NZLOGE(IR_TAG, "out of memory allocating IRCode");
+        displayError("Out of memory", true);
+        databaseFile.close();
+        return false;
+    }
 
     while (databaseFile.available() && total_codes < 100) {
         line = databaseFile.readStringUntil('\n');
@@ -685,6 +711,10 @@ bool chooseCmdIrFile(FS *fs, const String &filepath) {
             if (codes[total_codes]->name != "") {
                 total_codes++;
                 codes.push_back(new IRCode());
+                if (codes.back() == nullptr) {
+                    NZLOGE(IR_TAG, "out of memory allocating IRCode");
+                    break;
+                }
             }
             // save signal name
             codes[total_codes]->name = txt;
@@ -704,6 +734,10 @@ bool chooseCmdIrFile(FS *fs, const String &filepath) {
         if (line.startsWith("#") && total_codes < codes.size() && codes[total_codes]->name != "") {
             total_codes++;
             codes.push_back(new IRCode());
+            if (codes.back() == nullptr) {
+                NZLOGE(IR_TAG, "out of memory allocating IRCode");
+                break;
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 #include "display.h"
+#include "core/logging/nzlog.h"
 #include "hal/power/gauge.h"
 #include "i18n.h"
 #include "core/wifi/webInterface.h" // for server
@@ -417,6 +418,7 @@ int8_t displayMessage(
 }
 
 void displayError(const String &txt, bool waitKeyPress) {
+    NZLOGE("UI", "%s", txt.c_str());
     displayRedStripe(txt);
     Serial.println("ERR: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -427,6 +429,7 @@ void displayError(const String &txt, bool waitKeyPress) {
 }
 
 void displayWarning(const String &txt, bool waitKeyPress) {
+    NZLOGW("UI", "%s", txt.c_str());
     displayRedStripe(txt, TFT_BLACK, TFT_YELLOW);
     Serial.println("WARN: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -437,6 +440,7 @@ void displayWarning(const String &txt, bool waitKeyPress) {
 }
 
 void displayInfo(const String &txt, bool waitKeyPress) {
+    NZLOGI("UI", "%s", txt.c_str());
     displayRedStripe(txt, TFT_WHITE, TFT_BLUE);
     Serial.println("INFO: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -447,6 +451,7 @@ void displayInfo(const String &txt, bool waitKeyPress) {
 }
 
 void displaySuccess(const String &txt, bool waitKeyPress) {
+    NZLOGI("UI", "%s", txt.c_str());
     displayRedStripe(txt, TFT_WHITE, TFT_DARKGREEN);
     Serial.println("SUCCESS: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -457,6 +462,7 @@ void displaySuccess(const String &txt, bool waitKeyPress) {
 }
 
 void displayTextLine(const String &txt, bool waitKeyPress) {
+    NZLOGD("UI", "%s", txt.c_str());
     displayRedStripe(txt, getComplementaryColor2(bruceConfig.priColor), bruceConfig.priColor);
     Serial.println("MESSAGE: " + txt);
 #ifdef USE_DUMMY_TFT
@@ -812,6 +818,7 @@ int loopOptions(
 #endif
         if (menuType != MENU_TYPE_MAIN && check(EscPress)) {
             index = -1;
+            NZLOGD("MENU", "back from [%s]", (subText != nullptr && subText[0] != '\0') ? subText : "menu");
             break;
         }
         if (menuType == MENU_TYPE_MAIN && mainMenuGridColumns > 1 &&
@@ -954,8 +961,22 @@ int loopOptions(
                 Serial.print("Forcely ");
             }
             if (chosen >= options.size() || !options[chosen].enabled) continue;
-            Serial.println("Selected: " + String(options[chosen].label));
+            // Copy before invoking the callback: menu handlers (FM, nested
+            // menus, ...) may clear/rebuild the global options vector from
+            // inside the operation.
+            String actionLabel = options[chosen].label;
+            Serial.println("Selected: " + actionLabel);
+            // Real-time activity trace: every app/menu launch lands in the log,
+            // which makes a crash reproducible (last line = action in progress).
+            NZLOGI(
+                "MENU", "[%s] -> %s", (subText != nullptr && subText[0] != '\0') ? subText : "menu",
+                actionLabel.c_str()
+            );
             options[chosen].operation();
+            NZLOGD(
+                "MENU", "[%s] <- %s heap=%u", (subText != nullptr && subText[0] != '\0') ? subText : "menu",
+                actionLabel.c_str(), (unsigned)ESP.getFreeHeap()
+            );
             break;
         }
         // interpreter_start -> running the interpreter
@@ -981,6 +1002,7 @@ static void drawBackChevron(int cx, int cy, uint16_t color) {
 }
 
 void progressHandler(int progress, size_t total, const String &message) {
+    if (total > 0 && (size_t)progress >= total) NZLOGI("TASK", "done: %s", message.c_str());
     int barHeight = 8;
     int barY = tftHeight - barHeight - 16;
     int trackX = 20;

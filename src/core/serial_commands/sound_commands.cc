@@ -16,8 +16,15 @@ uint32_t toneCallback(cmd *c) {
     bool soundEnabled = bruceConfig.soundEnabled;
     bruceConfig.soundEnabled = true;
 
-    unsigned long frequency = std::stoul(strFreq.c_str());
-    unsigned long duration = std::stoul(strDur.c_str());
+    char *endFreq = nullptr;
+    char *endDur = nullptr;
+    unsigned long frequency = strtoul(strFreq.c_str(), &endFreq, 10);
+    unsigned long duration = strtoul(strDur.c_str(), &endDur, 10);
+    if (strFreq.length() == 0 || *endFreq != '\0' || strDur.length() == 0 || *endDur != '\0') {
+        bruceConfig.soundEnabled = soundEnabled;
+        serialDevice->println("Usage: tone <frequency> <duration> (decimal numbers)");
+        return false;
+    }
 
     serialDevice->println((int)500UL);
     serialDevice->println((int)frequency);

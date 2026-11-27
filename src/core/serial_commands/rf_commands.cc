@@ -14,6 +14,23 @@
 #include <LittleFS.h>
 #include <globals.h>
 
+namespace {
+// std::stoul/stoull throw on malformed CLI input; exceptions are disabled in
+// the firmware, so an uncaught std::invalid_argument aborts. Parse manually.
+bool parseUnsigned(const String &s, unsigned long &out, int base = 10) {
+    if (s.length() == 0) return false;
+    char *end = nullptr;
+    out = strtoul(s.c_str(), &end, base);
+    return end != nullptr && *end == '\0';
+}
+bool parseU64(const String &s, uint64_t &out, int base = 16) {
+    if (s.length() == 0) return false;
+    char *end = nullptr;
+    out = strtoull(s.c_str(), &end, base);
+    return end != nullptr && *end == '\0';
+}
+} // namespace
+
 uint32_t rfRxCallback(cmd *c) {
     Command cmd(c);
 
@@ -59,10 +76,15 @@ uint32_t rfTxCallback(cmd *c) {
     String strTe = teArg.getValue();
     String strCount = cntArg.getValue();
 
-    uint64_t key = std::stoull(strKey.c_str(), nullptr, 16);
-    unsigned long frequency = std::stoul(strFrequency.c_str());
-    unsigned int te = std::stoul(strTe.c_str());
-    unsigned int count = std::stoul(strCount.c_str());
+    uint64_t key = 0;
+    unsigned long frequency = 0;
+    unsigned long te = 0;
+    unsigned long count = 0;
+    if (!parseU64(strKey, key, 16) || !parseUnsigned(strFrequency, frequency) ||
+        !parseUnsigned(strTe, te) || !parseUnsigned(strCount, count)) {
+        serialDevice->println("Usage: subghz tx <hex key> <frequency> <te> <count>");
+        return false;
+    }
 
     unsigned int bits = 24; // TODO: compute from key
 
@@ -96,14 +118,27 @@ uint32_t rfTxByNameCallback(cmd *c) {
         return false;
     }
 
-    uint64_t key = std::stoull(strKey.c_str(), nullptr, 16);
-    unsigned long frequency = std::stoul(strFrequency.c_str());
-    unsigned int bits = std::stoul(strBits.c_str());
-    int te = strTe.length() ? (int)std::stoul(strTe.c_str()) : 0;
-    int repeat = strRepeat.length() ? (int)std::stoul(strRepeat.c_str()) : 10;
+    uint64_t key = 0;
+    unsigned long frequency = 0;
+    unsigned long bits = 0;
+    unsigned long te = 0;
+    unsigned long repeat = 10;
+    if (!parseU64(strKey, key, 16) || !parseUnsigned(strFrequency, frequency) ||
+        !parseUnsigned(strBits, bits)) {
+        serialDevice->println("Usage: subghz txp <protocol> <frequency> <bits> <hex key> [te] [repeat]");
+        return false;
+    }
+    if (strTe.length() && !parseUnsigned(strTe, te)) {
+        serialDevice->println("Invalid te");
+        return false;
+    }
+    if (strRepeat.length() && !parseUnsigned(strRepeat, repeat)) {
+        serialDevice->println("Invalid repeat");
+        return false;
+    }
 
     if (!initRfModule("tx", float(frequency / 1000000.0))) return false;
-    rf_tx_protocol(key, bits, te, def, repeat);
+    rf_tx_protocol(key, bits, (int)te, def, (int)repeat);
     deinitRfModule();
     return true;
 }
@@ -143,11 +178,24 @@ uint32_t rfKeeloqTxCallback(cmd *c) {
 
     RfCodes data{};
     data.mf_name = mf;
-    data.btn = (uint8_t)std::stoul(strBtn.c_str());
-    data.serial = (uint32_t)std::stoul(strSerial.c_str(), nullptr, 16);
-    data.cnt = (uint16_t)std::stoul(strCnt.c_str());
-    unsigned long frequency = std::stoul(strFreq.c_str());
-    int repeat = strRepeat.length() ? (int)std::stoul(strRepeat.c_str()) : 10;
+    unsigned long btn = 0, serial = 0, cnt = 0, frequency = 0, repeat = 10;
+    if (strSerial.length() != 0) {
+        if (!parseUnsigned(strSerial, serial, 16) || !parseUnsigned(strFreq, frequency) ||
+            !parseUnsigned(strBtn, btn) || !parseUnsigned(strCnt, cnt)) {
+            serialDevice->println("Usage: subghz keeloqtx <mf> <freq> <button> <serial_hex> <counter> [repeat]");
+            return false;
+        }
+    } else if (!parseUnsigned(strFreq, frequency)) {
+        serialDevice->println("Invalid frequency");
+        return false;
+    }
+    if (strRepeat.length() && !parseUnsigned(strRepeat, repeat)) {
+        serialDevice->println("Invalid repeat");
+        return false;
+    }
+    data.btn = (uint8_t)btn;
+    data.serial = (uint32_t)serial;
+    data.cnt = (uint16_t)cnt;
 
     data.fix = ((uint32_t)data.btn << 28) | data.serial;
     data.Bit = 64;
@@ -286,9 +334,16 @@ uint32_t rfTxBufferCallback(cmd *c) {
     if (!(_setupPsramFs())) return false;
 
     char *txt = _readFileFromSerial();
+    if (txt == nullptr) {
+        serialDevice->println("Out of memory reading serial input");
+        return false;
+    }
     String tmpfilepath = "/tmpramfile"; // TODO: Change to use char *txt directly
     File f = PSRamFS.open(tmpfilepath, FILE_WRITE);
-    if (!f) return false;
+    if (!f) {
+        free(txt);
+        return false;
+    }
 
     f.write((const uint8_t *)txt, strlen(txt));
     f.close();

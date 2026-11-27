@@ -277,6 +277,7 @@ void wifi_probe_sniffer() {
 
         if (now - lastDraw >= 350) {
             std::vector<ProbeEntry> list;
+            list.reserve(PROBE_MAX_ENTRIES); // no heap allocation inside the critical section
             uint32_t total = 0;
             portENTER_CRITICAL(&ctx.mux);
             total = ctx.totalProbes;
@@ -353,21 +354,25 @@ void wifi_probe_sniffer() {
                     File f = fs->open("/probe_log.csv", FILE_WRITE);
                     if (f) {
                         f.println("mac,ssid,rssi,ch,count,lat,lon");
+                        // Snapshot under the spinlock; never do SD I/O or heap
+                        // allocation with interrupts disabled.
+                        ProbeEntry snapshot[PROBE_MAX_ENTRIES];
                         portENTER_CRITICAL(&ctx.mux);
+                        memcpy(snapshot, ctx.items, sizeof(snapshot));
+                        portEXIT_CRITICAL(&ctx.mux);
                         for (size_t i = 0; i < PROBE_MAX_ENTRIES; ++i) {
-                            if (!ctx.items[i].active) continue;
+                            if (!snapshot[i].active) continue;
                             f.printf(
                                 "%s,\"%s\",%d,%u,%u,%.6f,%.6f\n",
-                                fmtMac(ctx.items[i].mac).c_str(),
-                                ctx.items[i].ssid,
-                                (int)ctx.items[i].rssi,
-                                (unsigned)ctx.items[i].channel,
-                                (unsigned)ctx.items[i].count,
+                                fmtMac(snapshot[i].mac).c_str(),
+                                snapshot[i].ssid,
+                                (int)snapshot[i].rssi,
+                                (unsigned)snapshot[i].channel,
+                                (unsigned)snapshot[i].count,
                                 lat,
                                 lon
                             );
                         }
-                        portEXIT_CRITICAL(&ctx.mux);
                         f.close();
                         displaySuccess("Saved /probe_log.csv", true);
                     }

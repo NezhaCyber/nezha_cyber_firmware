@@ -66,7 +66,13 @@ uint32_t hexColorCallback(cmd *c) {
         return false;
     }
 
-    uint32_t value = static_cast<uint32_t>(std::stoul(strValue.c_str(), nullptr, 16));
+    char *endPtr = nullptr;
+    unsigned long parsed = strtoul(strValue.c_str(), &endPtr, 16);
+    if (strValue.length() == 0 || *endPtr != '\0') {
+        serialDevice->println("Invalid hex value: " + strValue);
+        return false;
+    }
+    uint32_t value = static_cast<uint32_t>(parsed);
 
     if (value > 0xFFFFFF) {
         serialDevice->println("Invalid color: " + strValue);

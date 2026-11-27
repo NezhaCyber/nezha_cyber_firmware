@@ -931,6 +931,7 @@ static const TranslationEntry kZhCnTable[] PROGMEM = {
     {"Swedish", "瑞典语"},
     {"Synthwave", "蒸汽波粉"},
     {"System Config", "系统配置"},
+    {"System Log", "系统日志"},
     {"TAG-O-MATIC", "NFC标签工具"},
     {"TV", "电视"},
     {"TV-B-Gone", "电视红外关闭"},

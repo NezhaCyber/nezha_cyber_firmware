@@ -72,3 +72,8 @@
 ### 3. Build & Partition Pipeline (`scripts/build/`, `partitions/`, `Makefile`)
 - `scripts/build/build.py` validates firmware size against the target partition table and emits ready-to-flash merged binaries (`NezhaCyber-<env>.bin`).
 - `Makefile` auto-detects connected USB serial ports and targets (`make tdeck`, `make stickc-plus`, `make build`, `make install`).
+
+### 4. Real-Time Diagnostics (`src/core/logging/`, `docs/LOGGING.md`)
+- Android-logcat-style `V/D/I/W/E/F` logger with fixed 320-byte stack lines, no RAM history and immediate SD append/flush to `/NezhaLogs/nezha.log`.
+- 512 KiB rotation, boot/reset-reason/crash banner, heap/PSRAM snapshots, recursive-mutex task safety.
+- On-device live viewer (`Config → System Log`), serial CLI (`log tail/level/info/clear`) and WebUI (`/logs`, `/logs?html=1`).

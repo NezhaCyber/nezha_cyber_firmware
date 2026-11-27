@@ -114,7 +114,7 @@ JSValue native_dialogPickFile(JSContext *ctx, JSValue *this_val, int argc, JSVal
 JSValue native_dialogChoice(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
     // usage: dialogChoice(choices : string[] | [key: string, value: string][] | {[key: string]: string})
     // returns: string or empty string
-    const char *result = "";
+    String result = "";
     if (argc < 1 || !JS_IsObject(ctx, argv[0])) {
         return JS_ThrowTypeError(ctx, "dialogChoice: Choice argument must be object or array.");
     }
@@ -131,7 +131,9 @@ JSValue native_dialogChoice(JSContext *ctx, JSValue *this_val, int argc, JSValue
             if (JS_IsString(ctx, jsvChoice)) {
                 JSCStringBuf sb;
                 const char *s = JS_ToCString(ctx, jsvChoice, &sb);
-                options.push_back({s, [&result, s]() { result = s; }});
+                if (s == nullptr) continue;
+                String choiceText = s;
+                options.push_back({choiceText.c_str(), [&result, choiceText]() { result = choiceText; }});
             } else if (JS_GetClassID(ctx, jsvChoice) == JS_CLASS_ARRAY) {
                 /* element is expected to be [key, value] */
                 JSValue jsvInnerArrayLength = JS_GetPropertyStr(ctx, jsvChoice, "length");
@@ -145,8 +147,12 @@ JSValue native_dialogChoice(JSContext *ctx, JSValue *this_val, int argc, JSValue
                     if (JS_IsString(ctx, jsvKey) && JS_IsString(ctx, jsvValue)) {
                         JSCStringBuf sb;
                         const char *key = JS_ToCString(ctx, jsvKey, &sb);
-                        const char *value = JS_ToCString(ctx, jsvValue, &sb);
-                        options.push_back({key, [value, &result]() { result = value; }});
+                        String keyText = key ? key : "";
+                        JSCStringBuf sbValue;
+                        const char *value = JS_ToCString(ctx, jsvValue, &sbValue);
+                        if (key == nullptr || value == nullptr) continue;
+                        String valueText = value;
+                        options.push_back({keyText.c_str(), [valueText, &result]() { result = valueText; }});
                     }
                 }
             }
@@ -165,7 +171,10 @@ JSValue native_dialogChoice(JSContext *ctx, JSValue *this_val, int argc, JSValue
             if (JS_IsString(ctx, jsvVal)) {
                 JSCStringBuf sb;
                 const char *val = JS_ToCString(ctx, jsvVal, &sb);
-                options.push_back({key, [val, &result]() { result = val; }});
+                if (val == nullptr) continue;
+                String keyText = key;
+                String valueText = val;
+                options.push_back({keyText.c_str(), [valueText, &result]() { result = valueText; }});
             }
         }
     }
@@ -173,7 +182,7 @@ JSValue native_dialogChoice(JSContext *ctx, JSValue *this_val, int argc, JSValue
     loopOptions(options, MENU_TYPE_REGULAR, "", 0, true);
     options.clear();
 
-    return JS_NewString(ctx, result);
+    return JS_NewString(ctx, result.c_str());
 }
 
 JSValue native_dialogViewFile(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {

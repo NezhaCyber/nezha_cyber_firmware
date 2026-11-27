@@ -3,9 +3,12 @@
 
 class IrRead {
 public:
-    IRrecv irrecv = IRrecv(bruceConfigPins.irRx, SAFE_STACK_BUFFER_SIZE / 2, 50);
+    // Created in setup() after the configured RX pin has been validated, so a
+    // stale pin can never reach the receiver driver.
+    IRrecv *irrecv = nullptr;
 
     IrRead(bool headless_mode = false, bool raw_mode = false);
+    ~IrRead();
 
     void setup();
     void loop();

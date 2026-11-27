@@ -1,5 +1,6 @@
 #include "core/wifi/wifi_common.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/powerSave.h"
 #include "core/radio_mem.h"
@@ -85,11 +86,15 @@ bool _wifiConnect(const String &ssid, int encryption, int32_t channel, const uin
         wifiConnected = true;
         wifiIP = WiFi.localIP().toString();
         bruceConfig.addWifiCredential(ssid, password);
+        NZLOGI("WIFI", "connected to \"%s\" ip=%s ch=%d", ssid.c_str(), wifiIP.c_str(), WiFi.channel());
+        NZLOGMEM("WIFI");
 
         // Start timezone update in background if not already running
         if (timezoneTaskHandle == NULL) {
             xTaskCreate(updateTimezoneTask, "updateTimezone", 4096, NULL, 1, &timezoneTaskHandle);
         }
+    } else {
+        NZLOGW("WIFI", "failed to connect to \"%s\"", ssid.c_str());
     }
 
     delay(200);
@@ -168,6 +173,7 @@ void wifiDisconnect() {
 
     wifiConnected = false;
     wifiTransitioning = false;
+    NZLOGD("WIFI", "radio off (previous mode=%d)", (int)mode);
 }
 
 bool wifiConnectMenu(wifi_mode_t mode) {
@@ -331,10 +337,13 @@ void wifiConnectTask(void *pvParameters) {
         int32_t ch = WiFi.channel(i);
         uint8_t *bssid = WiFi.BSSID(i);
         WiFi.begin(ssid.c_str(), pwd.length() > 0 ? pwd.c_str() : NULL, ch, bssid);
-        for (int i = 0; i < 50; i++) {
+        bool connected = false;
+        for (int attempt = 0; attempt < 50; attempt++) {
             if (WiFi.isConnected()) {
+                connected = true;
                 wifiConnected = true;
                 wifiIP = WiFi.localIP().toString();
+                NZLOGI("WIFI", "auto-connected to \"%s\" ip=%s", ssid.c_str(), wifiIP.c_str());
 
                 // Start timezone update in background if not already running
                 if (timezoneTaskHandle == NULL) {
@@ -345,6 +354,11 @@ void wifiConnectTask(void *pvParameters) {
             }
             vTaskDelay(100 / portTICK_RATE_MS);
         }
+        // Do not call WiFi.begin() for the next stored network after a
+        // successful connection: the Arduino STA layer disconnects the current
+        // link before configuring the next one, so the device would end up
+        // associated to the last (possibly out-of-range) candidate instead.
+        if (connected) break;
     }
     WiFi.scanDelete();
 
@@ -406,6 +420,7 @@ bool wifiConnecttoKnownNet(void) {
             xTaskCreate(updateTimezoneTask, "updateTimezone", 4096, NULL, 1, &timezoneTaskHandle);
         }
     }
+    WiFi.scanDelete(); // release the driver's scan result table
     return result;
 }
 

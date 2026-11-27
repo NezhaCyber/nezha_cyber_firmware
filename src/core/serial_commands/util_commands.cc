@@ -211,6 +211,13 @@ uint32_t helpCallback(cmd *c) {
     serialDevice->println("  settings <name> <new value>  - Alter a single setting value.");
     serialDevice->println("  factory_reset           - Reset to default configuration.");
 
+    serialDevice->println("\nSystem Log (logcat):");
+    serialDevice->println("  log tail [lines]        - Print the last N lines from /NezhaLogs/nezha.log.");
+    serialDevice->println("  log level [v|d|i|w|e|f] - Get/set the SD log level.");
+    serialDevice->println("  log serial [v|d|i|w|e|f]- Get/set the serial mirror level.");
+    serialDevice->println("  log info                - Show log path, size and sink status.");
+    serialDevice->println("  log clear               - Delete the live and rotated log files.");
+
     return true;
 }
 

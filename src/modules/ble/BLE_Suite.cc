@@ -16,6 +16,7 @@
 #include "ble_common.h"
 #include "core/display.h"
 #include "core/i18n.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/radio_mem.h"
 #include "core/utils.h"
@@ -326,7 +327,12 @@ void BLEStateManager::deinitBLE(bool immediate) {
 
 void BLEStateManager::registerClient(NimBLEClient *client) {
     if (!client) return;
-    activeClients.push_back(client);
+    // Idempotent: several attack paths call registerClient() after
+    // connectToDevice() already registered the same pointer. Without this
+    // check cleanupAllClients() deletes the same client twice.
+    if (std::find(activeClients.begin(), activeClients.end(), client) == activeClients.end()) {
+        activeClients.push_back(client);
+    }
 }
 
 void BLEStateManager::unregisterClient(NimBLEClient *client) {
@@ -339,13 +345,20 @@ void BLEStateManager::unregisterClient(NimBLEClient *client) {
 }
 
 void BLEStateManager::cleanupAllClients() {
+    // Defensive de-duplication for any duplicate entries created before the
+    // idempotent registerClient() fix (or by future callers).
+    std::vector<NimBLEClient *> unique;
+    unique.reserve(activeClients.size());
     for (auto client : activeClients) {
-        if (client) {
-            if (client->isConnected()) client->disconnect();
-            NimBLEDevice::deleteClient(client);
+        if (client && std::find(unique.begin(), unique.end(), client) == unique.end()) {
+            unique.push_back(client);
         }
     }
     activeClients.clear();
+    for (auto client : unique) {
+        if (client->isConnected()) client->disconnect();
+        NimBLEDevice::deleteClient(client);
+    }
 }
 
 bool BLEStateManager::isBLEActive() { return bleInitialized; }
@@ -362,7 +375,11 @@ void BLEAttackManager::prepareForConnection() {
         delay(300);
     }
 
-    BLEStateManager::initBLE("Nezha-Attack", ESP_PWR_LVL_P9);
+    if (!BLEStateManager::initBLE("Nezha-Attack", ESP_PWR_LVL_P9)) {
+        NZLOGE("BLE", "initBLE failed in prepareForConnection");
+        displayError("BLE init failed (low memory?)", true);
+        return;
+    }
     NimBLEDevice::setMTU(250);
     NimBLEDevice::setSecurityAuth(true, true, true);
     delay(300);
@@ -376,6 +393,7 @@ void BLEAttackManager::cleanupAfterAttack() {
 bool BLEAttackManager::connectToDevice(
     NimBLEAddress target, NimBLEClient **outClient, bool useExploitHandshake
 ) {
+    if (!BLEStateManager::isBLEActive()) return false;
     NimBLEClient *pClient = NimBLEDevice::createClient();
     if (!pClient) return false;
 
@@ -828,7 +846,11 @@ bool HIDExploitEngine::tryHIDReportPreconnection(NimBLEAddress target, HIDDevice
 
     BLEStateManager::deinitBLE();
     delay(300);
-    BLEStateManager::initBLE("Preconnect HID");
+    if (!BLEStateManager::initBLE("Preconnect HID")) {
+        NZLOGE("BLE", "initBLE failed for HID preconnect");
+        displayError("BLE init failed (low memory?)", true);
+        return false;
+    }
     NimBLEDevice::setPower(ESP_PWR_LVL_P9);
 
     NimBLEAdvertising *pAdvertising = NimBLEDevice::getAdvertising();
@@ -4895,7 +4917,11 @@ const char *getScanTitle(int attackIndex) {
 
 void executeAttackWithTargetScan(int attackIndex) {
     // FIX: Ensure BLE is initialized for the attack
-    BLEStateManager::initBLE("Nezha-Attack", ESP_PWR_LVL_P9);
+    if (!BLEStateManager::initBLE("Nezha-Attack", ESP_PWR_LVL_P9)) {
+        NZLOGE("BLE", "initBLE failed before target scan");
+        displayError("BLE init failed (low memory?)", true);
+        return;
+    }
 
     String targetInfo = selectTargetFromScan(getScanTitle(attackIndex));
     if (targetInfo.isEmpty()) return;

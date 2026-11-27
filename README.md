@@ -30,6 +30,7 @@
 | Category | Modules |
 | :--- | :--- |
 | **UI & Themes** | 7 Main Menu layouts (`Grid`, `Carousel`, `List`, `Cards`, `Dock`, `Split`, `Compact Grid`), 哪吒魔童 Theme Studio (20 curated presets, 71 palettes total), 3 UI crest styles, `zh-CN` (default) & `en` |
+| **Diagnostics** | Logcat-style real-time system log on SD (`/NezhaLogs/nezha.log`), on-device live viewer, serial CLI (`log tail/level/info/clear`), WebUI `/logs` + auto-refresh viewer, reset-reason/crash detection |
 | **Wi-Fi** | STA/AP, Raw Sniffer, Channel Analyzer, 2.4 GHz Thermal Waterfall, Jam Detect, Probe Monitor, LAN Port/Banner Audit, IDS Watchdog, Evil Portal, Responder, ARP Scan, WireGuard, SSH/Telnet, SOCKS4 |
 | **BLE** | Scrollable BLE Spam suite, BLE Scanner, GATT Inspector & Notify Viewer, BLE File Transfer, BadBLE & BLE Keyboard |
 | **Radar** | Live Wi-Fi & BLE spatial radar with threat flags, persistent GPS/RF location state, and toggleable Sonar Beep |
@@ -102,7 +103,7 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full repository layou
 - `tools/` — Host utilities (`gen_cjk_font.py`)
 - `.github/` — CI build matrix, automated GitHub Releases, issue & PR templates
 
-More docs: [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md) · [docs/ROADMAP.md](./docs/ROADMAP.md)
+More docs: [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md) · [docs/ROADMAP.md](./docs/ROADMAP.md) · [Real-time logging](./docs/LOGGING.md)
 
 ---
 

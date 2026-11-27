@@ -52,9 +52,16 @@ uint32_t badusbBufferCallback(cmd *c) {
     if (!(_setupPsramFs())) return false;
 
     char *txt = _readFileFromSerial();
+    if (txt == nullptr) {
+        serialDevice->println("Out of memory reading serial input");
+        return false;
+    }
     String tmpfilepath = "/tmpramfile"; // TODO: Change to use char *txt directly
     File f = PSRamFS.open(tmpfilepath, FILE_WRITE);
-    if (!f) return false;
+    if (!f) {
+        free(txt);
+        return false;
+    }
 
     f.write((const uint8_t *)txt, strlen(txt));
     f.close();
