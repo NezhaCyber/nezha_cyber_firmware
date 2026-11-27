@@ -12,12 +12,14 @@
 #include "modules/others/qrcode_menu.h"
 #include "modules/others/shell_terminal.h"
 #include "modules/others/u2f.h"
+#include "modules/others/wireless_sentinel.h"
 // Removed: #include "modules/others/timer.h"
 
 void OthersMenu::optionsMenu() {
     options = {
 #ifndef LITE_VERSION
-        {"Nezha Pet",    nezha_pet_start              },
+        {"Nezha Pet",         nezha_pet_start              },
+        {"Wireless Sentinel", wireless_sentinel_menu       },
 #endif
         {"QRCodes",      qrcode_menu                  },
 
