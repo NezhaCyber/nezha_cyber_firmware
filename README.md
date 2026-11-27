@@ -103,7 +103,7 @@ See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for the full repository layou
 - `tools/` — Host utilities (`gen_cjk_font.py`)
 - `.github/` — CI build matrix, automated GitHub Releases, issue & PR templates
 
-More docs: [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md) · [docs/ROADMAP.md](./docs/ROADMAP.md) · [Real-time logging](./docs/LOGGING.md)
+More docs: [CONTRIBUTING.md](./CONTRIBUTING.md) · [SECURITY.md](./SECURITY.md) · [CHANGELOG.md](./CHANGELOG.md) · [docs/ROADMAP.md](./docs/ROADMAP.md) · [Real-time logging](./docs/LOGGING.md) · [Hardware verification checklist](./docs/VERIFICATION.md)
 
 ---
 
