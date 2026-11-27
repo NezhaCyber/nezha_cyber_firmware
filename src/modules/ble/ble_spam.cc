@@ -587,8 +587,6 @@ static const char *BLE_SPAM_SAMSUNG_DEVICES[] = {
 // Special sentinel indices
 #define BLE_SPAM_ANDROID_RANDOM_IDX 2
 #define BLE_SPAM_SAMSUNG_RANDOM_IDX 3
-#define BLE_SPAM_WINDOWS_RANDOM_IDX 5 // after presets
-#define BLE_SPAM_WINDOWS_CUSTOM_IDX 6 // "+ Add New Custom Name" / custom saved
 
 static const char *bleSpamTxPowerLabel(BleSpamTxPower level) {
     switch (level) {
@@ -1549,6 +1547,20 @@ static void bleSpamDeinitAdvertiser() {
     BLEDevice::deinit();
 }
 
+// Builds the little-endian byte array NimBLE's ble_hs_id_set_rnd() expects:
+// index 0 = LSB of the on-air address, index 5 = MSB. The two MSBs of the MSB
+// byte are forced to 11 so the host always classifies the address as a valid
+// random static address — the host rejects anything else with BLE_HS_EINVAL,
+// and the controller then silently keeps the previous MAC.
+static void bleSpamMacToNimbleRnd(const uint8_t *mac, uint8_t *addr_le) {
+    addr_le[0] = mac[5];
+    addr_le[1] = mac[4];
+    addr_le[2] = mac[3];
+    addr_le[3] = mac[2];
+    addr_le[4] = mac[1];
+    addr_le[5] = mac[0] | 0xC0; // random static type bits
+}
+
 // CHANGED: replaces the old bleSpamRestartAdvertiserForMac which did a full deinit/init.
 // Now we only stop advertising, swap the MAC at the interface level and tell the
 // NimBLE host (or Bluedroid GAP) about the new address, then let the caller
@@ -1562,17 +1574,22 @@ bleSpamRestartAdvertiserForMac(BleSpamRunState &state, const BleSpamConfig &conf
 
 #ifdef CONFIG_BT_NIMBLE_ENABLED
     // NimBLE keeps its own copy of the random address in the host layer.
-    // ble_hs_id_set_rnd expects bytes in little-endian order (byte 0 = LSB of address).
-    // A valid random static address requires the two MSBs of the *most significant byte*
-    // (which is byte[5] in big-endian / byte[0] in little-endian) to be set to 11.
+    // ble_hs_id_set_rnd() sends LE Set Random Address to the controller right
+    // away, so the next start() advertises the new MAC immediately.
     uint8_t addr_le[6];
-    addr_le[0] = mac[5] | 0xC0; // MSB of address with random static bits set
-    addr_le[1] = mac[4];
-    addr_le[2] = mac[3];
-    addr_le[3] = mac[2];
-    addr_le[4] = mac[1];
-    addr_le[5] = mac[0];
-    ble_hs_id_set_rnd(addr_le);
+    bleSpamMacToNimbleRnd(mac, addr_le);
+    if (ble_hs_id_set_rnd(addr_le) != 0) {
+        // The host accepts this layout unconditionally (0xC0 type bits forced,
+        // MSB bit 0 cleared, so the all-ones/all-zeros checks cannot fire) —
+        // a failure here is a transient HCI-layer error, so regenerate once
+        // and keep the previous MAC if that also fails.
+        uint8_t retryMac[6];
+        bleSpamFastRandomMac(retryMac);
+        bleSpamMacToNimbleRnd(retryMac, addr_le);
+        if (ble_hs_id_set_rnd(addr_le) != 0) {
+            Serial.println("[BLE Spam] ble_hs_id_set_rnd failed, keeping previous MAC");
+        }
+    }
     NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_RANDOM);
 #else
     // Bluedroid: the GAP API handles the random address directly.
