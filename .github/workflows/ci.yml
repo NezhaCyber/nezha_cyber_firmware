@@ -40,7 +40,8 @@ jobs:
           test -f partitions/custom_8Mb.csv
           test -f partitions/custom_4Mb_full.csv
           test -f scripts/build/build.py
-          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
+          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py tools/gen_web_manifests.py tools/hil_smoke_test.py
+          python3 tools/hil_smoke_test.py --mock
 
   build:
     name: Build (${{ matrix.env }})
