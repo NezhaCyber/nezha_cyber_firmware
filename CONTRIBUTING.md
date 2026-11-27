@@ -8,9 +8,10 @@ By participating in this project, you agree to abide by our [Code of Conduct](./
 
 ## Development Workflow
 
-1. **Fork & Branch**: Fork the repository and create a descriptive feature branch off `main`:
+1. **Fork & Branch off `development`**: All Pull Requests **must** target the **`development`** branch (never `main` directly — the maintainer handles `development` → `main` promotion and releases). Create a descriptive feature branch off `development`:
    - `feat/<short-name>` for new features
    - `fix/<short-name>` for bug fixes
+   - `ui/<short-name>` for UI / 哪吒魔童 theme improvements
    - `i18n/<locale>` for translation updates
    - `docs/<topic>` for documentation updates
 2. **Keep Commits Atomic**: Use Conventional Commits (`feat(rf): ...`, `fix(ui): ...`, `i18n(ko): ...`, `docs: ...`).
