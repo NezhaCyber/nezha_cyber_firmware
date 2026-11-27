@@ -18,8 +18,6 @@
 #include "lwip/pbuf.h"
 #include "lwipopts.h"
 #include <globals.h>
-#include <iomanip>
-#include <iostream>
 #include <lwip/dns.h>
 #include <lwip/err.h>
 #include <lwip/etharp.h>
@@ -36,11 +34,17 @@
 
 MACFlooding::MACFlooding() {
     setup();
+    if (!netif || !p) return;
     show_gui();
     loop();
 }
 
-MACFlooding::~MACFlooding() { pbuf_free(p); }
+MACFlooding::~MACFlooding() {
+    if (p) {
+        pbuf_free(p);
+        p = nullptr;
+    }
+}
 
 void MACFlooding::show_gui() {
     drawMainBorderWithTitle("MAC Flooding");
@@ -91,8 +95,8 @@ void MACFlooding::prepare_packet_hdr() {
     ipv4_pkt._len = htons(20);    // 20, total len
     ipv4_pkt._id = random(65535); // Avoid overflow limiting random to u16
     ipv4_pkt._offset = 0x0;
-    ipv4_pkt._ttl = static_cast<u8_t>(htons(0x40)); // TTL: 64
-    ipv4_pkt._proto = 0x11;                         // Protocol: 17(UDP)
+    ipv4_pkt._ttl = 0x40;   // TTL: 64
+    ipv4_pkt._proto = 0x11; // Protocol: 17(UDP)
 
     // memcpy(&ipv4_pkt.dest.addr, broadcast_mac_address, 4);
 
@@ -161,8 +165,9 @@ void MACFlooding::setup() {
 }
 
 void MACFlooding::send_packet() {
+    if (!netif || !p) return;
 
-    uint8_t *ethernet_frame = (uint8_t *)p->payload;
+    ethernet_frame = (uint8_t *)p->payload;
     change_mac_in_packet();
 
     // Send packet

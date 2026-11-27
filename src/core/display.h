@@ -58,15 +58,19 @@ public:
 
     int playFrame(int x = 0, int y = 0, bool bSync = true);
 
-    int getInfo(GIFINFO *pInfo) { return gif->getInfo(pInfo); }
+    int getInfo(GIFINFO *pInfo) { return gif ? gif->getInfo(pInfo) : 0; }
 
-    void reset() { return gif->reset(); }
+    void reset() {
+        if (gif) gif->reset();
+    }
 
-    void close() { return gif->close(); }
+    void close() {
+        if (gif) gif->close();
+    }
 
-    int getCanvasWidth() { return gif->getCanvasWidth(); }
+    int getCanvasWidth() { return gif ? gif->getCanvasWidth() : 0; }
 
-    int getCanvasHeight() { return gif->getCanvasHeight(); }
+    int getCanvasHeight() { return gif ? gif->getCanvasHeight() : 0; }
 
     int getLastError();
 

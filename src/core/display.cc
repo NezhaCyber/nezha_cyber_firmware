@@ -9,6 +9,7 @@
 #include <JPEGDecoder.h>
 #include <interface.h> //for charging ischarging to print charging indicator
 #include <memory>
+#include <new>
 
 #define MAX_MENU_SIZE (int)(tftHeight / 25)
 
@@ -2058,55 +2059,33 @@ bool showJpeg(FS &fs, const String &filename, int x, int y, bool center) {
     File picture;
     if (fs.exists(filename)) picture = fs.open(filename, FILE_READ);
     else return false;
+    if (!picture) return false;
 
     const size_t data_size = picture.size();
-
-    // Alloc memory into heap
-    uint8_t *data_array = new uint8_t[data_size];
-    if (data_array == nullptr) {
-        // Fail allocating memory
+    if (data_size == 0) {
         picture.close();
-        delete[] data_array;
         return false;
     }
 
-    uint8_t data;
-    int i = 0;
-    byte line_len = 0;
-
-    while (picture.available()) {
-        data = picture.read();
-        data_array[i] = data;
-        i++;
-
-        // print array on Serial
-        /*
-        Serial.print("0x");
-        if (abs(data) < 16) {
-          Serial.print("0");
-        }
-
-        Serial.print(data, HEX);
-        Serial.print(","); // Add value and comma
-        line_len++;
-        if (line_len >= 32) {
-          line_len = 0;
-          Serial.println();
-        }
-        */
+    // Prefer PSRAM for multi-KB JPEG payloads to preserve internal DMA-capable DRAM.
+    uint8_t *data_array = nullptr;
+    if (psramFound()) data_array = (uint8_t *)ps_malloc(data_size);
+    if (data_array == nullptr) data_array = (uint8_t *)malloc(data_size);
+    if (data_array == nullptr) {
+        picture.close();
+        log_e("showJpeg: failed to allocate %u bytes", (unsigned)data_size);
+        return false;
     }
 
+    const size_t bytes_read = picture.read(data_array, data_size);
     picture.close();
 
-    bool decoded = false;
-    if (data_array) {
-        decoded = JpegDec.decodeArray(data_array, data_size);
-    } else {
-        displayError(filename + " Fail");
-        delay(2500);
-        delete[] data_array; // free heap before leaving
+    if (bytes_read == 0) {
+        free(data_array);
         return false;
     }
+
+    const bool decoded = JpegDec.decodeArray(data_array, bytes_read);
 
     if (decoded) {
         if (center) {
@@ -2124,8 +2103,8 @@ bool showJpeg(FS &fs, const String &filename, int x, int y, bool center) {
     Serial.println(" ms");
     Serial.println("=====================================");
 
-    delete[] data_array; // free heap before leaving
-    return true;
+    free(data_array); // free heap before leaving
+    return decoded;
 }
 
 bool showJpeg(const uint8_t *data_array, size_t data_size, int x, int y, bool center) {
@@ -2155,7 +2134,7 @@ bool showJpeg(const uint8_t *data_array, size_t data_size, int x, int y, bool ce
 //  https://github.com/bitbank2/AnimatedGIF/blob/master/examples/best_practices_example/best_practices_example.ino
 // ####################################################################################################
 
-Gif::Gif() : gifPosition(0, 0) {}
+Gif::Gif() : gif(nullptr), gifPosition(0, 0) {}
 
 Gif::~Gif() {
     if (gif != nullptr) {
@@ -2177,12 +2156,15 @@ void *Gif::openFile(const char *fname, int32_t *pSize) {
         else if (LittleFS.exists(fname)) GifFile = LittleFS.open(fname);
     }
 
-    File *FSGifFile = new File(GifFile);
+    if (!GifFile) return NULL;
+
+    File *FSGifFile = new (std::nothrow) File(GifFile);
 
     if (FSGifFile) {
         *pSize = FSGifFile->size();
         return (void *)FSGifFile;
     }
+    GifFile.close();
     return NULL;
 }
 
@@ -2280,6 +2262,12 @@ void Gif::GIFDraw(GIFDRAW *pDraw) {
 } /* GIFDraw() */
 
 bool Gif::openGIF(FS *fs, const char *filename) {
+    if (gif != nullptr) {
+        gif->close();
+        delete gif;
+        gif = nullptr;
+    }
+
     if (fs != NULL) {
         GifFs = fs;
         if (!fs->exists(filename)) return false;
@@ -2287,11 +2275,17 @@ bool Gif::openGIF(FS *fs, const char *filename) {
         GifFs = NULL;
     }
 
-    gif = new AnimatedGIF();
+    gif = new (std::nothrow) AnimatedGIF();
+    if (gif == nullptr) {
+        log_e("GIF allocation error");
+        return false;
+    }
     gif->begin(BIG_ENDIAN_PIXELS);
     if (gif->open(filename, openFile, closeFile, readFile, seekFile, GIFDraw)) { return true; }
 
     log_e("GIF opening error: %d\n", gif->getLastError());
+    delete gif;
+    gif = nullptr;
     return false;
 }
 
@@ -2309,7 +2303,7 @@ int Gif::playFrame(int x, int y, bool bSync) {
     return gif->playFrame(bSync, nullptr, &gifPosition);
 }
 
-int Gif::getLastError() { return gif->getLastError(); }
+int Gif::getLastError() { return gif ? gif->getLastError() : -1; }
 
 /*
  * playDurationMs:

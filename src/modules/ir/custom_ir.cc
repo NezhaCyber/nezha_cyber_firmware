@@ -612,33 +612,45 @@ void sendRawCommand(uint16_t frequency, String rawData, bool hideDefaultUI) {
     irsend.begin();
     if (!hideDefaultUI) { displayTextLine("Sending.."); }
 
-    uint16_t dataBufferSize = 1;
-    for (int i = 0; i < rawData.length(); i++) {
-        if (rawData[i] == ' ') dataBufferSize += 1;
+    size_t dataBufferSize = 1;
+    const char *rawPtr = rawData.c_str();
+    for (size_t i = 0; rawPtr[i] != '\0'; i++) {
+        if (rawPtr[i] == ' ') dataBufferSize += 1;
     }
-    uint16_t *dataBuffer = (uint16_t *)malloc((dataBufferSize) * sizeof(uint16_t));
+    uint16_t *dataBuffer = (uint16_t *)malloc(dataBufferSize * sizeof(uint16_t));
+    if (!dataBuffer) {
+        log_e("sendRawCommand: failed to allocate %u timing entries", (unsigned)dataBufferSize);
+        if (!hideDefaultUI) { displayError("Not Enough RAM", true); }
+        digitalWrite(bruceConfigPins.irTx, LED_OFF);
+        return;
+    }
 
     uint16_t count = 0;
-    // Parse raw data string
-    while (rawData.length() > 0 && count < dataBufferSize) {
-        int delimiterIndex = rawData.indexOf(' ');
-        if (delimiterIndex == -1) { delimiterIndex = rawData.length(); }
-        String dataChunk = rawData.substring(0, delimiterIndex);
-        rawData.remove(0, delimiterIndex + 1);
-        dataBuffer[count++] = (dataChunk.toInt());
+    // Zero-allocation parse of space-separated timing values
+    const char *p = rawPtr;
+    while (*p != '\0' && count < dataBufferSize) {
+        while (*p == ' ' || *p == '\t') ++p;
+        if (*p == '\0') break;
+        char *end = nullptr;
+        unsigned long val = strtoul(p, &end, 10);
+        if (end == p) {
+            while (*p != '\0' && *p != ' ') ++p;
+            continue;
+        }
+        dataBuffer[count++] = static_cast<uint16_t>(val);
+        p = end;
     }
 
     Serial.println("Parsing raw data complete.");
-    // Serial.println(count);
-    // Serial.println(dataBuffer[count-1]);
-    // Serial.println(dataBuffer[0]);
 
     // Send raw command
-    irsend.sendRaw(dataBuffer, count, frequency);
+    if (count > 0) {
+        irsend.sendRaw(dataBuffer, count, frequency);
 
-    if (bruceConfigPins.irTxRepeats > 0) {
-        for (uint8_t i = 1; i <= bruceConfigPins.irTxRepeats; i++) {
-            irsend.sendRaw(dataBuffer, count, frequency);
+        if (bruceConfigPins.irTxRepeats > 0) {
+            for (uint8_t i = 1; i <= bruceConfigPins.irTxRepeats; i++) {
+                irsend.sendRaw(dataBuffer, count, frequency);
+            }
         }
     }
 

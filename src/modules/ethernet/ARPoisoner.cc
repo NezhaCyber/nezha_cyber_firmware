@@ -16,8 +16,6 @@
 #include "lwipopts.h"
 #include <esp_wifi.h>
 #include <globals.h>
-#include <iomanip>
-#include <iostream>
 #include <lwip/dns.h>
 #include <lwip/err.h>
 #include <lwip/etharp.h>
@@ -81,8 +79,8 @@ void ARPoisoner::loop() {
             for (int i = 1; i < 255; i++) {
                 if (AnyKeyPress) break;
                 victimIP[3] = i;
-                for (int i = 0; i < 6; i++) {
-                    victimMAC[i] = random(256); // Create random MAC to all hosts
+                for (int j = 0; j < 6; j++) {
+                    victimMAC[j] = random(256); // Create random MAC to all hosts
                 }
 
                 // Sends random Gateway MAC to all devices in the network
@@ -103,8 +101,9 @@ void ARPoisoner::loop() {
             tmp = millis();
             tft.drawRightString("     Waiting...", tftWidth - 12, tftHeight - 16, 1);
         }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
-    pcapFile.close();
+    if (pcapFile) pcapFile.close();
 }
 
 // Function provided by @Fl1p, thank you brother!
@@ -153,13 +152,13 @@ void ARPoisoner::sendARPPacket(
 
     // Enviar o pacote
     netif->linkoutput(netif, p);
-    pbuf_free(p);
     Serial.println("Pacote ARP enviado!");
 
-    // Capturar o pacote no arquivo PCAP
+    // Capturar o pacote no arquivo PCAP antes de liberar o pbuf (evita Use-After-Free)
     if (pcapFile) {
-        pcapFile.write((const uint8_t *)p->payload, p->tot_len); // don't know if it will work
+        pcapFile.write((const uint8_t *)p->payload, p->tot_len);
         pcapFile.flush();
     }
+    pbuf_free(p);
 }
 #endif

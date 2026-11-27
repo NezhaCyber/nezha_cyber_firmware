@@ -45,10 +45,12 @@ String generateToken(int length = 24) {
 void stopWebUi() {
     tft.setLogging(false);
     isWebUIActive = false;
-    server->end();
-    server->~AsyncWebServer();
-    free(server);
-    server = nullptr;
+    if (server != nullptr) {
+        server->end();
+        server->~AsyncWebServer();
+        free(server);
+        server = nullptr;
+    }
     if (mdnsRunning) {
         MDNS.end();
         mdnsRunning = false;
@@ -787,7 +789,12 @@ void startWebUi(bool mode_ap) {
 
         Serial.println("Configuring Webserver ...");
         if (psramFound()) server = (AsyncWebServer *)ps_malloc(sizeof(AsyncWebServer));
-        else server = (AsyncWebServer *)malloc(sizeof(AsyncWebServer));
+        if (!server) server = (AsyncWebServer *)malloc(sizeof(AsyncWebServer));
+        if (!server) {
+            log_e("startWebUi: failed to allocate AsyncWebServer");
+            displayError("Not Enough RAM", true);
+            return;
+        }
 
         new (server) AsyncWebServer(default_webserverporthttp);
 
