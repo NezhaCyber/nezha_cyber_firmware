@@ -562,28 +562,38 @@ void phone_calculator_app() {
         return String(buf);
     };
 
-    auto drawCalc = [&]() {
-        drawMainBorderWithTitle("Calculator");
-        int top = BORDER_PAD_Y + FM * LH + 4;
+    auto drawCalc = [&](bool full) {
+        int top = BORDER_PAD_Y + 23;
         int left = BORDER_PAD_X + 6;
         int w = tftWidth - 2 * BORDER_PAD_X - 12;
-        int dispH = FM * LH + 8;
+        int dispH = FM * LH + 10;
+        uint16_t surf = uiSurfaceColor();
+        uint16_t surfHi = uiSurfaceHiColor();
+        uint16_t bdim = uiBorderDimColor();
+        uint16_t pri = bruceConfig.priColor;
+        uint16_t sec = bruceConfig.secColor;
+        uint16_t bright = uiTextBrightColor();
+        uint16_t onAcc = uiTextOnAccentColor(pri);
 
-        // LCD Display box
-        tft.fillRoundRect(left, top, w, dispH, 4, TFT_BLACK);
-        tft.drawRoundRect(left, top, w, dispH, 4, bruceConfig.secColor);
+        if (full) {
+            drawMainBorderWithTitle("Calculator");
+        }
+
+        // Elevated LCD display card
+        tft.fillRoundRect(left, top, w, dispH, 6, surf);
+        tft.drawRoundRect(left, top, w, dispH, 6, bdim);
         if (pendingOp) {
             tft.setTextSize(1);
-            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-            tft.drawString(fmtNum(acc) + " " + String(pendingOp), left + 6, top + 2, 1);
+            tft.setTextColor(sec, surf);
+            tft.drawString(fmtNum(acc) + " " + String(pendingOp), left + 7, top + 3, 1);
         }
         tft.setTextSize(FM);
-        tft.setTextColor(TFT_GREEN, TFT_BLACK);
-        tft.drawRightString(entry, left + w - 6, top + 4, 1);
+        tft.setTextColor(bright, surf);
+        tft.drawRightString(entry, left + w - 7, top + (dispH - FM * LH) / 2, 1);
 
         // 4x4 Key grid
-        int gridTop = top + dispH + 6;
-        int gridH = tftHeight - BORDER_PAD_X - gridTop - 4;
+        int gridTop = top + dispH + 5;
+        int gridH = tftHeight - BORDER_PAD_X - gridTop - 2;
         int cellW = w / 4;
         int cellH = max(14, gridH / 4);
 
@@ -595,18 +605,18 @@ void phone_calculator_app() {
                 int bw = cellW - 4;
                 int bh = cellH - 4;
                 bool sel = (r == curRow && c == curCol);
-                uint16_t fill = sel ? bruceConfig.priColor : bruceConfig.bgColor;
-                uint16_t fg = sel ? bruceConfig.bgColor
-                                  : ((c == 3 || (r == 3 && c != 1)) ? TFT_YELLOW : TFT_WHITE);
-                tft.fillRoundRect(bx, by, bw, bh, 3, fill);
-                tft.drawRoundRect(bx, by, bw, bh, 3, bruceConfig.secColor);
+                bool isOp = (c == 3 || (r == 3 && c != 1));
+                uint16_t fill = sel ? pri : (isOp ? surfHi : surf);
+                uint16_t fg = sel ? onAcc : (isOp ? sec : bright);
+                tft.fillRoundRect(bx, by, bw, bh, 5, fill);
+                tft.drawRoundRect(bx, by, bw, bh, 5, sel ? sec : bdim);
                 tft.setTextColor(fg, fill);
                 tft.drawCentreString(kKeys[r][c], bx + bw / 2, by + (bh - FM * LH) / 2, 1);
             }
         }
     };
 
-    drawCalc();
+    drawCalc(true);
     check(SelPress);
     check(EscPress);
     check(PrevPress);
@@ -654,7 +664,7 @@ void phone_calculator_app() {
             }
             dirty = true;
         }
-        if (dirty) drawCalc();
+        if (dirty) drawCalc(false);
         vTaskDelay(pdMS_TO_TICKS(15));
     }
     check(SelPress);
@@ -680,17 +690,20 @@ void phone_stopwatch_app() {
         return String(buf);
     };
 
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+
     drawMainBorderWithTitle("Stopwatch");
-    tft.setTextSize(FP);
-    tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-    tft.drawCentreString(
-        bruce_i18n::tr("SEL=Start/Stop  NEXT=Lap  PREV=Reset"),
-        tftWidth / 2,
-        tftHeight - BORDER_PAD_X - LH,
-        1
-    );
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    printCenterFootnote("SEL=Start/Stop  NEXT=Lap  PREV=Reset");
 
     uint32_t lastDraw = 0;
+    int lastLapDrawn = -1;
+    bool lastRunningDrawn = !running;
     check(SelPress);
     check(EscPress);
     check(PrevPress);
@@ -701,23 +714,29 @@ void phone_stopwatch_app() {
         uint32_t now = millis();
         uint32_t total = running ? (elapsedMs + (now - startMs)) : elapsedMs;
 
-        if (now - lastDraw >= 80) {
-            int y = BORDER_PAD_Y + FM * LH + 10;
+        if (lastDraw == 0 || (running && now - lastDraw >= 80) || lastRunningDrawn != running || lastLapDrawn != lapCnt) {
+            int y = cardY + (compact ? 7 : 12);
+            tft.fillRect(cardX + 8, y - 1, cardW - 16, FG * LH + 4, surf);
+            tft.setTextDatum(TL_DATUM);
             tft.setTextSize(FG);
-            tft.setTextColor(running ? TFT_GREEN : TFT_YELLOW, bruceConfig.bgColor);
+            tft.setTextColor(running ? bruceConfig.priColor : uiTextBrightColor(), surf);
             tft.drawCentreString(fmtWatch(total), tftWidth / 2, y, 1);
 
-            y += FG * LH + 8;
-            tft.setTextSize(FP);
-            int clearH = max(0, (tftHeight - BORDER_PAD_X - LH - 4) - y);
-            tft.fillRect(BORDER_PAD_X + 6, y, tftWidth - 2 * BORDER_PAD_X - 12, clearH, bruceConfig.bgColor);
-            tft.setTextColor(TFT_CYAN, bruceConfig.bgColor);
-            for (int i = 0; i < lapCnt && (y + LH <= tftHeight - BORDER_PAD_X - LH - 4); ++i) {
-                tft.drawCentreString(
-                    "LAP " + String(i + 1) + "  " + fmtWatch(laps[i]), tftWidth / 2, y, 1
-                );
-                y += LH + 3;
+            if (lastLapDrawn != lapCnt || lastDraw == 0) {
+                int lapTop = y + FG * LH + (compact ? 5 : 10);
+                int lapBot = cardY + cardH - 6;
+                tft.fillRect(cardX + 8, lapTop - 2, cardW - 16, max(0, lapBot - lapTop + 2), surf);
+                tft.drawFastHLine(cardX + 10, lapTop - 2, cardW - 20, uiBorderDimColor());
+                int ly = lapTop + 2;
+                for (int i = 0; i < lapCnt && (ly + LH <= lapBot); ++i) {
+                    uiDrawKeyValueRow(
+                        cardX + 12, ly, cardW - 24, "LAP " + String(i + 1), fmtWatch(laps[i]), bruceConfig.secColor, surf
+                    );
+                    ly += LH + 4;
+                }
+                lastLapDrawn = lapCnt;
             }
+            lastRunningDrawn = running;
             lastDraw = now;
         }
 
