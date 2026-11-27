@@ -36,6 +36,13 @@ By participating in this project, you agree to abide by our [Code of Conduct](./
 - Support both **touch + trackball/keyboard** (`320×240`) and **3-button compact** (`240×135`) interaction models for cross-board features.
 - Keep user-facing branding aligned with **Nezha Cyber (哪吒网络安全)** and the **哪吒魔童** visual identity.
 
+## AI-Assisted Contributions / AI 辅助贡献规范
+
+AI coding tools (Claude Code, Cursor, Trae, DeepSeek via Cline/Roo/Continue/Aider, GitHub Copilot, Windsurf, Codex, Gemini CLI, etc.) are welcome **only** when contributors strictly follow our canonical agent rules in [`AGENTS.md`](./AGENTS.md) ([简体中文](./AGENTS_ZH.md)):
+
+- You remain **100% responsible** for understanding, reviewing, and verifying every line you submit — unreviewed "AI code slop", stubbed `TODO`s, hallucinated pins/macros, or drive-by refactors will be rejected.
+- Tool-specific rule files (`.cursor/rules/`, `.trae/rules/`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.windsurf/rules/`, `.clinerules`, `.roo/rules/`, `.continue/rules/`, `.aider.conf.yml`) are maintained in-repo to automatically keep AI assistants aligned with `AGENTS.md`.
+
 ## Licensing
 
 All contributions are licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)** — see [LICENSE](./LICENSE) and [THIRD_PARTY.md](./THIRD_PARTY.md).
