@@ -371,7 +371,7 @@ void boot_screen() {
     if (!compact && barY + barH + 14 <= tftHeight) {
         tft.setTextSize(FP);
         tft.setTextColor(0x6B4D, TFT_BLACK);
-        tft.drawCentreString("钟智强 · 哪吒魔童安全系统", cx, barY + barH + 3, 1);
+        tft.drawCentreString("哪吒魔童 · 网络安全系统", cx, barY + barH + 3, 1);
     }
 }
 
