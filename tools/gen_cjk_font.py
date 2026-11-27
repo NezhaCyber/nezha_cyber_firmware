@@ -8,9 +8,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
-
-from PIL import Image, ImageDraw, ImageFont
+from typing import Any, Iterable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LANG_HEADER = REPO_ROOT / "src" / "core" / "lang_zh_cn.h"
@@ -82,7 +80,9 @@ def collect_codepoints(entries: Iterable[tuple[str, str]]) -> list[int]:
     return sorted(cps)
 
 
-def rasterize_glyph(ch: str, font: ImageFont.FreeTypeFont, size: int) -> list[int]:
+def rasterize_glyph(ch: str, font: Any, size: int) -> list[int]:
+    from PIL import Image, ImageDraw
+
     img = Image.new("L", (size, size), 0)
     draw = ImageDraw.Draw(img)
     bbox = draw.textbbox((0, 0), ch, font=font)
@@ -105,6 +105,8 @@ def rasterize_glyph(ch: str, font: ImageFont.FreeTypeFont, size: int) -> list[in
 
 
 def generate_header(codepoints: list[int], font_path: str) -> str:
+    from PIL import ImageFont
+
     font12 = ImageFont.truetype(font_path, 11)
     font16 = ImageFont.truetype(font_path, 14)
 
