@@ -122,28 +122,73 @@ void GPSTracker::set_position() {
 }
 
 void GPSTracker::display_banner() {
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 12;
+    int cardY = BORDER_PAD_Y + 22;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 16 : 20);
+    uint16_t surf = uiSurfaceColor();
+    int x = cardX + 8;
+    int w = cardW - 16;
+    int y = cardY + (compact ? 7 : 10);
+    int rowH = compact ? 12 : 16;
+
     drawMainBorderWithTitle("GPS Tracker");
-    padprintln("");
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
 
     if (gpsCoordCount > 0) {
-        padprintln("File: " + filename.substring(0, filename.length() - 4), 2);
-        padprintln("GPS Coordinates: " + String(gpsCoordCount), 2);
-        padprintf(2, "Distance: %.2fkm\n", distance / 1000);
+        String fname = (filename.length() > 4) ? filename.substring(0, filename.length() - 4) : filename;
+        uiDrawKeyValueRow(x, y, w, "File", fname, uiTextBrightColor(), surf);
+        y += rowH;
+        char distBuf[20];
+        snprintf(distBuf, sizeof(distBuf), "%.2f km", distance / 1000.0);
+        uiDrawKeyValueRow(x, y, w, "Points", String(gpsCoordCount) + "  " + String(distBuf), bruceConfig.priColor, surf);
+        y += rowH + 2;
+        tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+        y += 2;
     }
 
-    padprintln("");
+    tft.setTextColor(uiTextBrightColor(), surf);
+    tft.setTextSize(FP);
+    tft.setCursor(x, y);
+    printCenterFootnote("ESC: Stop & Save");
 }
 
 void GPSTracker::dump_gps_data() {
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 12;
+    int cardW = tftWidth - 2 * cardX;
+    int x = cardX + 8;
+    int w = cardW - 16;
+    int y = tft.getCursorY();
+    int rowH = compact ? 12 : 16;
+    uint16_t surf = uiSurfaceColor();
+
     if (!date_time_updated && (!gps.date.isUpdated() || !gps.time.isUpdated())) {
-        padprintln("Waiting for valid GPS data");
+        tft.setTextColor(uiTextMutedColor(), surf);
+        tft.drawString("Waiting for valid GPS fix...", x, y, 1);
         return;
     }
     date_time_updated = true;
-    padprintf(2, "Date: %02d-%02d-%02d\n", gps.date.year(), gps.date.month(), gps.date.day());
-    padprintf(2, "Time: %02d:%02d:%02d\n", gps.time.hour(), gps.time.minute(), gps.time.second());
-    padprintf(2, "Sat:  %d\n", gps.satellites.value());
-    padprintf(2, "HDOP: %.2f\n", gps.hdop.hdop());
+
+    char dtBuf[24];
+    snprintf(
+        dtBuf,
+        sizeof(dtBuf),
+        "%04d-%02d-%02d %02d:%02d:%02d",
+        gps.date.year(),
+        gps.date.month(),
+        gps.date.day(),
+        gps.time.hour(),
+        gps.time.minute(),
+        gps.time.second()
+    );
+    uiDrawKeyValueRow(x, y, w, "UTC", String(dtBuf), uiTextBrightColor(), surf);
+    y += rowH;
+
+    char satBuf[24];
+    snprintf(satBuf, sizeof(satBuf), "%u sats  HDOP %.2f", (unsigned)gps.satellites.value(), gps.hdop.hdop());
+    uiDrawKeyValueRow(x, y, w, "Signal", String(satBuf), bruceConfig.secColor, surf);
 }
 
 void GPSTracker::create_filename() {
