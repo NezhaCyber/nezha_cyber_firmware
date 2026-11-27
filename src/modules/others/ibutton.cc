@@ -1,6 +1,7 @@
 #ifndef LITE_VERSION
 #include "ibutton.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 
@@ -29,24 +30,34 @@ static String bufferToHexStr(const byte *buf, int len, const char *sep = ":") {
 static bool bufferCrcValid() { return OneWire::crc8(keyBuffer, 7) == keyBuffer[7]; }
 
 static void displayStatus() {
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int y = cardY + (compact ? 8 : 12);
+
     drawMainBorderWithTitle("iButton");
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+
     if (keyLoaded) {
-        padprintln("UID: " + bufferToHexStr(keyBuffer, 8));
-        if (!bufferCrcValid()) {
-            tft.setTextColor(TFT_RED);
-            padprintln("CRC ERROR!");
-            tft.setTextColor(bruceConfig.priColor);
-        } else {
-            tft.setTextColor(TFT_GREEN);
-            padprintln("CRC OK");
-            tft.setTextColor(bruceConfig.priColor);
-        }
+        bool crcOk = bufferCrcValid();
+        uiDrawBadge(x, y, crcOk ? "CRC OK" : "CRC ERR", crcOk ? TFT_DARKGREEN : TFT_RED, 15);
+        y += compact ? 20 : 24;
+        uiDrawKeyValueRow(x, y, w, "UID", bufferToHexStr(keyBuffer, 8), bruceConfig.priColor, surf);
     } else {
-        padprintln("No key in buffer");
+        uiDrawBadge(x, y, "READY", bruceConfig.priColor, 15);
+        y += compact ? 20 : 24;
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextSize(FP);
+        tft.setTextColor(uiTextBrightColor(), surf);
+        tft.drawString(bruce_i18n::tr("Waiting for iButton..."), x, y, 1);
     }
-    padprintln("");
-    padprintln("Waiting for iButton...");
-    padprintln("[NEXT] for options");
+
+    printCenterFootnote("NEXT: Options  ESC: Back");
 }
 
 // ---------------------------------------------------------------------------
