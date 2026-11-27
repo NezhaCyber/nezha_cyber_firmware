@@ -37,7 +37,7 @@ jobs:
       is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -82,7 +82,7 @@ jobs:
           - { env: "LAUNCHER_CYD-2432S028",      board: "CYD-2432S028 (Launcher)",     mcu: "esp32",   flash: "4MB"  }
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository (for sd_files bundle)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download all built firmware artifacts
         uses: actions/download-artifact@v4
