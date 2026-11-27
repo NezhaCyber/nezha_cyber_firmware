@@ -24,6 +24,7 @@
 #if defined(CONFIG_IDF_TARGET_ESP32C5)
 #include "modules/wifi/dual_band_analyzer.h"
 #endif
+#include "modules/wifi/csi_radar.h"
 #include "modules/wifi/jam_detect.h"
 #include "modules/wifi/wifi_adv_tools.h"
 #include "modules/wifi/wifi_recover.h"
@@ -83,6 +84,7 @@ void WifiMenu::optionsMenu() {
     options.push_back({"Dual Band Analyzer", dual_band_analyzer_setup});
 #endif
     options.push_back({"Jam Detect", jam_detect_setup});
+    options.push_back({"CSI Motion Radar", csi_radar_menu});
 #if defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(BRUCE_NO_SDR_JAMMER)
     options.push_back({"SDR", sdr_menu});
 #endif
