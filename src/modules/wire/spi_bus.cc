@@ -3,12 +3,13 @@
 
 #include "core/bus_HAL.h"
 #include "core/display.h"
-#include <globals.h>
 #include "core/mykeyboard.h"
 #include "core/scrollableTextArea.h"
+#include "core/sd_functions.h"
 #include "core/settings.h"
 #include "core/utils.h"
 #include <SPI.h>
+#include <globals.h>
 
 // Session state for the console UI (the serial commands pass everything explicitly)
 static SPIClass *spiBus = nullptr;
@@ -122,6 +123,143 @@ String wire_spi_flash_detect() {
     return "OK " + manufacturer + " ID:0x" + String(jedec, HEX) + " size:" + String(capacityKb) + "KB";
 }
 
+static uint32_t spi_crc32_update(uint32_t crc, const uint8_t *data, size_t len) {
+    crc = ~crc;
+    for (size_t i = 0; i < len; ++i) {
+        crc ^= data[i];
+        for (int b = 0; b < 8; ++b) { crc = (crc >> 1) ^ (0xEDB88320UL & (-(int32_t)(crc & 1))); }
+    }
+    return ~crc;
+}
+
+String wire_spi_dump_flash(uint32_t sizeBytes, String &outPath) {
+    if (spiBus == nullptr) return "ERR: bus not started";
+    if (sizeBytes == 0 || sizeBytes > (16UL * 1024UL * 1024UL)) return "ERR: invalid dump size";
+
+    FS *fs = nullptr;
+    if (setupSdCard()) fs = &SD;
+    else if (setupLittleFS()) fs = &LittleFS;
+    if (!fs) return "ERR: no storage mounted";
+
+    if (!fs->exists("/NezhaDumps")) fs->mkdir("/NezhaDumps");
+    char pathBuf[48] = {};
+    for (uint16_t idx = 0; idx < 1000; ++idx) {
+        snprintf(pathBuf, sizeof(pathBuf), "/NezhaDumps/spi_flash_%03u.bin", (unsigned)idx);
+        if (!fs->exists(pathBuf)) break;
+    }
+    outPath = pathBuf;
+    File outFile = fs->open(pathBuf, FILE_WRITE);
+    if (!outFile) return "ERR: failed creating dump file";
+
+    constexpr size_t CHUNK_SZ = 4096;
+    uint8_t *buf = (uint8_t *)malloc(CHUNK_SZ);
+    if (!buf) {
+        outFile.close();
+        return "ERR: low RAM";
+    }
+
+    uint32_t crc = 0;
+    uint32_t offset = 0;
+    bool aborted = false;
+    uint32_t lastUiMs = 0;
+
+    while (offset < sizeBytes) {
+        if (check(EscPress)) {
+            aborted = true;
+            break;
+        }
+        size_t toRead = (sizeBytes - offset > CHUNK_SZ) ? CHUNK_SZ : (size_t)(sizeBytes - offset);
+
+        spiBus->beginTransaction(SPISettings(spiFreq, MSBFIRST, SPI_MODE0));
+        digitalWrite(spiCsPin, LOW);
+        spiBus->transfer(0x03); // Standard READ (24-bit address)
+        spiBus->transfer((uint8_t)((offset >> 16) & 0xFF));
+        spiBus->transfer((uint8_t)((offset >> 8) & 0xFF));
+        spiBus->transfer((uint8_t)(offset & 0xFF));
+        for (size_t i = 0; i < toRead; ++i) buf[i] = spiBus->transfer(0x00);
+        digitalWrite(spiCsPin, HIGH);
+        spiBus->endTransaction();
+
+        if (outFile.write(buf, toRead) != toRead) {
+            free(buf);
+            outFile.close();
+            return "ERR: SD write failed";
+        }
+        crc = spi_crc32_update(crc, buf, toRead);
+        offset += toRead;
+
+        uint32_t now = millis();
+        if (now - lastUiMs >= 150) {
+            lastUiMs = now;
+            progressHandler((int)(offset / 1024), (size_t)(sizeBytes / 1024), "Dumping SPI Flash");
+        }
+        vTaskDelay(1);
+    }
+
+    free(buf);
+    outFile.flush();
+    outFile.close();
+
+    if (aborted) return "ERR: aborted at " + String(offset / 1024) + "KB";
+
+    char summary[64];
+    snprintf(
+        summary,
+        sizeof(summary),
+        "OK %luKB CRC32:%08lX",
+        (unsigned long)(offset / 1024),
+        (unsigned long)crc
+    );
+    return String(summary);
+}
+
+static void spi_dump_flash_menu() {
+    if (!wire_spi_begin(-1, -1, -1, -1, spiFreq)) {
+        displayError("Set SPI pins first", true);
+        return;
+    }
+
+    // Attempt JEDEC auto-size first
+    uint32_t autoBytes = 0;
+    uint8_t rx[4] = {};
+    spiBus->beginTransaction(SPISettings(spiFreq, MSBFIRST, SPI_MODE0));
+    digitalWrite(spiCsPin, LOW);
+    rx[0] = spiBus->transfer(0x9F);
+    rx[1] = spiBus->transfer(0x00);
+    rx[2] = spiBus->transfer(0x00);
+    rx[3] = spiBus->transfer(0x00);
+    digitalWrite(spiCsPin, HIGH);
+    spiBus->endTransaction();
+    if (rx[3] >= 16 && rx[3] <= 24) autoBytes = (1UL << rx[3]);
+
+    uint32_t chosenBytes = 0;
+    std::vector<Option> sizeOpts;
+    if (autoBytes > 0) {
+        sizeOpts.push_back(
+            {"Auto JEDEC (" + String(autoBytes / 1024) + " KB)", [&]() { chosenBytes = autoBytes; }}
+        );
+    }
+    sizeOpts.push_back({"64 KB", [&]() { chosenBytes = 64UL * 1024; }});
+    sizeOpts.push_back({"512 KB", [&]() { chosenBytes = 512UL * 1024; }});
+    sizeOpts.push_back({"1 MB", [&]() { chosenBytes = 1024UL * 1024; }});
+    sizeOpts.push_back({"2 MB", [&]() { chosenBytes = 2048UL * 1024; }});
+    sizeOpts.push_back({"4 MB", [&]() { chosenBytes = 4096UL * 1024; }});
+    sizeOpts.push_back({"8 MB", [&]() { chosenBytes = 8192UL * 1024; }});
+    sizeOpts.push_back({"Cancel", []() {}});
+
+    loopOptions(sizeOpts, MENU_TYPE_SUBMENU, "SPI Flash Size");
+    if (chosenBytes == 0) return;
+
+    drawMainBorderWithTitle("SPI Flash Dump");
+    String path;
+    String res = wire_spi_dump_flash(chosenBytes, path);
+    if (res.startsWith("OK")) {
+        displaySuccess(res + "\n" + path, true);
+    } else {
+        displayError(res, true);
+    }
+}
+
 /*********************************************************************
 **  Function: spi_pick_clock
 **********************************************************************/
@@ -197,7 +335,8 @@ void spi_bus_setup() {
                  if (result.startsWith("OK")) displayInfo(result, true);
                  else displayError(result.substring(5), true);
              }},
-            {String("Console"),            []() {
+            {String("Dump Flash to SD"),     spi_dump_flash_menu},
+            {String("Console"),              []() {
                  if (!wire_spi_begin(-1, -1, -1, -1, spiFreq)) {
                      displayError("Set SPI pins first", true);
                      return;

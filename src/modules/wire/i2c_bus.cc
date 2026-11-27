@@ -3,12 +3,13 @@
 
 #include "core/bus_HAL.h"
 #include "core/display.h"
-#include <globals.h>
 #include "core/mykeyboard.h"
 #include "core/scrollableTextArea.h"
+#include "core/sd_functions.h"
 #include "core/settings.h"
 #include "core/utils.h"
 #include <Wire.h>
+#include <globals.h>
 
 // Standard 7-bit probe range (0x00-0x07 and 0x78-0x7F are reserved addresses)
 #define I2C_SCAN_FIRST 0x08
@@ -81,6 +82,124 @@ String wire_i2c_write_reg(uint8_t addr, uint8_t reg, uint8_t value, I2CBusId bus
     I2CLease lease = i2c_open(bus, sda, scl);
     if (!lease) return "ERR: bus unavailable";
     return i2c_write_reg_on(lease, addr, reg, value);
+}
+
+static uint32_t i2c_crc32_update(uint32_t crc, const uint8_t *data, size_t len) {
+    crc = ~crc;
+    for (size_t i = 0; i < len; ++i) {
+        crc ^= data[i];
+        for (int b = 0; b < 8; ++b) { crc = (crc >> 1) ^ (0xEDB88320UL & (-(int32_t)(crc & 1))); }
+    }
+    return ~crc;
+}
+
+String wire_i2c_dump_eeprom(uint8_t addr, uint32_t sizeBytes, bool addr16, I2CBusId bus) {
+    if (sizeBytes == 0 || sizeBytes > 65536) return "ERR: size 1..65536";
+    I2CLease lease = i2cLeaseBus(bus);
+    if (!lease) return "ERR: I2C bus unavailable";
+
+    FS *fs = nullptr;
+    if (setupSdCard()) fs = &SD;
+    else if (setupLittleFS()) fs = &LittleFS;
+    if (!fs) return "ERR: no storage mounted";
+
+    if (!fs->exists("/NezhaDumps")) fs->mkdir("/NezhaDumps");
+    char pathBuf[52] = {};
+    for (uint16_t idx = 0; idx < 1000; ++idx) {
+        snprintf(pathBuf, sizeof(pathBuf), "/NezhaDumps/eeprom_0x%02X_%03u.bin", (unsigned)addr, (unsigned)idx);
+        if (!fs->exists(pathBuf)) break;
+    }
+    File outFile = fs->open(pathBuf, FILE_WRITE);
+    if (!outFile) return "ERR: failed creating file";
+
+    TwoWire *w = lease.wire();
+    uint8_t chunk[32];
+    uint32_t offset = 0;
+    uint32_t crc = 0;
+    bool aborted = false;
+
+    while (offset < sizeBytes) {
+        if (check(EscPress)) {
+            aborted = true;
+            break;
+        }
+        size_t toRead = (sizeBytes - offset > sizeof(chunk)) ? sizeof(chunk) : (size_t)(sizeBytes - offset);
+        uint8_t devAddr = addr16 ? addr : (uint8_t)((addr & 0xF8) | ((offset >> 8) & 0x07));
+
+        w->beginTransmission(devAddr);
+        if (addr16) {
+            w->write((uint8_t)((offset >> 8) & 0xFF));
+            w->write((uint8_t)(offset & 0xFF));
+        } else {
+            w->write((uint8_t)(offset & 0xFF));
+        }
+        if (w->endTransmission(false) != 0) {
+            outFile.close();
+            return "ERR: NACK at 0x" + String(offset, HEX);
+        }
+
+        size_t got = w->requestFrom((int)devAddr, (int)toRead);
+        if (got != toRead) {
+            outFile.close();
+            return "ERR: short read at 0x" + String(offset, HEX);
+        }
+        for (size_t i = 0; i < got; ++i) chunk[i] = (uint8_t)w->read();
+        if (outFile.write(chunk, got) != got) {
+            outFile.close();
+            return "ERR: storage write failed";
+        }
+        crc = i2c_crc32_update(crc, chunk, got);
+        offset += got;
+        if ((offset & 0xFF) == 0) vTaskDelay(1);
+    }
+
+    outFile.flush();
+    outFile.close();
+    if (aborted) return "ERR: aborted";
+
+    char summary[80];
+    snprintf(
+        summary,
+        sizeof(summary),
+        "OK %luB CRC32:%08lX %s",
+        (unsigned long)offset,
+        (unsigned long)crc,
+        pathBuf
+    );
+    return String(summary);
+}
+
+static void i2c_dump_eeprom_menu(WireI2cDevice dev) {
+    struct EepromProfile {
+        const char *name;
+        uint32_t bytes;
+        bool addr16;
+    };
+    static const EepromProfile profiles[] = {
+        {"24C02 (256B)",  256,   false},
+        {"24C04 (512B)",  512,   false},
+        {"24C08 (1KB)",   1024,  false},
+        {"24C16 (2KB)",   2048,  false},
+        {"24C32 (4KB)",   4096,  true },
+        {"24C64 (8KB)",   8192,  true },
+        {"24C128 (16KB)", 16384, true },
+        {"24C256 (32KB)", 32768, true },
+        {"24C512 (64KB)", 65536, true },
+    };
+
+    int picked = -1;
+    std::vector<Option> localOpts;
+    for (size_t i = 0; i < sizeof(profiles) / sizeof(profiles[0]); ++i) {
+        localOpts.push_back({String(profiles[i].name), [i, &picked]() { picked = (int)i; }});
+    }
+    localOpts.push_back({"Cancel", []() {}});
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "24Cxx EEPROM");
+    if (picked < 0) return;
+
+    displayRedStripe("Dumping EEPROM...");
+    String res = wire_i2c_dump_eeprom(dev.addr, profiles[picked].bytes, profiles[picked].addr16, dev.bus);
+    if (res.startsWith("OK")) displaySuccess(res, true);
+    else displayError(res, true);
 }
 
 /*********************************************************************
@@ -181,6 +300,8 @@ static void i2c_device_menu(WireI2cDevice dev) {
                  check(SelPress);
                  check(EscPress);
              }},
+            {String("Dump 24Cxx EEPROM"),
+             [dev]() { i2c_dump_eeprom_menu(dev); }},
         };
         addOptionToMainMenu();
         String title = "I2C 0x" + String(dev.addr, HEX) + " " + i2c_bus_tag(dev.bus);
