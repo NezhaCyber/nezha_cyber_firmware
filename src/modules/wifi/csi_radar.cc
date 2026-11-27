@@ -35,7 +35,7 @@ struct CsiRuntime {
 static CsiRuntime *s_csi = nullptr;
 static bool s_csiLogCsv = false;
 static uint8_t s_csiChannel = 1;
-static csi_radar::Sensitivity s_csiSens = csi_radar::Sensitivity::MEDIUM;
+static csi_radar::Sensitivity s_csiSens = csi_radar::Sensitivity::Medium;
 
 #if defined(NEZHA_NATIVE_CSI)
 static void csiRxCallback(void *ctx, wifi_csi_info_t *info) {
@@ -104,9 +104,9 @@ static uint16_t stateColor(csi_radar::MotionState st) {
 
 static const char *sensLabel(csi_radar::Sensitivity s) {
     switch (s) {
-        case csi_radar::Sensitivity::LOW: return "LOW";
-        case csi_radar::Sensitivity::HIGH: return "HIGH";
-        case csi_radar::Sensitivity::MEDIUM:
+        case csi_radar::Sensitivity::Low: return "LOW";
+        case csi_radar::Sensitivity::High: return "HIGH";
+        case csi_radar::Sensitivity::Medium:
         default: return "MED";
     }
 }

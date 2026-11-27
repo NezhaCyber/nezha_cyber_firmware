@@ -14,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 LANG_HEADER = REPO_ROOT / "src" / "core" / "lang_zh_cn.h"
 OUT_HEADER = REPO_ROOT / "src" / "core" / "cjk_font_data.h"
 EXTRA_SCAN_FILES = [
+    REPO_ROOT / "src" / "main.cc",
     REPO_ROOT / "src" / "core" / "settings.cc",
     REPO_ROOT / "src" / "core" / "menu_items" / "ConfigMenu.cc",
     REPO_ROOT / "src" / "core" / "i18n.cc",

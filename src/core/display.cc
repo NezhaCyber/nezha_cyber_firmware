@@ -346,6 +346,7 @@ int8_t displayMessage(
     tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, bdim);
     if (bruceConfig.nezhaThemeStyle > 0) {
         drawNezhaRibbonRule(cardX + 10, cardY + 2, cardW - 20);
+        drawNezhaCornerBrackets(cardX, cardY, cardW, cardH, bruceConfig.priColor, bruceConfig.secColor);
     }
 
     int textY = cardY + padTop;
@@ -381,16 +382,30 @@ int8_t displayMessage(
     int8_t selected = 0;
     bool redraw = true;
 
+    inputLock();
+    touchPoint.Clear();
+    SelPress = false;
+    EscPress = false;
+    inputUnlock();
+
     while (true) {
 #if defined(HAS_TOUCH)
-        if (touchPoint.pressed) {
-            int tx = touchPoint.x;
-            int ty = touchPoint.y;
-            touchPoint.pressed = false;
-            if (ty >= btnY - 4 && ty <= btnY + btnH + 4) {
+        {
+            bool hasTouch = false;
+            int tx = 0;
+            int ty = 0;
+            inputLock();
+            if (touchPoint.pressed) {
+                hasTouch = true;
+                tx = touchPoint.x;
+                ty = touchPoint.y;
+                touchPoint.Clear();
+            }
+            inputUnlock();
+            if (hasTouch && ty >= btnY - 10 && ty <= btnY + btnH + 10) {
                 for (int8_t i = 0; i < totalButtons; i++) {
                     int bx = btnX0 + i * (btnW + btnGap);
-                    if (tx >= bx && tx < bx + btnW) {
+                    if (tx >= bx - 4 && tx < bx + btnW + 4) {
                         selected = i;
                         SelPress = true;
                         break;
@@ -691,12 +706,12 @@ int loopOptions(
     unsigned long menuOpenTs =
         0; // timestamp when this menu was first rendered (per-invocation, not shared across nested menus)
 #if defined(HAS_TOUCH)
-    // Integrated top-left "<" back button zone inside the menu header (replaces floating [X] box)
+    // Generous top-left "< Back" button zone covering both the chevron and the "Back"/"返回" label
     bool showEscButton = useTapToSelect && (menuType == MENU_TYPE_REGULAR || menuType == MENU_TYPE_SUBMENU);
-    const int escX = 4;
-    const int escY = STATUS_BAR_HEIGHT - 3;
-    const int escW = 36;
-    const int escH = 22;
+    const int escX = 0;
+    const int escY = 0;
+    const int escW = 84;
+    const int escH = STATUS_BAR_HEIGHT + 24;
 #endif
     if (!compact) drawMainBorder();
     while (1) {
@@ -1466,7 +1481,8 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
         if (isSel) {
             tft.fillRoundRect(rowX, rowY + 1, rowW, rowH - 2, 6, pri);
             if (bruceConfig.nezhaThemeStyle > 0) {
-                tft.fillRoundRect(rowX + 3, rowY + 5, 2, rowH - 10, 1, bruceConfig.secColor);
+                tft.fillRoundRect(rowX + 3, rowY + 4, 3, rowH - 8, 1, bruceConfig.secColor);
+                tft.drawFastVLine(rowX + 4, rowY + 6, max(2, rowH - 12), onAccent);
             }
         }
 
@@ -1533,7 +1549,7 @@ StatusBarCache s_statusBarCache;
 void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t style) {
     if (r < 3) r = 3;
     if (style == 2) {
-        // Lotus Seal (莲花玄印): 3-petal lotus silhouette
+        // Lotus Seal (七色宝莲玄印): 3-petal lotus silhouette + sacred gold base
         tft.fillTriangle(cx - r, cy + r / 2, cx - r / 2, cy - r / 2, cx, cy + r / 2, pri);
         tft.fillTriangle(cx + r, cy + r / 2, cx + r / 2, cy - r / 2, cx, cy + r / 2, pri);
         tft.fillTriangle(cx - r / 2, cy + r / 2, cx, cy - r, cx + r / 2, cy + r / 2, sec);
@@ -1543,8 +1559,27 @@ void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t s
         tft.fillTriangle(cx, cy - r, cx - r + 1, cy, cx, cy + r, pri);
         tft.fillTriangle(cx, cy - r, cx + r - 1, cy, cx, cy + r, sec);
         tft.drawPixel(cx, cy, TFT_WHITE);
+    } else if (style == 4) {
+        // Nezha 2: Sea Rage (哪吒2·魔童闹海): blazing 3-tongue crown flame over surging sea wave
+        int ir = max(1, r / 2);
+        tft.fillTriangle(cx, cy - r, cx - ir - 1, cy, cx + ir + 1, cy, pri);
+        tft.fillTriangle(cx - r + 1, cy - ir + 1, cx - r + 1, cy + 1, cx - 1, cy + 1, pri);
+        tft.fillTriangle(cx + r - 1, cy - ir + 1, cx + r - 1, cy + 1, cx + 1, cy + 1, pri);
+        tft.fillTriangle(cx, cy - ir, cx - ir + 1, cy, cx + ir - 1, cy, sec);
+        // Stylized cresting sea wave below the flame
+        tft.drawLine(cx - r, cy + r - 1, cx - ir, cy + 1, sec);
+        tft.drawLine(cx - ir, cy + 1, cx, cy + r - 1, sec);
+        tft.drawLine(cx, cy + r - 1, cx + ir, cy + 1, sec);
+        tft.drawLine(cx + ir, cy + 1, cx + r, cy + r - 1, sec);
+    } else if (style == 5) {
+        // Nezha 2: Dragon Seal (哪吒2·东海龙鳞印): twin dragon horns + luminous sea pearl
+        int ir = max(1, r / 2);
+        tft.fillTriangle(cx - r, cy - r + 1, cx - ir, cy + r / 2, cx - 1, cy - 1, pri);
+        tft.fillTriangle(cx + r, cy - r + 1, cx + ir, cy + r / 2, cx + 1, cy - 1, pri);
+        tft.fillCircle(cx, cy + 1, ir, sec);
+        tft.drawPixel(cx, cy, TFT_WHITE);
     } else {
-        // Motong Flame (魔童烈焰): iconic Nezha forehead lotus-flame mark
+        // Nezha 1: Motong Flame (哪吒1·魔童烈焰): iconic forehead lotus-flame mark
         tft.fillTriangle(cx, cy - r, cx - r + 1, cy + 1, cx + r - 1, cy + 1, pri);
         tft.fillTriangle(cx, cy + r, cx - r + 2, cy, cx + r - 2, cy, pri);
         int ir = max(1, r / 2);
@@ -1555,15 +1590,52 @@ void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t s
 void drawNezhaRibbonRule(int x, int y, int w) {
     if (w <= 0) return;
     tft.drawFastHLine(x, y, w, uiBorderDimColor());
-    if (bruceConfig.nezhaThemeStyle > 0) {
-        int lead = max(12, w / 4);
-        int tip = max(6, min(20, w / 10));
-        if (lead > w) lead = w;
-        tft.drawFastHLine(x, y, lead, bruceConfig.priColor);
+    uint8_t nStyle = (uint8_t)bruceConfig.nezhaThemeStyle;
+    if (nStyle == 0) return;
+
+    int lead = max(14, w / 3);
+    int tip = max(8, min(24, w / 8));
+    if (lead > w) lead = w;
+    tft.drawFastHLine(x, y, lead, bruceConfig.priColor);
+    if (nStyle >= 4) {
+        // 哪吒2·魔童闹海: surging sea-flame dual edge + twin ember sparks
         if (lead + tip <= w) {
             tft.drawFastHLine(x + lead, y, tip, bruceConfig.secColor);
+            if (lead + tip + 6 <= w) {
+                tft.fillRect(x + lead + tip + 2, y, 2, 1, bruceConfig.priColor);
+                tft.fillRect(x + lead + tip + 5, y, 2, 1, bruceConfig.secColor);
+            }
+        }
+        int tail = min(14, w / 6);
+        if (w > lead + tip + tail + 10) {
+            tft.drawFastHLine(x + w - tail, y, tail, bruceConfig.secColor);
+        }
+    } else {
+        // 哪吒1·魔童降世: Hun Tian Ling crimson-to-gold ribbon with subtle golden knot
+        if (lead + tip <= w) {
+            tft.drawFastHLine(x + lead, y, tip, bruceConfig.secColor);
+            tft.drawPixel(x + lead, y - 1, bruceConfig.secColor);
         }
     }
+}
+
+void drawNezhaCornerBrackets(int x, int y, int w, int h, uint16_t pri, uint16_t sec) {
+    if (bruceConfig.nezhaThemeStyle == 0 || w < 28 || h < 24) return;
+    const int arm = (w >= 140 && h >= 64) ? 7 : 5;
+    // Top-left & bottom-right in pri, top-right & bottom-left accented with sec spark
+    tft.drawFastHLine(x + 2, y + 2, arm, pri);
+    tft.drawFastVLine(x + 2, y + 2, arm, pri);
+    tft.fillRect(x + 2, y + 2, 2, 2, sec);
+
+    tft.drawFastHLine(x + w - 2 - arm, y + 2, arm, sec);
+    tft.drawFastVLine(x + w - 3, y + 2, arm, sec);
+
+    tft.drawFastHLine(x + 2, y + h - 3, arm, sec);
+    tft.drawFastVLine(x + 2, y + h - 2 - arm, arm, sec);
+
+    tft.drawFastHLine(x + w - 2 - arm, y + h - 3, arm, pri);
+    tft.drawFastVLine(x + w - 3, y + h - 2 - arm, arm, pri);
+    tft.fillRect(x + w - 4, y + h - 4, 2, 2, sec);
 }
 
 void uiDrawCard(int x, int y, int w, int h, bool accentRule) {
@@ -1573,6 +1645,7 @@ void uiDrawCard(int x, int y, int w, int h, bool accentRule) {
     tft.drawRoundRect(x, y, w, h, 8, uiBorderDimColor());
     if (accentRule && bruceConfig.nezhaThemeStyle > 0 && w > 24) {
         drawNezhaRibbonRule(x + 10, y + 2, w - 20);
+        drawNezhaCornerBrackets(x, y, w, h, bruceConfig.priColor, bruceConfig.secColor);
     }
 }
 

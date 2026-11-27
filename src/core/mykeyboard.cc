@@ -465,55 +465,68 @@ String generalKeyboard(
     max_FM_size = tftWidth / (LW * FM) - 1;
     max_FP_size = tftWidth / (LW)-2;
     resetTftDisplay();
+
+#if defined(HAS_TOUCH)
+    // Disable global touchHeatMap zones while typing so taps never trigger phantom Sel/Esc/Prev/Next
+    struct KeyboardTouchZoneGuard {
+        bool prev;
+        KeyboardTouchZoneGuard() : prev(touchZoneOutsideFooterEnabled) {
+            touchZoneOutsideFooterEnabled = false;
+        }
+        ~KeyboardTouchZoneGuard() { touchZoneOutsideFooterEnabled = prev; }
+    } kbTouchZoneGuard;
+#endif
+
+    // Flush any stale navigation, touch, or keyboard events carried over from the calling menu
+    inputLock();
     touchPoint.Clear();
+    KeyStroke.Clear();
+    SelPress = false;
+    EscPress = false;
+    NextPress = false;
+    PrevPress = false;
+    UpPress = false;
+    DownPress = false;
+    inputUnlock();
 
     /* SUPPORT VARIABLES */
     bool caps = false;
     bool last_caps = false;
-    bool selection_made = false; // used for detecting if an key or a button was selected
+    bool selection_made = false; // used for detecting if a key or a button was selected
     bool redraw = true;
-    long last_input_time = millis(); // used for input debouncing
+    unsigned long last_input_time = millis(); // used for button input debouncing
+#if defined(HAS_TOUCH)
+    unsigned long last_touch_time = 0; // immediate first tap; short 80ms guard (HAL already debounces)
+#endif
     bool show_password = false;
-    // cursor coordinates: kep track of where the next character should be printed (in screen pixels)
+#if defined(HAS_KEYBOARD)
+    // Devices with a built-in physical keyboard (T-Deck, Cardputer, T-LoRa-Pager, Tab5) default to a
+    // clean text-input dialog instead of cluttering the screen with a redundant virtual QWERTY grid.
+    // On boards with both HAS_KEYBOARD and HAS_TOUCH, the user can optionally toggle the touch keypad.
+    bool showOnScreenKeys = false;
+#else
+    constexpr bool showOnScreenKeys = true;
+#endif
+    // cursor coordinates: keep track of where the next character should be printed (in screen pixels)
     int cursor_x = 0;
     int cursor_y = 0;
     // keyboard navigation coordinates: keep track of which key (or button) is currently selected
     int x = 0;
-    int y = -1; // -1 is where the buttons_strings are, out of the keys[][][] array
+    int y = -1; // -1 is where the top action buttons live, above the keys[][][] grid
     int old_x = 0;
     int old_y = 0;
-    //       [x][y] [z], old_x and old_y are the previous position of x and y, used to redraw only that spot
-    //       on keyboard screen
 
     /*====================Initial Setup====================*/
 
     bool direction = true;
     bool last_dir = true;
-    const int password_button = 5 + HAS_1_BUTTON;
-
-    /*-----------------------------HOW btns_layout IS CALCULATED-----------------------------*/
-    // const char *buttons_strings[] = {"OK", "CAP", "DEL", "SPACE", "BACK"};
-    // // { x coord of btn border, btn width, x coord of the inside text }
-    // int btns_layout[buttons_number][3];
-    // // OK btn is special, is larger than the others considering its only two letters
-    // btns_layout[0][0] = 7;  // space between the first button and the left margin
-    // btns_layout[0][1] = 46; // we use a padding of 12px instead of 9px
-    // btns_layout[0][3] = 19; // 7+12px
-    // for (size_t i = 0; i < buttons_number; i++) {
-    //     // start of previous btn + width of that btn + 2px padding between the buttons
-    //     btns_layout[i][0] = btns_layout[i - 1][0] + btns_layout[i - 1][1] + 2;
-    //     // 12px per character (10 for char + 2 for padding before next letter) - last padding
-    //     // + 9px padding * 2 (before and after string)
-    //     btns_layout[i][1] = (strlen(buttons_strings[i]) * 12) - 2 + 9 * 2;
-    //     // x coord for start of string
-    //     btns_layout[i][2] = btns_layout[i][0] + 9;
-    // }
-    //
-    // for smaller screens is the same thing, just different values for padding etc.
-    //
-    // btns_layouts are hard coded because there is no way yet to enable/disable buttons,
-    // so these do not change
-    /*---------------------------------------------------------------------------------------*/
+#if defined(HAS_KEYBOARD) && defined(HAS_TOUCH)
+    constexpr int has_kb_toggle = 1;
+    const int kb_toggle_button = 5 + HAS_1_BUTTON;
+#else
+    constexpr int has_kb_toggle = 0;
+#endif
+    const int password_button = 5 + HAS_1_BUTTON + has_kb_toggle;
 
     const int PAD = FP + 1;
     const int KBLH = (BORDER_OFFSET_FROM_SCREEN_EDGE + 1) + LH * FM;
@@ -524,7 +537,8 @@ String generalKeyboard(
     const int textbox_text_y = textbox_y + 2;
     const int keyboard_start_y = textbox_y + KBLH + 2;
 
-    const int password_button_x = 6 * PAD + 15 * LW * FM + HAS_1_BUTTON * (PAD + 4 * LW * FM);
+    const int kb_toggle_x = 6 * PAD + 15 * LW * FM + HAS_1_BUTTON * (PAD + 4 * LW * FM);
+    const int password_button_x = kb_toggle_x + has_kb_toggle * (PAD + 3 * LW * FM);
     const int password_button_width = tftWidth - password_button_x - PAD;
 #if defined(HAS_TOUCH)
     // Keep existing controls in place and only add Show/Hide when its label fits.
@@ -534,7 +548,7 @@ String generalKeyboard(
 #endif
     const int buttons_number = password_button + (password_toggle ? 1 : 0);
 
-    const int btns_layout[6 + HAS_1_BUTTON][3] = {
+    const int btns_layout[6 + HAS_1_BUTTON + has_kb_toggle][3] = {
         {1 * PAD + 0 * LW * FM,  3 * LW * FM,           1 * PAD + 0 * LW * FM + LW * FM / 2  }, // Ok
         {2 * PAD + 3 * LW * FM,  3 * LW * FM,           2 * PAD + 3 * LW * FM + LW * FM / 2  }, // ab/A@
         {3 * PAD + 6 * LW * FM,  3 * LW * FM,           3 * PAD + 6 * LW * FM + LW * FM / 2  }, // <-
@@ -543,8 +557,79 @@ String generalKeyboard(
 #if HAS_1_BUTTON
         {6 * PAD + 15 * LW * FM, 4 * LW * FM,           6 * PAD + 15 * LW * FM + LW * FM / 2 }, // R/D or L/U
 #endif
-        {password_button_x,      password_button_width, 0                                    }, // Show/Hide, when enabled
+#if defined(HAS_KEYBOARD) && defined(HAS_TOUCH)
+        {kb_toggle_x,            3 * LW * FM,           kb_toggle_x + LW * FM / 2            }, // KB toggle
+#endif
+        {password_button_x,      password_button_width, 0                                    }, // Show/Hide
     };
+
+#if defined(HAS_KEYBOARD)
+    // Large, comfortable bottom action bar for physical-keyboard dialog mode (showOnScreenKeys == false),
+    // placed well away from the top display bezel so OK / DEL / EXIT / KB are effortless to tap.
+    enum CompactAction : uint8_t { COMPACT_OK = 0, COMPACT_DEL, COMPACT_CANCEL, COMPACT_PASS, COMPACT_KB };
+    struct CompactPill {
+        int x;
+        int w;
+        CompactAction action;
+        const char *label;
+        bool smallFont;
+        bool primaryOutline;
+    };
+    const int compactHintH = LH * FP + 6;
+    const int compactBtnH = (tftHeight >= 200) ? 30 : 22;
+    const int compactBtnY = tftHeight - compactHintH - compactBtnH - 4;
+    CompactPill compactPills[5];
+    int compactPillCount = 0;
+    auto rebuildCompactPills = [&]() {
+        compactPillCount = 0;
+        CompactAction actions[5];
+        const char *labels[5];
+        bool smallF[5];
+        bool priOut[5];
+        int n = 0;
+        actions[n] = COMPACT_OK;
+        labels[n] = "OK";
+        smallF[n] = false;
+        priOut[n] = true;
+        n++;
+        actions[n] = COMPACT_DEL;
+        labels[n] = "DEL";
+        smallF[n] = (tftWidth < 260);
+        priOut[n] = false;
+        n++;
+        actions[n] = COMPACT_CANCEL;
+        labels[n] = "EXIT";
+        smallF[n] = (tftWidth < 260);
+        priOut[n] = false;
+        n++;
+        if (mask_input) {
+            actions[n] = COMPACT_PASS;
+            labels[n] = show_password ? "Hide" : "Show";
+            smallF[n] = true;
+            priOut[n] = false;
+            n++;
+        }
+#if defined(HAS_TOUCH)
+        actions[n] = COMPACT_KB;
+        labels[n] = "KB";
+        smallF[n] = false;
+        priOut[n] = false;
+        n++;
+#endif
+        const int marginX = 6;
+        const int gap = 5;
+        int totalW = tftWidth - marginX * 2 - gap * (n - 1);
+        int eachW = totalW / n;
+        int cx = marginX;
+        for (int i = 0; i < n; ++i) {
+            int w = (i == n - 1) ? (tftWidth - marginX - cx) : eachW;
+            compactPills[compactPillCount++] = {cx, w, actions[i], labels[i], smallF[i], priOut[i]};
+            cx += w + gap;
+        }
+    };
+    rebuildCompactPills();
+    int compactFocus = 0;
+#endif
 
     const int key_width = tftWidth / KeyboardWidth;
     const int key_height = (tftHeight - keyboard_start_y) / KeyboardHeight;
@@ -573,7 +658,7 @@ String generalKeyboard(
         }
     }
     const int buttons_start_index = k;
-    // Setup buttons_strings touch boxes
+    // Setup buttons_strings touch boxes (generous vertical reach down to textbox_y so top pills never miss)
     for (int i = 0; i < buttons_number; i++) {
         box_list[k].key = ' ';
         box_list[k].key_sh = ' ';
@@ -581,7 +666,7 @@ String generalKeyboard(
         box_list[k].x = btns_layout[i][0];
         box_list[k].y = 0;
         box_list[k].w = btns_layout[i][1];
-        box_list[k].h = KBLH + 2;
+        box_list[k].h = textbox_y - 1;
         k++;
     }
 
@@ -609,113 +694,243 @@ String generalKeyboard(
 
             String visible_text =
                 mask_input && !show_password ? repeatString(current_text.length(), "*") : current_text;
-            tft.setCursor(0, 0);
-            tft.setTextSize(FM);
 
-            // Draw the top row action pills
-            bool capsChanged = (caps != last_caps);
-            if (firstGridDraw || y < 0 || old_y < 0 || capsChanged || direction != last_dir) {
-                last_caps = caps;
-                last_dir = direction;
-                tft.fillRect(0, 1, tftWidth, KBLH + 2, bgCol);
+#if defined(HAS_KEYBOARD)
+            if (!showOnScreenKeys) {
+                rebuildCompactPills();
+                if (compactFocus >= compactPillCount) compactFocus = 0;
 
-                auto drawTopPill = [&](int idx, const char *lbl, bool activeToggle, bool primaryOutline, bool smallFont) {
-                    bool focused = (x == idx && y == -1);
+                // 1. Clean header: title, live counter, and restrained 哪吒魔童 ribbon divider
+                const int titleY = 6;
+                tft.setTextSize(FP);
+                String chars_counter = String(current_text.length()) + "/" + String(max_size);
+                tft.fillRect(0, 0, tftWidth, titleY + LH * FP + 8, bgCol);
+                tft.setTextColor(mutedCol, bgCol);
+                tft.drawRightString(chars_counter, tftWidth - 6, titleY, 1);
+
+                String trTitle = bruce_i18n::tr(textbox_title);
+                int16_t maxTitlePx = tftWidth - ((chars_counter.length() * LW * FP) + 20);
+                if (maxTitlePx < 24) maxTitlePx = 24;
+                tft.setTextColor(brightCol, bgCol);
+                tft.drawString(bruce_i18n::utf8TruncateToWidth(trTitle, maxTitlePx, FP), 6, titleY);
+                drawNezhaRibbonRule(6, titleY + LH * FP + 4, tftWidth - 12);
+
+                // 2. Generous multi-line rounded text input box with visible caret
+                const int boxX = 6;
+                const int boxY = titleY + LH * FP + 11;
+                const int boxW = tftWidth - 12;
+                const int boxH = compactBtnY - boxY - 8;
+                tft.fillRoundRect(boxX, boxY, boxW, boxH, 6, surfCol);
+                tft.drawRoundRect(boxX, boxY, boxW, boxH, 6, priCol);
+                if (bruceConfig.nezhaThemeStyle > 0) {
+                    drawNezhaCornerBrackets(boxX, boxY, boxW, boxH, priCol, bruceConfig.secColor);
+                }
+
+                const int innerPad = 8;
+                const int innerW = boxW - innerPad * 2;
+                const int innerH = boxH - innerPad * 2;
+                int textScale = FM;
+                int charW = LW * textScale;
+                int lineH = LH * textScale + 4;
+                int colsPerLine = innerW / charW;
+                if (colsPerLine < 1) colsPerLine = 1;
+                int maxLines = innerH / lineH;
+                if (maxLines < 1) maxLines = 1;
+
+                String displayStr = visible_text + "_";
+                if (static_cast<int>(displayStr.length()) > colsPerLine * maxLines) {
+                    textScale = FP;
+                    charW = LW * textScale;
+                    lineH = LH * textScale + 3;
+                    colsPerLine = innerW / charW;
+                    if (colsPerLine < 1) colsPerLine = 1;
+                    maxLines = innerH / lineH;
+                    if (maxLines < 1) maxLines = 1;
+                }
+
+                tft.setTextSize(textScale);
+                int totalLen = static_cast<int>(displayStr.length());
+                int totalLines = (totalLen + colsPerLine - 1) / colsPerLine;
+                int startLine = (totalLines > maxLines) ? (totalLines - maxLines) : 0;
+                for (int ln = startLine; ln < totalLines; ++ln) {
+                    int startIdx = ln * colsPerLine;
+                    int endIdx = startIdx + colsPerLine;
+                    if (endIdx > totalLen) endIdx = totalLen;
+                    String seg = displayStr.substring(startIdx, endIdx);
+                    int drawY = boxY + innerPad + (ln - startLine) * lineH;
+                    bool isLastSeg = (ln == totalLines - 1);
+                    if (isLastSeg && seg.length() > 0) {
+                        String body = seg.substring(0, seg.length() - 1);
+                        tft.setTextColor(brightCol, surfCol);
+                        tft.drawString(body, boxX + innerPad, drawY);
+                        int caretX = boxX + innerPad + static_cast<int>(body.length()) * charW;
+                        tft.setTextColor(priCol, surfCol);
+                        tft.drawString("_", caretX, drawY);
+                    } else {
+                        tft.setTextColor(brightCol, surfCol);
+                        tft.drawString(seg, boxX + innerPad, drawY);
+                    }
+                }
+
+                // 3. Large bottom action bar (OK / DEL / EXIT / [Show] / [KB]) — easy to tap, zero bezel clip
+                tft.fillRect(0, compactBtnY - 3, tftWidth, compactBtnH + 6, bgCol);
+                tft.setTextSize(FM);
+                for (int i = 0; i < compactPillCount; ++i) {
+                    const CompactPill &p = compactPills[i];
+                    bool focused = (i == compactFocus);
+                    bool activeToggle = (p.action == COMPACT_PASS && show_password);
                     uint16_t fill = focused ? priCol : (activeToggle ? surfHiCol : surfCol);
                     uint16_t fg = focused ? onAccentCol : (activeToggle ? priCol : brightCol);
-                    uint16_t outline = focused ? priCol : (primaryOutline ? priCol : bdimCol);
-                    int bx = btns_layout[idx][0];
-                    int bw = btns_layout[idx][1];
-                    tft.fillRoundRect(bx, 2, bw, KBLH, 4, fill);
-                    if (!focused) tft.drawRoundRect(bx, 2, bw, KBLH, 4, outline);
+                    uint16_t outline = focused ? priCol : (p.primaryOutline ? priCol : bdimCol);
+                    tft.fillRoundRect(p.x, compactBtnY, p.w, compactBtnH, 5, fill);
+                    if (!focused) tft.drawRoundRect(p.x, compactBtnY, p.w, compactBtnH, 5, outline);
                     tft.setTextColor(fg, fill);
-                    if (smallFont) {
+                    if (p.smallFont) {
                         tft.setTextSize(FP);
-                        tft.drawCentreString(lbl, bx + bw / 2, 2 + (KBLH - LH * FP) / 2, 1);
+                        tft.drawCentreString(
+                            p.label, p.x + p.w / 2, compactBtnY + (compactBtnH - LH * FP) / 2, 1
+                        );
                         tft.setTextSize(FM);
                     } else {
-                        tft.drawString(lbl, btns_layout[idx][2], top_button_text_y);
+                        tft.drawCentreString(
+                            p.label, p.x + p.w / 2, compactBtnY + (compactBtnH - LH * FM) / 2, 1
+                        );
                     }
-                };
-
-                drawTopPill(0, "Ok", false, true, false);
-                drawTopPill(1, caps ? "ab" : "A@", caps, false, false);
-                drawTopPill(2, "<-", false, false, false);
-                drawTopPill(3, "_", false, false, false);
-                drawTopPill(4, "Ex", false, false, false);
-#if HAS_1_BUTTON
-                drawTopPill(5, direction ? "R/D" : "L/U", !direction, false, false);
-#endif
-                if (password_toggle) {
-                    drawTopPill(password_button, show_password ? "Hide" : "Show", show_password, false, true);
                 }
-            }
 
-            // Prints the chars counter & clean muted title (no legacy 0x5AAB bar)
-            tft.setTextSize(FP);
-            String chars_counter = String(current_text.length()) + "/" + String(max_size);
-            tft.fillRect(0, counter_y, tftWidth, LH * FP + 2, bgCol);
-            tft.setTextColor(mutedCol, bgCol);
-            tft.drawRightString(chars_counter, tftWidth - 5, counter_y, 1);
-
-            String trTitle = bruce_i18n::tr(textbox_title);
-            int16_t maxTitlePx = tftWidth - ((chars_counter.length() * LW * FP) + 18);
-            if (maxTitlePx < 24) maxTitlePx = 24;
-            tft.setTextColor(mutedCol, bgCol);
-            tft.drawString(bruce_i18n::utf8TruncateToWidth(trTitle, maxTitlePx, FP), 5, counter_y);
-
-            // Clean rounded neutral input field with crisp accent outline
-            tft.fillRoundRect(3, textbox_y, tftWidth - 6, KBLH, 5, surfCol);
-            tft.drawRoundRect(3, textbox_y, tftWidth - 6, KBLH, 5, priCol);
-            tft.setTextColor(brightCol, surfCol);
-
-            if (current_text.length() > max_FM_size) {
+                // 4. Concise bottom keyboard hint strip
+                const int hintY = tftHeight - LH * FP - 3;
+                tft.fillRect(0, hintY - 1, tftWidth, LH * FP + 4, bgCol);
                 tft.setTextSize(FP);
-                if (current_text.length() > max_FP_size) {
-                    tft.drawString(visible_text.substring(0, max_FP_size), 7, textbox_text_y);
-                    tft.drawString(
-                        visible_text.substring(max_FP_size, current_text.length()),
-                        7,
-                        textbox_text_y + LH * FP
-                    );
+                tft.setTextColor(mutedCol, bgCol);
+#if defined(HAS_TOUCH)
+                const char *hintText = "Enter:OK  Del:Erase  Fn+Del:Exit  KB:Touch";
+#else
+                const char *hintText = "Enter:OK  Del:Erase  Fn+Del:Exit";
+#endif
+                tft.drawCentreString(
+                    bruce_i18n::utf8TruncateToWidth(hintText, tftWidth - 8, FP), tftWidth / 2, hintY, 1
+                );
+
+                firstGridDraw = false;
+                redraw = false;
+            } else
+#endif
+            {
+                tft.setCursor(0, 0);
+                tft.setTextSize(FM);
+
+                // Draw the top row action pills
+                bool capsChanged = (caps != last_caps);
+                if (firstGridDraw || y < 0 || old_y < 0 || capsChanged || direction != last_dir) {
+                    last_caps = caps;
+                    last_dir = direction;
+                    tft.fillRect(0, 1, tftWidth, KBLH + 2, bgCol);
+
+                    auto drawTopPill = [&](int idx, const char *lbl, bool activeToggle, bool primaryOutline,
+                                           bool smallFont) {
+                        bool focused = (x == idx && y == -1);
+                        uint16_t fill = focused ? priCol : (activeToggle ? surfHiCol : surfCol);
+                        uint16_t fg = focused ? onAccentCol : (activeToggle ? priCol : brightCol);
+                        uint16_t outline = focused ? priCol : (primaryOutline ? priCol : bdimCol);
+                        int bx = btns_layout[idx][0];
+                        int bw = btns_layout[idx][1];
+                        tft.fillRoundRect(bx, 2, bw, KBLH, 4, fill);
+                        if (!focused) tft.drawRoundRect(bx, 2, bw, KBLH, 4, outline);
+                        tft.setTextColor(fg, fill);
+                        if (smallFont) {
+                            tft.setTextSize(FP);
+                            tft.drawCentreString(lbl, bx + bw / 2, 2 + (KBLH - LH * FP) / 2, 1);
+                            tft.setTextSize(FM);
+                        } else {
+                            tft.drawString(lbl, btns_layout[idx][2], top_button_text_y);
+                        }
+                    };
+
+                    drawTopPill(0, "Ok", false, true, false);
+                    drawTopPill(1, caps ? "ab" : "A@", caps, false, false);
+                    drawTopPill(2, "<-", false, false, false);
+                    drawTopPill(3, "_", false, false, false);
+                    drawTopPill(4, "Ex", false, false, false);
+#if HAS_1_BUTTON
+                    drawTopPill(5, direction ? "R/D" : "L/U", !direction, false, false);
+#endif
+#if defined(HAS_KEYBOARD) && defined(HAS_TOUCH)
+                    drawTopPill(kb_toggle_button, "KB", true, false, false);
+#endif
+                    if (password_toggle) {
+                        drawTopPill(
+                            password_button, show_password ? "Hide" : "Show", show_password, false, true
+                        );
+                    }
+                }
+
+                // Prints the chars counter & clean muted title
+                tft.setTextSize(FP);
+                String chars_counter = String(current_text.length()) + "/" + String(max_size);
+                tft.fillRect(0, counter_y, tftWidth, LH * FP + 2, bgCol);
+                tft.setTextColor(mutedCol, bgCol);
+                tft.drawRightString(chars_counter, tftWidth - 5, counter_y, 1);
+
+                String trTitle = bruce_i18n::tr(textbox_title);
+                int16_t maxTitlePx = tftWidth - ((chars_counter.length() * LW * FP) + 18);
+                if (maxTitlePx < 24) maxTitlePx = 24;
+                tft.setTextColor(mutedCol, bgCol);
+                tft.drawString(bruce_i18n::utf8TruncateToWidth(trTitle, maxTitlePx, FP), 5, counter_y);
+
+                // Clean rounded neutral input field with crisp accent outline
+                tft.fillRoundRect(3, textbox_y, tftWidth - 6, KBLH, 5, surfCol);
+                tft.drawRoundRect(3, textbox_y, tftWidth - 6, KBLH, 5, priCol);
+                tft.setTextColor(brightCol, surfCol);
+
+                if (current_text.length() > max_FM_size) {
+                    tft.setTextSize(FP);
+                    if (current_text.length() > max_FP_size) {
+                        tft.drawString(visible_text.substring(0, max_FP_size), 7, textbox_text_y);
+                        tft.drawString(
+                            visible_text.substring(max_FP_size, current_text.length()),
+                            7,
+                            textbox_text_y + LH * FP
+                        );
+                    } else {
+                        tft.drawString(visible_text, 7, textbox_text_y);
+                    }
                 } else {
+                    tft.setTextSize(FM);
                     tft.drawString(visible_text, 7, textbox_text_y);
                 }
-            } else {
+
+                // Draw keycap grid (partial update on cursor move; full draw on init / caps change)
                 tft.setTextSize(FM);
-                tft.drawString(visible_text, 7, textbox_text_y);
-            }
+                bool redrawAllKeys = firstGridDraw || capsChanged;
+                for (int i = 0; i < KeyboardHeight; i++) {
+                    for (int j = 0; j < KeyboardWidth; j++) {
+                        bool isSel = (x == j && y == i);
+                        bool wasSel = (old_x == j && old_y == i);
+                        if (!redrawAllKeys && !isSel && !wasSel) continue;
 
-            // Draw keycap grid (partial update on cursor move; full draw on init / caps change)
-            tft.setTextSize(FM);
-            bool redrawAllKeys = firstGridDraw || capsChanged;
-            for (int i = 0; i < KeyboardHeight; i++) {
-                for (int j = 0; j < KeyboardWidth; j++) {
-                    bool isSel = (x == j && y == i);
-                    bool wasSel = (old_x == j && old_y == i);
-                    if (!redrawAllKeys && !isSel && !wasSel) continue;
+                        int key_x = j * key_width;
+                        int key_y = i * key_height + keyboard_start_y;
+                        uint16_t tileBg = isSel ? priCol : surfCol;
+                        uint16_t tileFg = isSel ? onAccentCol : brightCol;
 
-                    int key_x = j * key_width;
-                    int key_y = i * key_height + keyboard_start_y;
-                    uint16_t tileBg = isSel ? priCol : surfCol;
-                    uint16_t tileFg = isSel ? onAccentCol : brightCol;
-
-                    tft.fillRect(key_x, key_y, key_width, key_height, bgCol);
-                    tft.fillRoundRect(key_x + 1, key_y + 1, key_width - 2, key_height - 2, 4, tileBg);
-                    if (!isSel) {
-                        tft.drawRoundRect(key_x + 1, key_y + 1, key_width - 2, key_height - 2, 4, bdimCol);
-                    }
-                    tft.setTextColor(tileFg, tileBg);
-                    char ch = caps ? keys[i][j][1] : keys[i][j][0];
-                    if (ch != '\0') {
-                        tft.drawString(String(ch), key_x + text_offset_x, key_y + text_offset_y);
+                        tft.fillRect(key_x, key_y, key_width, key_height, bgCol);
+                        tft.fillRoundRect(key_x + 1, key_y + 1, key_width - 2, key_height - 2, 4, tileBg);
+                        if (!isSel) {
+                            tft.drawRoundRect(key_x + 1, key_y + 1, key_width - 2, key_height - 2, 4, bdimCol);
+                        }
+                        tft.setTextColor(tileFg, tileBg);
+                        char ch = caps ? keys[i][j][1] : keys[i][j][0];
+                        if (ch != '\0') {
+                            tft.drawString(String(ch), key_x + text_offset_x, key_y + text_offset_y);
+                        }
                     }
                 }
+                firstGridDraw = false;
+                old_x = x;
+                old_y = y;
+                redraw = false;
             }
-            firstGridDraw = false;
-            old_x = x;
-            old_y = y;
-            redraw = false;
         }
 
         // Cursor Handler
@@ -767,93 +982,177 @@ String generalKeyboard(
             last_input_time = millis() + 100;
         }
 
-        if (millis() - last_input_time > 250) { // INPUT DEBOUCING
-            // waits at least 250ms before accepting another input, to prevent rapid involuntary repeats
+#if defined(HAS_KEYBOARD)
+        // Poll physical keyboard immediately on every tick (no 250ms throttle that drops fast typing)
+        {
+            keyStroke key = _getKeyPress();
+            if (key.pressed) {
+                wakeUpScreen();
+                if ((key.fn && key.del) ||
+                    (key.exit_key && (key.word.empty() || key.word[0] == (char)0x1B))) {
+                    EscPress = false;
+                    current_text = "\x1B";
+                    break;
+                }
+                bool appended = false;
+                for (char c : key.word) {
+                    if (c == (char)0x08 || c == (char)0x0D || c == (char)0x0A || c == (char)0x1B) {
+                        continue;
+                    }
+                    if (static_cast<unsigned char>(c) >= 0x20 && static_cast<unsigned char>(c) <= 0x7E &&
+                        static_cast<int>(current_text.length()) < max_size) {
+                        current_text += c;
+                        appended = true;
+                    }
+                }
+                if (appended) redraw = true;
+                if (key.del) {
+                    EscPress = false; // Backspace erases a char in text input, never exits the dialog
+                    if (current_text.length() > 0) {
+                        current_text.remove(current_text.length() - 1);
+                        redraw = true;
+                    }
+                }
+                if (key.enter) {
+                    SelPress = false;
+                    break;
+                }
+            }
+        }
+#endif
 
-#if defined(HAS_TOUCH) // CYD, Core2, CoreS3
+#if defined(HAS_TOUCH) // T-Deck, Tab5, CYD, Core2, CoreS3
+        {
+            bool hasTouch = false;
+            int tx = 0;
+            int ty = 0;
+            inputLock();
             if (touchPoint.pressed) {
-                // If using touchscreen and buttons_strings, reset the navigation states to avoid inconsistent
-                // behavior, and reset the navigation coords to the OK button.
+                hasTouch = true;
+                tx = touchPoint.x;
+                ty = touchPoint.y;
+                touchPoint.Clear();
+            }
+            inputUnlock();
+
+            if (hasTouch && (last_touch_time == 0 || (millis() - last_touch_time >= 80))) {
+                last_touch_time = millis();
+                wakeUpScreen();
                 SelPress = false;
                 EscPress = false;
                 NextPress = false;
                 PrevPress = false;
                 UpPress = false;
                 DownPress = false;
-                x = 0;
-                y = -1;
 
-                bool touchHandled = false;
-                if (password_toggle &&
-                    box_list[buttons_start_index + password_button].contain(touchPoint.x, touchPoint.y)) {
-                    show_password = !show_password;
-                    touchHandled = true;
-                }
-
-                if (box_list[buttons_start_index].contain(touchPoint.x, touchPoint.y)) { // OK btn
-                    break;
-                }
-                if (box_list[buttons_start_index + 1].contain(touchPoint.x, touchPoint.y)) { // CAPS btn
-                    caps = !caps;
-                    tft.fillRect(
-                        0, keyboard_start_y, tftWidth, tftHeight - keyboard_start_y, bruceConfig.bgColor
-                    );
-                    touchHandled = true;
-                }
-                if (box_list[buttons_start_index + 2].contain(touchPoint.x, touchPoint.y)) { // DEL btn
-                    if (current_text.length() > 0) {
-                        handleDelete(current_text, cursor_x, cursor_y);
-                        touchHandled = true;
+#if defined(HAS_KEYBOARD)
+                if (!showOnScreenKeys) {
+                    bool exitOk = false;
+                    bool exitCancel = false;
+                    if (ty >= compactBtnY - 8 && ty <= tftHeight) {
+                        for (int i = 0; i < compactPillCount; ++i) {
+                            const CompactPill &p = compactPills[i];
+                            if (tx >= p.x - 3 && tx < p.x + p.w + 3) {
+                                compactFocus = i;
+                                switch (p.action) {
+                                    case COMPACT_OK: exitOk = true; break;
+                                    case COMPACT_DEL:
+                                        if (current_text.length() > 0) {
+                                            current_text.remove(current_text.length() - 1);
+                                            redraw = true;
+                                        }
+                                        break;
+                                    case COMPACT_CANCEL:
+                                        current_text = "\x1B";
+                                        exitCancel = true;
+                                        break;
+                                    case COMPACT_PASS:
+                                        show_password = !show_password;
+                                        redraw = true;
+                                        break;
+                                    case COMPACT_KB:
+                                        showOnScreenKeys = true;
+                                        tft.fillScreen(bruceConfig.bgColor);
+                                        x = 0;
+                                        y = -1;
+                                        firstGridDraw = true;
+                                        redraw = true;
+                                        break;
+                                }
+                                break;
+                            }
+                        }
                     }
-                }
-                if (box_list[buttons_start_index + 3].contain(touchPoint.x, touchPoint.y)) { // SPACE btn
-                    if (current_text.length() < max_size) {
-                        handleSpaceAdd(current_text, max_size);
-                        touchHandled = true;
-                    }
-                }
-                if (box_list[buttons_start_index + 4].contain(touchPoint.x, touchPoint.y)) { // BACK btn
-                    current_text = "\x1B"; // ASCII ESC CHARACTER
-                    break;
-                }
-#if HAS_1_BUTTON
-                if (box_list[buttons_start_index + 5].contain(touchPoint.x, touchPoint.y)) { // DIRECTION btn
-                    direction = !direction;
-                    touchHandled = true;
-                }
+                    if (exitOk || exitCancel) break;
+                } else
 #endif
-                for (k = 0; k < keyboard_boxes; k++) {
-                    if (box_list[k].contain(touchPoint.x, touchPoint.y)) {
-                        if (caps)
-                            handleCharacterAdd(
-                                current_text,
-                                box_list[k].key_sh,
-                                cursor_x,
-                                cursor_y,
-                                max_size,
-                                mask_input && !show_password
-                            );
-                        else
-                            handleCharacterAdd(
-                                current_text,
-                                box_list[k].key,
-                                cursor_x,
-                                cursor_y,
-                                max_size,
-                                mask_input && !show_password
-                            );
-                        touchHandled = true;
-                        break;
-                    }
-                }
+                {
+                    x = 0;
+                    y = -1;
+                    bool touchHandled = false;
+                    bool exitOk = false;
+                    bool exitCancel = false;
 
-                if (touchHandled) {
-                    wakeUpScreen();
-                    touchPoint.Clear();
-                    redraw = true;
+                    if (password_toggle &&
+                        box_list[buttons_start_index + password_button].contain(tx, ty)) {
+                        show_password = !show_password;
+                        touchHandled = true;
+                    }
+#if defined(HAS_KEYBOARD) && defined(HAS_TOUCH)
+                    else if (box_list[buttons_start_index + kb_toggle_button].contain(tx, ty)) {
+                        showOnScreenKeys = false;
+                        tft.fillScreen(bruceConfig.bgColor);
+                        firstGridDraw = true;
+                        touchHandled = true;
+                    }
+#endif
+                    else if (box_list[buttons_start_index].contain(tx, ty)) { // OK btn
+                        exitOk = true;
+                    } else if (box_list[buttons_start_index + 1].contain(tx, ty)) { // CAPS btn
+                        caps = !caps;
+                        touchHandled = true;
+                    } else if (box_list[buttons_start_index + 2].contain(tx, ty)) { // DEL btn
+                        if (current_text.length() > 0) {
+                            current_text.remove(current_text.length() - 1);
+                            touchHandled = true;
+                        }
+                    } else if (box_list[buttons_start_index + 3].contain(tx, ty)) { // SPACE btn
+                        if (static_cast<int>(current_text.length()) < max_size) {
+                            handleSpaceAdd(current_text, max_size);
+                            touchHandled = true;
+                        }
+                    } else if (box_list[buttons_start_index + 4].contain(tx, ty)) { // BACK btn
+                        current_text = "\x1B";
+                        exitCancel = true;
+                    }
+#if HAS_1_BUTTON
+                    else if (box_list[buttons_start_index + 5].contain(tx, ty)) { // DIRECTION btn
+                        direction = !direction;
+                        touchHandled = true;
+                    }
+#endif
+                    else {
+                        for (k = 0; k < keyboard_boxes; k++) {
+                            if (box_list[k].contain(tx, ty)) {
+                                char ch = caps ? box_list[k].key_sh : box_list[k].key;
+                                if (ch != '\0' && static_cast<int>(current_text.length()) < max_size) {
+                                    current_text += ch;
+                                    touchHandled = true;
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    if (exitOk || exitCancel) break;
+                    if (touchHandled) { redraw = true; }
                 }
             }
+        }
 #endif
+
+        if (millis() - last_input_time > 250) { // INPUT DEBOUCING
+            // waits at least 250ms before accepting another button input, to prevent rapid repeats
 
 #if HAS_1_BUTTON
             auto moveKeyboardCursorNext = [&]() {
@@ -1091,54 +1390,75 @@ String generalKeyboard(
                     redraw = true;
                 }
             }
-#elif defined(HAS_KEYBOARD)  // Cardputer, T-Deck and T-LoRa-Pager
-            if (KeyStroke.pressed) {
-                wakeUpScreen();
-                tft.setCursor(cursor_x, cursor_y);
-                String keyStr = "";
-                for (auto i : KeyStroke.word) {
-                    if (keyStr != "") {
-                        keyStr = keyStr + "+" + i;
-                    } else {
-                        keyStr += i;
+#elif defined(HAS_KEYBOARD)  // Cardputer, T-Deck, T-LoRa-Pager, Tab5
+            if (!showOnScreenKeys) {
+                if (check(NextPress) || check(DownPress)) {
+                    compactFocus = (compactFocus + 1) % compactPillCount;
+                    redraw = true;
+                    last_input_time = millis();
+                } else if (check(PrevPress) || check(UpPress)) {
+                    compactFocus = (compactFocus - 1 + compactPillCount) % compactPillCount;
+                    redraw = true;
+                    last_input_time = millis();
+                }
+#if !defined(T_LORA_PAGER) // T-LoRa-Pager does not have a dedicated select button
+                else if (check(SelPress)) {
+                    const CompactPill &p = compactPills[compactFocus];
+                    last_input_time = millis();
+                    if (p.action == COMPACT_OK) {
+                        break;
+                    } else if (p.action == COMPACT_CANCEL) {
+                        current_text = "\x1B";
+                        break;
+                    } else if (p.action == COMPACT_DEL) {
+                        if (current_text.length() > 0) {
+                            current_text.remove(current_text.length() - 1);
+                            redraw = true;
+                        }
+                    } else if (p.action == COMPACT_PASS) {
+                        show_password = !show_password;
+                        redraw = true;
                     }
-                }
-
-                if (current_text.length() < max_size && !KeyStroke.enter && !KeyStroke.del) {
-                    current_text += keyStr;
-                    if (current_text.length() != (max_FM_size + 1) &&
-                        current_text.length() != (max_FM_size + 1))
-                        tft.print(mask_input && !show_password ? repeatString(keyStr.length(), "*") : keyStr);
-                    cursor_x = tft.getCursorX();
-                    cursor_y = tft.getCursorY();
-                    if (current_text.length() == (max_FM_size + 1)) redraw = true;
-                    if (current_text.length() == (max_FP_size + 1)) redraw = true;
-                }
-                if (KeyStroke.del && current_text.length() > 0) { // delete 0x08
-                    // Handle backspace key
-                    current_text.remove(current_text.length() - 1);
-                    int fontSize = FM;
-                    if (current_text.length() > max_FP_size) {
-                        tft.setTextSize(FP);
-                        fontSize = FP;
-                    } else tft.setTextSize(FM);
-                    tft.setCursor((cursor_x - fontSize * LW), cursor_y);
-                    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-                    tft.print(" ");
-                    tft.setTextColor(getComplementaryColor2(bruceConfig.bgColor), 0x5AAB);
-                    tft.setCursor(cursor_x - fontSize * LW, cursor_y);
-                    cursor_x = tft.getCursorX();
-                    cursor_y = tft.getCursorY();
-                    if (current_text.length() == max_FM_size) redraw = true;
-                    if (current_text.length() == max_FP_size) redraw = true;
-                }
-                if (KeyStroke.enter) { break; }
-                if (mask_input) redraw = true;
-                KeyStroke.Clear();
-            }
-#if !defined(T_LORA_PAGER)   // T-LoRa-Pager does not have a select button
-            if (check(SelPress)) break;
+#if defined(HAS_TOUCH)
+                    else if (p.action == COMPACT_KB) {
+                        showOnScreenKeys = true;
+                        tft.fillScreen(bruceConfig.bgColor);
+                        x = 0;
+                        y = -1;
+                        firstGridDraw = true;
+                        redraw = true;
+                    }
 #endif
+                }
+#endif
+            } else {
+                if (check(SelPress)) {
+                    selection_made = true;
+                } else if (check(NextPress)) {
+                    x++;
+                    if ((y < 0 && x >= buttons_number) || x >= KeyboardWidth) x = 0;
+                    redraw = true;
+                    last_input_time = millis();
+                } else if (check(PrevPress)) {
+                    x--;
+                    if (y < 0 && x < 0) x = buttons_number - 1;
+                    else if (x < 0) x = KeyboardWidth - 1;
+                    redraw = true;
+                    last_input_time = millis();
+                } else if (check(DownPress)) {
+                    y++;
+                    if (y >= KeyboardHeight) y = -1;
+                    if (y < 0 && x >= buttons_number) x = buttons_number - 1;
+                    redraw = true;
+                    last_input_time = millis();
+                } else if (check(UpPress)) {
+                    y--;
+                    if (y < -1) y = KeyboardHeight - 1;
+                    if (y < 0 && x >= buttons_number) x = buttons_number - 1;
+                    redraw = true;
+                    last_input_time = millis();
+                }
+            }
 #endif
 
 #if defined(HAS_ENCODER) // T-Embed and T-LoRa-Pager and WaveSentry
@@ -1244,6 +1564,16 @@ String generalKeyboard(
                 last_input_time = millis();
                 continue;
             }
+#if defined(HAS_KEYBOARD) && defined(HAS_TOUCH)
+            if (y == -1 && x == kb_toggle_button) {
+                showOnScreenKeys = !showOnScreenKeys;
+                tft.fillScreen(bruceConfig.bgColor);
+                firstGridDraw = true;
+                redraw = true;
+                last_input_time = millis();
+                continue;
+            }
+#endif
 
             KeyboardAction action = handleKeyboardSelection(
                 x,
@@ -1270,7 +1600,9 @@ String generalKeyboard(
             last_input_time = millis();
         }
 #ifdef HAS_ENCODER
-        vTaskDelay(4 / portTICK_PERIOD_MS);
+        vTaskDelay(pdMS_TO_TICKS(4));
+#else
+        vTaskDelay(pdMS_TO_TICKS(10));
 #endif
     }
 

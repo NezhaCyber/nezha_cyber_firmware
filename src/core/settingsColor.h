@@ -50,9 +50,9 @@
 #define UI_COLOR_SHOCKING_PINK_BG 0xE015
 
 // ============================================================================
-// 哪吒魔童 (Nezha: Birth of the Demon Child) Curated 20-Palette Collection
+// 哪吒魔童 (哪吒1·魔童降世 & 哪吒2·魔童闹海) Curated 24-Palette Collection
 // ============================================================================
-#define UI_COLOR_NEZHA_MOTONG_PRI 0xF945       // Demon-Child signature crimson
+#define UI_COLOR_NEZHA_MOTONG_PRI 0xF945       // Nezha 1 signature crimson
 #define UI_COLOR_NEZHA_MOTONG_SEC 0xFE60       // Wind-Fire radiant gold
 #define UI_COLOR_NEZHA_MOTONG_BG 0x0800        // Volcanic obsidian
 
@@ -89,7 +89,7 @@
 #define UI_COLOR_ICE_FIRE_CLASH_BG 0x0823      // Midnight slate
 
 #define UI_COLOR_DRAGON_PALACE_PRI 0x0718      // Deep dragon-palace teal
-#define UI_COLOR_DRAGON_PALACE_SEC 0x777B      // Sea-foam jade
+#define UI_COLOR_DRAGON_PALACE_SEC 0xF9E4      // Lava-chain ember
 #define UI_COLOR_DRAGON_PALACE_BG 0x0063       // Ocean trench dark
 
 #define UI_COLOR_CHENTANG_PASS_PRI 0xE1C6      // Cinnabar fortress wall
@@ -112,7 +112,7 @@
 #define UI_COLOR_SHEN_GONGBAO_SEC 0x919A       // Dark amethyst
 #define UI_COLOR_SHEN_GONGBAO_BG 0x0842        // Shadow obsidian
 
-#define UI_COLOR_SIX_ARM_AWAKENED_PRI 0xFA42   // Awakened inferno scarlet
+#define UI_COLOR_SIX_ARM_AWAKENED_PRI 0xFA42   // Nezha 2 awakened inferno scarlet
 #define UI_COLOR_SIX_ARM_AWAKENED_SEC 0xFF47   // Incandescent solar gold
 #define UI_COLOR_SIX_ARM_AWAKENED_BG 0x1800    // Ember black
 
@@ -123,6 +123,26 @@
 #define UI_COLOR_DEMON_SEA_RAGE_PRI 0xFA24     // Nezha 2 blazing crimson
 #define UI_COLOR_DEMON_SEA_RAGE_SEC 0x2E7E     // Raging ocean wave cyan
 #define UI_COLOR_DEMON_SEA_RAGE_BG 0x0064      // Deep sea abyss
+
+#define UI_COLOR_TIANYUAN_CAULDRON_PRI 0xFD62  // Nezha 2 Tianyuan Cauldron molten gold
+#define UI_COLOR_TIANYUAN_CAULDRON_SEC 0xF8E3  // Furnace heart crimson
+#define UI_COLOR_TIANYUAN_CAULDRON_BG 0x1040   // Forged bronze obsidian
+
+#define UI_COLOR_EAST_SEA_AOGUANG_PRI 0x677F   // Nezha 2 East Sea Dragon King silver-cyan
+#define UI_COLOR_EAST_SEA_AOGUANG_SEC 0xFEE8   // Imperial dragon-scale gold
+#define UI_COLOR_EAST_SEA_AOGUANG_BG 0x0085    // Abyssal dragon trench
+
+#define UI_COLOR_WEST_SEA_AORUN_PRI 0xC3BF     // Nezha 2 West Sea Ao Run rift violet
+#define UI_COLOR_WEST_SEA_AORUN_SEC 0x3F7F     // Spatial tear ice-cyan
+#define UI_COLOR_WEST_SEA_AORUN_BG 0x0824      // Midnight void sea
+
+#define UI_COLOR_SHIJI_MAGMA_PRI 0xFB22        // Nezha 2 Shiji Niangniang lava orange
+#define UI_COLOR_SHIJI_MAGMA_SEC 0xFDAA        // Glowing quartz ember
+#define UI_COLOR_SHIJI_MAGMA_BG 0x1061         // Basalt mountain dark
+
+#define UI_COLOR_WULIANG_IMMORTAL_PRI 0xE688   // Nezha 2 Wuliang gilded bronze-gold
+#define UI_COLOR_WULIANG_IMMORTAL_SEC 0x4ED4   // Jade staff emerald
+#define UI_COLOR_WULIANG_IMMORTAL_BG 0x08A2    // Ancient temple pine
 
 #define UI_COLOR_NEZHA_CRIMSON_PRI 0xF945      // Pure OLED Nezha crimson
 #define UI_COLOR_NEZHA_CRIMSON_SEC 0xFCA6      // Pure OLED coral accent
@@ -257,40 +277,49 @@ struct NezhaThemePack {
     uint16_t priColor;
     uint16_t secColor;
     uint16_t bgColor;
-    uint8_t crestStyle; // 1=Motong Flame, 2=Lotus Seal, 3=Ice-Fire Twin
+    uint8_t crestStyle; // 1=Nezha1 Flame, 2=Lotus Seal, 3=Ice-Fire Twin, 4=Nezha2 Sea Rage, 5=Nezha2 Dragon Seal
+    uint8_t chapter;    // 1 = 哪吒1·魔童降世, 2 = 哪吒2·魔童闹海
     uint32_t ledRgb;
 };
 
-// 20 Built-in 哪吒魔童 (Nezha Demon Child) Full Theme Packs
+// 24 Built-in 哪吒魔童 Theme Packs (12 哪吒1·魔童降世 + 12 哪吒2·魔童闹海)
 static constexpr NezhaThemePack NEZHA_THEME_PACKS[] = {
-    {"Nezha Motong",         "My fate is mine!",         UI_COLOR_NEZHA_MOTONG_PRI,         UI_COLOR_NEZHA_MOTONG_SEC,         UI_COLOR_NEZHA_MOTONG_BG,         1, 0xFF2820},
-    {"Hun Tian Ling",        "Crimson silk unbound",     UI_COLOR_HUN_TIAN_LING_PRI,        UI_COLOR_HUN_TIAN_LING_SEC,        UI_COLOR_HUN_TIAN_LING_BG,        1, 0xFF1430},
-    {"Wind-Fire Wheels",     "Blazing twin wheels",      UI_COLOR_WIND_FIRE_WHEELS_PRI,     UI_COLOR_WIND_FIRE_WHEELS_SEC,     UI_COLOR_WIND_FIRE_WHEELS_BG,     1, 0xFF7400},
-    {"Qiankun Ring",         "Sacred gold restraint",    UI_COLOR_QIANKUN_RING_PRI,         UI_COLOR_QIANKUN_RING_SEC,         UI_COLOR_QIANKUN_RING_BG,         2, 0xFFD410},
-    {"Fire-Tipped Spear",    "Piercing ember strike",    UI_COLOR_FIRE_SPEAR_PRI,           UI_COLOR_FIRE_SPEAR_SEC,           UI_COLOR_FIRE_SPEAR_BG,           1, 0xFF1018},
-    {"Lotus Rebirth",        "Reborn in seven-lotus",    UI_COLOR_LOTUS_REBIRTH_PRI,        UI_COLOR_LOTUS_REBIRTH_SEC,        UI_COLOR_LOTUS_REBIRTH_BG,        2, 0xFF4688},
-    {"Demon Orb Seal",       "Chaos orb unchained",      UI_COLOR_DEMON_ORB_SEAL_PRI,       UI_COLOR_DEMON_ORB_SEAL_SEC,       UI_COLOR_DEMON_ORB_SEAL_BG,       1, 0xD020FF},
-    {"Spirit Pearl AoBing",  "East-Sea ice dragon",      UI_COLOR_SPIRIT_PEARL_AOBING_PRI,  UI_COLOR_SPIRIT_PEARL_AOBING_SEC,  UI_COLOR_SPIRIT_PEARL_AOBING_BG,  3, 0x38D2FF},
-    {"Ice & Fire Clash",     "Twin orbs united",         UI_COLOR_ICE_FIRE_CLASH_PRI,       UI_COLOR_ICE_FIRE_CLASH_SEC,       UI_COLOR_ICE_FIRE_CLASH_BG,       3, 0xFF2830},
-    {"Dragon Palace Sea",    "Abyssal dragon realm",     UI_COLOR_DRAGON_PALACE_PRI,        UI_COLOR_DRAGON_PALACE_SEC,        UI_COLOR_DRAGON_PALACE_BG,        3, 0x00E0C4},
-    {"Chentang Pass",        "Fortress of cinnabar",     UI_COLOR_CHENTANG_PASS_PRI,        UI_COLOR_CHENTANG_PASS_SEC,        UI_COLOR_CHENTANG_PASS_BG,        2, 0xE03830},
-    {"Heavenly Tribulation", "Defying sky lightning",    UI_COLOR_TRIBULATION_PRI,          UI_COLOR_TRIBULATION_SEC,          UI_COLOR_TRIBULATION_BG,          3, 0xD8EAFF},
-    {"Shanhe Scroll",        "Living painted mountains", UI_COLOR_SHANHE_SCROLL_PRI,        UI_COLOR_SHANHE_SCROLL_SEC,        UI_COLOR_SHANHE_SCROLL_BG,        2, 0x20D890},
-    {"Taiyi Immortal",       "Kunlun jade & wine",       UI_COLOR_TAIYI_IMMORTAL_PRI,       UI_COLOR_TAIYI_IMMORTAL_SEC,       UI_COLOR_TAIYI_IMMORTAL_BG,       2, 0xEEFCE8},
-    {"Shen Gongbao",         "Shadow leopard scheme",    UI_COLOR_SHEN_GONGBAO_PRI,         UI_COLOR_SHEN_GONGBAO_SEC,         UI_COLOR_SHEN_GONGBAO_BG,         1, 0x28E8A0},
-    {"Six-Arm Awakened",     "Inferno demon form",       UI_COLOR_SIX_ARM_AWAKENED_PRI,     UI_COLOR_SIX_ARM_AWAKENED_SEC,     UI_COLOR_SIX_ARM_AWAKENED_BG,     1, 0xFF4810},
-    {"Jade Void Palace",     "Celestial immortal hall",  UI_COLOR_JADE_VOID_PALACE_PRI,     UI_COLOR_JADE_VOID_PALACE_SEC,     UI_COLOR_JADE_VOID_PALACE_BG,     2, 0x78E6FF},
-    {"Demon Sea Rage",       "Crimson flames over sea",  UI_COLOR_DEMON_SEA_RAGE_PRI,       UI_COLOR_DEMON_SEA_RAGE_SEC,       UI_COLOR_DEMON_SEA_RAGE_BG,       3, 0xFF4420},
-    {"Nezha Crimson",        "Pure OLED demon crimson",  UI_COLOR_NEZHA_CRIMSON_PRI,        UI_COLOR_NEZHA_CRIMSON_SEC,        UI_COLOR_NEZHA_CRIMSON_BG,        1, 0xFF2820},
-    {"Nezha Lotus",          "Pure OLED lotus fire",     UI_COLOR_NEZHA_LOTUS_PRI,          UI_COLOR_NEZHA_LOTUS_SEC,          UI_COLOR_NEZHA_LOTUS_BG,          2, 0xFF3C58},
+    // --- 哪吒1 · 魔童降世 (12 packs) ---
+    {"Nezha 1: Birth",       "My fate is mine!",         UI_COLOR_NEZHA_MOTONG_PRI,         UI_COLOR_NEZHA_MOTONG_SEC,         UI_COLOR_NEZHA_MOTONG_BG,         1, 1, 0xFF2820},
+    {"Hun Tian Ling",        "Crimson silk unbound",     UI_COLOR_HUN_TIAN_LING_PRI,        UI_COLOR_HUN_TIAN_LING_SEC,        UI_COLOR_HUN_TIAN_LING_BG,        1, 1, 0xFF1430},
+    {"Wind-Fire Wheels",     "Blazing twin wheels",      UI_COLOR_WIND_FIRE_WHEELS_PRI,     UI_COLOR_WIND_FIRE_WHEELS_SEC,     UI_COLOR_WIND_FIRE_WHEELS_BG,     1, 1, 0xFF7400},
+    {"Qiankun Ring",         "Sacred gold restraint",    UI_COLOR_QIANKUN_RING_PRI,         UI_COLOR_QIANKUN_RING_SEC,         UI_COLOR_QIANKUN_RING_BG,         2, 1, 0xFFD410},
+    {"Fire-Tipped Spear",    "Piercing ember strike",    UI_COLOR_FIRE_SPEAR_PRI,           UI_COLOR_FIRE_SPEAR_SEC,           UI_COLOR_FIRE_SPEAR_BG,           1, 1, 0xFF1018},
+    {"Demon Orb Seal",       "Chaos orb unchained",      UI_COLOR_DEMON_ORB_SEAL_PRI,       UI_COLOR_DEMON_ORB_SEAL_SEC,       UI_COLOR_DEMON_ORB_SEAL_BG,       1, 1, 0xD020FF},
+    {"Spirit Pearl AoBing",  "East-Sea ice dragon",      UI_COLOR_SPIRIT_PEARL_AOBING_PRI,  UI_COLOR_SPIRIT_PEARL_AOBING_SEC,  UI_COLOR_SPIRIT_PEARL_AOBING_BG,  3, 1, 0x38D2FF},
+    {"Ice & Fire Clash",     "Twin orbs united",         UI_COLOR_ICE_FIRE_CLASH_PRI,       UI_COLOR_ICE_FIRE_CLASH_SEC,       UI_COLOR_ICE_FIRE_CLASH_BG,       3, 1, 0xFF2830},
+    {"Chentang Pass",        "Fortress of cinnabar",     UI_COLOR_CHENTANG_PASS_PRI,        UI_COLOR_CHENTANG_PASS_SEC,        UI_COLOR_CHENTANG_PASS_BG,        2, 1, 0xE03830},
+    {"Heavenly Tribulation", "Defying sky lightning",    UI_COLOR_TRIBULATION_PRI,          UI_COLOR_TRIBULATION_SEC,          UI_COLOR_TRIBULATION_BG,          3, 1, 0xD8EAFF},
+    {"Shanhe Scroll",        "Living painted mountains", UI_COLOR_SHANHE_SCROLL_PRI,        UI_COLOR_SHANHE_SCROLL_SEC,        UI_COLOR_SHANHE_SCROLL_BG,        2, 1, 0x20D890},
+    {"Taiyi Immortal",       "Kunlun jade & wine",       UI_COLOR_TAIYI_IMMORTAL_PRI,       UI_COLOR_TAIYI_IMMORTAL_SEC,       UI_COLOR_TAIYI_IMMORTAL_BG,       2, 1, 0xEEFCE8},
+    // --- 哪吒2 · 魔童闹海 (12 packs) ---
+    {"Nezha 2: Sea Rage",    "Shatter heaven and sea!",  UI_COLOR_DEMON_SEA_RAGE_PRI,       UI_COLOR_DEMON_SEA_RAGE_SEC,       UI_COLOR_DEMON_SEA_RAGE_BG,       4, 2, 0xFF4420},
+    {"Six-Arm Awakened",     "Inferno demon form",       UI_COLOR_SIX_ARM_AWAKENED_PRI,     UI_COLOR_SIX_ARM_AWAKENED_SEC,     UI_COLOR_SIX_ARM_AWAKENED_BG,     4, 2, 0xFF4810},
+    {"Lotus Rebirth",        "Reborn in seven-lotus",    UI_COLOR_LOTUS_REBIRTH_PRI,        UI_COLOR_LOTUS_REBIRTH_SEC,        UI_COLOR_LOTUS_REBIRTH_BG,        2, 2, 0xFF4688},
+    {"Tianyuan Cauldron",    "Forge through the flame",  UI_COLOR_TIANYUAN_CAULDRON_PRI,    UI_COLOR_TIANYUAN_CAULDRON_SEC,    UI_COLOR_TIANYUAN_CAULDRON_BG,    4, 2, 0xFFA810},
+    {"East Sea Ao Guang",    "Dragon king of East Sea",  UI_COLOR_EAST_SEA_AOGUANG_PRI,     UI_COLOR_EAST_SEA_AOGUANG_SEC,     UI_COLOR_EAST_SEA_AOGUANG_BG,     5, 2, 0x60ECFF},
+    {"West Sea Ao Run",      "Rift-blade abyss dragon",  UI_COLOR_WEST_SEA_AORUN_PRI,       UI_COLOR_WEST_SEA_AORUN_SEC,       UI_COLOR_WEST_SEA_AORUN_BG,       5, 2, 0xC070FF},
+    {"Jade Void Palace",     "Celestial immortal hall",  UI_COLOR_JADE_VOID_PALACE_PRI,     UI_COLOR_JADE_VOID_PALACE_SEC,     UI_COLOR_JADE_VOID_PALACE_BG,     2, 2, 0x78E6FF},
+    {"Dragon Palace Sea",    "Abyssal dragon realm",     UI_COLOR_DRAGON_PALACE_PRI,        UI_COLOR_DRAGON_PALACE_SEC,        UI_COLOR_DRAGON_PALACE_BG,        5, 2, 0x00E0C4},
+    {"Shiji Niangniang",     "Volcanic mountain queen",  UI_COLOR_SHIJI_MAGMA_PRI,          UI_COLOR_SHIJI_MAGMA_SEC,          UI_COLOR_SHIJI_MAGMA_BG,          1, 2, 0xFF6418},
+    {"Shen Gongbao",         "Shadow leopard scheme",    UI_COLOR_SHEN_GONGBAO_PRI,         UI_COLOR_SHEN_GONGBAO_SEC,         UI_COLOR_SHEN_GONGBAO_BG,         5, 2, 0x28E8A0},
+    {"Wuliang Immortal",     "Gilded celestial elder",   UI_COLOR_WULIANG_IMMORTAL_PRI,     UI_COLOR_WULIANG_IMMORTAL_SEC,     UI_COLOR_WULIANG_IMMORTAL_BG,     2, 2, 0xE8D040},
+    {"Nezha Crimson",        "Pure OLED demon crimson",  UI_COLOR_NEZHA_CRIMSON_PRI,        UI_COLOR_NEZHA_CRIMSON_SEC,        UI_COLOR_NEZHA_CRIMSON_BG,        4, 2, 0xFF2820},
 };
 
 static constexpr int NEZHA_THEME_COUNT = sizeof(NEZHA_THEME_PACKS) / sizeof(NEZHA_THEME_PACKS[0]);
+static constexpr int NEZHA_CHAPTER2_START = 12;
 
 static constexpr ColorEntry UI_COLORS[] = {
     {"Default",              UI_COLOR_DEFAULT_PRI,              UI_COLOR_DEFAULT_SEC,              UI_COLOR_DEFAULT_BG             },
-    // 20 Curated 哪吒魔童 (Nezha Demon Child) Themes
-    {"Nezha Motong",         UI_COLOR_NEZHA_MOTONG_PRI,         UI_COLOR_NEZHA_MOTONG_SEC,         UI_COLOR_NEZHA_MOTONG_BG        },
+    // 24 Curated 哪吒1 & 哪吒2 Themes
+    {"Nezha 1: Birth",       UI_COLOR_NEZHA_MOTONG_PRI,         UI_COLOR_NEZHA_MOTONG_SEC,         UI_COLOR_NEZHA_MOTONG_BG        },
+    {"Nezha 2: Sea Rage",    UI_COLOR_DEMON_SEA_RAGE_PRI,       UI_COLOR_DEMON_SEA_RAGE_SEC,       UI_COLOR_DEMON_SEA_RAGE_BG      },
     {"Hun Tian Ling",        UI_COLOR_HUN_TIAN_LING_PRI,        UI_COLOR_HUN_TIAN_LING_SEC,        UI_COLOR_HUN_TIAN_LING_BG       },
     {"Wind-Fire Wheels",     UI_COLOR_WIND_FIRE_WHEELS_PRI,     UI_COLOR_WIND_FIRE_WHEELS_SEC,     UI_COLOR_WIND_FIRE_WHEELS_BG    },
     {"Qiankun Ring",         UI_COLOR_QIANKUN_RING_PRI,         UI_COLOR_QIANKUN_RING_SEC,         UI_COLOR_QIANKUN_RING_BG        },
@@ -299,15 +328,19 @@ static constexpr ColorEntry UI_COLORS[] = {
     {"Demon Orb Seal",       UI_COLOR_DEMON_ORB_SEAL_PRI,       UI_COLOR_DEMON_ORB_SEAL_SEC,       UI_COLOR_DEMON_ORB_SEAL_BG      },
     {"Spirit Pearl AoBing",  UI_COLOR_SPIRIT_PEARL_AOBING_PRI,  UI_COLOR_SPIRIT_PEARL_AOBING_SEC,  UI_COLOR_SPIRIT_PEARL_AOBING_BG },
     {"Ice & Fire Clash",     UI_COLOR_ICE_FIRE_CLASH_PRI,       UI_COLOR_ICE_FIRE_CLASH_SEC,       UI_COLOR_ICE_FIRE_CLASH_BG      },
+    {"Tianyuan Cauldron",    UI_COLOR_TIANYUAN_CAULDRON_PRI,    UI_COLOR_TIANYUAN_CAULDRON_SEC,    UI_COLOR_TIANYUAN_CAULDRON_BG   },
+    {"East Sea Ao Guang",    UI_COLOR_EAST_SEA_AOGUANG_PRI,     UI_COLOR_EAST_SEA_AOGUANG_SEC,     UI_COLOR_EAST_SEA_AOGUANG_BG    },
+    {"West Sea Ao Run",      UI_COLOR_WEST_SEA_AORUN_PRI,       UI_COLOR_WEST_SEA_AORUN_SEC,       UI_COLOR_WEST_SEA_AORUN_BG      },
     {"Dragon Palace Sea",    UI_COLOR_DRAGON_PALACE_PRI,        UI_COLOR_DRAGON_PALACE_SEC,        UI_COLOR_DRAGON_PALACE_BG       },
     {"Chentang Pass",        UI_COLOR_CHENTANG_PASS_PRI,        UI_COLOR_CHENTANG_PASS_SEC,        UI_COLOR_CHENTANG_PASS_BG       },
     {"Heavenly Tribulation", UI_COLOR_TRIBULATION_PRI,          UI_COLOR_TRIBULATION_SEC,          UI_COLOR_TRIBULATION_BG         },
     {"Shanhe Scroll",        UI_COLOR_SHANHE_SCROLL_PRI,        UI_COLOR_SHANHE_SCROLL_SEC,        UI_COLOR_SHANHE_SCROLL_BG       },
     {"Taiyi Immortal",       UI_COLOR_TAIYI_IMMORTAL_PRI,       UI_COLOR_TAIYI_IMMORTAL_SEC,       UI_COLOR_TAIYI_IMMORTAL_BG      },
+    {"Shiji Niangniang",     UI_COLOR_SHIJI_MAGMA_PRI,          UI_COLOR_SHIJI_MAGMA_SEC,          UI_COLOR_SHIJI_MAGMA_BG         },
     {"Shen Gongbao",         UI_COLOR_SHEN_GONGBAO_PRI,         UI_COLOR_SHEN_GONGBAO_SEC,         UI_COLOR_SHEN_GONGBAO_BG        },
+    {"Wuliang Immortal",     UI_COLOR_WULIANG_IMMORTAL_PRI,     UI_COLOR_WULIANG_IMMORTAL_SEC,     UI_COLOR_WULIANG_IMMORTAL_BG    },
     {"Six-Arm Awakened",     UI_COLOR_SIX_ARM_AWAKENED_PRI,     UI_COLOR_SIX_ARM_AWAKENED_SEC,     UI_COLOR_SIX_ARM_AWAKENED_BG    },
     {"Jade Void Palace",     UI_COLOR_JADE_VOID_PALACE_PRI,     UI_COLOR_JADE_VOID_PALACE_SEC,     UI_COLOR_JADE_VOID_PALACE_BG    },
-    {"Demon Sea Rage",       UI_COLOR_DEMON_SEA_RAGE_PRI,       UI_COLOR_DEMON_SEA_RAGE_SEC,       UI_COLOR_DEMON_SEA_RAGE_BG      },
     {"Nezha Crimson",        UI_COLOR_NEZHA_CRIMSON_PRI,        UI_COLOR_NEZHA_CRIMSON_SEC,        UI_COLOR_NEZHA_CRIMSON_BG       },
     {"Nezha Lotus",          UI_COLOR_NEZHA_LOTUS_PRI,          UI_COLOR_NEZHA_LOTUS_SEC,          UI_COLOR_NEZHA_LOTUS_BG         },
     // Traditional Chinese / Tactical / Developer Palettes

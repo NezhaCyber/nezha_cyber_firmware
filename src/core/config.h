@@ -109,7 +109,7 @@ public:
 
     int colorInverted = DEFAULT_COLOR_INVERTED;
     int mainMenuStyle = MAIN_MENU_GRID;
-    int nezhaThemeStyle = 1; // 0=Minimal, 1=Motong Flame, 2=Lotus Seal, 3=Ice-Fire Twin
+    int nezhaThemeStyle = 1; // 0=Minimal, 1=Nezha1 Flame, 2=Lotus Seal, 3=Ice-Fire Twin, 4=Nezha2 Sea Rage, 5=Nezha2 Dragon Seal
     int badUSBBLEKeyboardLayout = 0;
     uint16_t badUSBBLEKeyDelay = 10;
     bool badUSBBLEShowOutput = true;
