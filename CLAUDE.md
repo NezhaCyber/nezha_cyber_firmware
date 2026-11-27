@@ -38,5 +38,5 @@
      python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
      pio run -e lilygo-t-deck -e m5stack-cplus1_1
      ```
-   - Never commit directly to `main`. Use atomic Conventional Commits on a feature branch. Report honestly which checks ran.
+   - Never commit directly to `main`. Branch off `development` and raise all PRs against `development` (maintainer handles `development` → `main`) with atomic Conventional Commits. Report honestly which checks ran.
    - Strictly follow [SECURITY.md](./SECURITY.md) (authorized research/testing only; no hardcoded secrets).

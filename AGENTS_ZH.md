@@ -214,7 +214,7 @@ make build ENV=m5stack-cplus1_1
 
 ## 10. Git 工作流与原子提交规范
 
-- **分支策略**：严禁直接向 `main` 提交，必须从 `main` 切出清晰命名的工作分支：
+- **分支与 PR 策略**：严禁直接向 `main` 提交或提 PR；所有改动必须从 **`development`** 切出工作分支，且全部 Pull Request **必须以 `development` 为目标分支**（`development` → `main` 合并与发布由维护者统一处理）：
   - `feat/<short-name>` —— 新功能或硬件工具
   - `fix/<short-name>` —— 缺陷修复
   - `ui/<short-name>` —— UI / 哪吒魔童主题优化
@@ -222,7 +222,7 @@ make build ENV=m5stack-cplus1_1
   - `docs/<topic>` —— 文档与 AI 协作规范
   - `chore/<topic>` —— 构建、CI 或工程维护
 - **原子化 Conventional Commits**：每项逻辑改动独立提交，采用标准前缀：`feat(scope): ...`、`fix(scope): ...`、`ui(scope): ...`、`perf(scope): ...`、`i18n(scope): ...`、`docs(scope): ...`、`chore(scope): ...`。
-- **仓库安全**：严禁对 `main` 强制推送（`--force`），严禁提交密钥/令牌/个人 Wi-Fi 密码，严禁篡改上游提交历史。
+- **仓库安全**：严禁对 `main` 或 `development` 强制推送（`--force`），严禁提交密钥/令牌/个人 Wi-Fi 密码，严禁篡改上游提交历史。
 
 ---
 
