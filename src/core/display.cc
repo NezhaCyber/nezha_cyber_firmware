@@ -624,6 +624,19 @@ int loopOptions(
 ) {
     if (options.empty()) return -1;
 
+    // Some legacy menus implement "Back" by calling their parent menu function
+    // recursively, which nests loopOptions() frames. Cap the nesting so a long
+    // Back/forward session cannot overflow the loop task stack.
+    static uint8_t s_loopDepth = 0;
+    struct LoopDepthGuard {
+        LoopDepthGuard() { ++s_loopDepth; }
+        ~LoopDepthGuard() { --s_loopDepth; }
+    } loopDepthGuard;
+    if (s_loopDepth > 12) {
+        NZLOGW("MENU", "menu recursion depth exceeded (%u); unwinding", (unsigned)s_loopDepth);
+        return -1;
+    }
+
     s_submenuForceFull = true;
 
     bool useTapToSelect = menuType == MENU_TYPE_REGULAR || menuType == MENU_TYPE_SUBMENU ||
