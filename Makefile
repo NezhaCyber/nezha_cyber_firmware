@@ -91,7 +91,7 @@ define RESOLVE_PORT
 	fi
 endef
 
-.PHONY: help check-pio check-port detect ports envs build install upload flash-bin monitor clean \
+.PHONY: help check-pio check-port detect ports envs build install upload flash-bin monitor clean test \
         tdeck tdeck-plus cardputer stickc-plus cplus1_1 stickc-plus-lite stickc-plus2 core2 cyd
 
 .DEFAULT_GOAL := help
@@ -209,6 +209,9 @@ monitor: check-pio ## Open serial monitor on the connected port
 
 clean: check-pio ## Clean PlatformIO build artifacts for ENV
 	"$(PIO)" run -e "$(ENV)" -t clean
+
+test: ## Run host-native C++17 & Python unit test suite
+	@bash test/run_tests.sh
 
 # Convenience device shortcuts
 tdeck: ## Auto-install Nezha Cyber on standard LilyGO T-Deck (ESP32-S3)

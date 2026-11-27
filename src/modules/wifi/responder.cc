@@ -10,6 +10,7 @@ https://github.com/7h30th3r0n3/Evil-M5Project
 #include "responder.h"
 #include "clients.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/utils.h"
 #include "core/wifi/wifi_common.h"
@@ -235,7 +236,14 @@ void extractAndPrintHash(uint8_t *pkt, uint32_t smbLength, uint8_t *ntlm) {
     auto le16 = [](uint8_t *p) -> uint16_t { return p[0] | (p[1] << 8); };
     auto le32 = [](uint8_t *p) -> uint32_t { return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24); };
 
-    uint32_t base = ntlm - pkt; // offset of NTLMSSP in packet
+    if (pkt == nullptr || ntlm == nullptr || ntlm < pkt) return;
+    uint32_t base = (uint32_t)(ntlm - pkt); // offset of NTLMSSP in packet
+    // AUTH message needs at least 52 bytes for the fields read below.
+    if (base > smbLength || smbLength - base < 52) {
+        NZLOGW("RESP", "NTLM message truncated (base=%u len=%u)", (unsigned)base, (unsigned)smbLength);
+        return;
+    }
+    uint32_t avail = smbLength - base;
 
     // 2. Offsets and lengths in NTLM AUTH message
     uint16_t ntRespLen = le16(ntlm + 20);
@@ -250,8 +258,8 @@ void extractAndPrintHash(uint8_t *pkt, uint32_t smbLength, uint8_t *ntlm) {
     // 3. Read UTF-16LE → ASCII
     auto readUTF16 = [&](uint32_t offset, uint16_t len) -> String {
         String s = "";
-        if (base + offset + len > smbLength) return s; // safety
-        for (uint16_t i = 0; i < len; i += 2) s += (char)pkt[base + offset + i];
+        if (offset > avail || len > avail - offset) return s;
+        for (uint16_t i = 0; i + 1 < len; i += 2) s += (char)pkt[base + offset + i];
         return s;
     };
 
@@ -264,9 +272,22 @@ void extractAndPrintHash(uint8_t *pkt, uint32_t smbLength, uint8_t *ntlm) {
     for (int i = 0; i < 8; ++i) sprintf(challHex + 2 * i, "%02X", smbState.challenge[i]);
     challHex[16] = '\0';
 
-    // 5. Full NTLMv2 response en hex
+    // 5. Full NTLMv2 response en hex. Bound both the packet offset and the
+    // resulting String: an attacker-controlled 64 KiB length would otherwise
+    // allocate ~128 KiB on the heap and read far past the SMB buffer.
+    constexpr uint16_t kMaxNtResp = 2048;
+    if (ntRespOff > avail || ntRespLen > avail - ntRespOff) {
+        NZLOGW("RESP", "NTLM response out of bounds (off=%u len=%u)", (unsigned)ntRespOff, ntRespLen);
+        return;
+    }
+    uint16_t safeRespLen = ntRespLen;
+    if (safeRespLen > kMaxNtResp) {
+        NZLOGW("RESP", "NTLM response truncated from %u to %u bytes", ntRespLen, kMaxNtResp);
+        safeRespLen = kMaxNtResp;
+    }
     String ntRespHex;
-    for (uint16_t i = 0; i < ntRespLen; ++i) {
+    ntRespHex.reserve((size_t)safeRespLen * 2);
+    for (uint16_t i = 0; i < safeRespLen; ++i) {
         char h[3];
         sprintf(h, "%02X", pkt[base + ntRespOff + i]);
         ntRespHex += h;
@@ -484,6 +505,7 @@ void sendSMB2NegotiateFromSMB1() {
 }
 
 void handleSMB1(uint8_t *pkt, uint32_t len) {
+    if (pkt == nullptr || len < 35) return;
     // Structure header SMBv1 (32 octets)
     uint8_t command = pkt[4]; // offset 4
 
@@ -492,16 +514,22 @@ void handleSMB1(uint8_t *pkt, uint32_t len) {
         /* point de départ = tout de suite après le BCC (2 octets)           */
         uint16_t bcc = pkt[33] | (pkt[34] << 8); // ByteCount
         const uint8_t *d = pkt + 35;             // <-- 35, pas 36
-        const uint8_t *end = d + bcc;
+        // ByteCount is attacker-controlled: clamp it to the bytes we actually
+        // received and use a bounded strnlen for the dialect name.
+        uint32_t available = len - 35;
+        const uint8_t *end = d + (bcc < available ? bcc : available);
 
         bool smb2Asked = false;
-        while (d < end && *d == 0x02) { // 0x02 = "dialect string"
+        while (d + 1 < end && *d == 0x02) { // 0x02 = "dialect string"
             const char *name = (const char *)(d + 1);
-            if (strncmp(name, "SMB 2", 5) == 0) {
+            size_t maxName = (size_t)(end - (d + 1));
+            size_t nameLen = 0;
+            while (nameLen < maxName && name[nameLen] != '\0') ++nameLen;
+            if (nameLen >= 5 && strncmp(name, "SMB 2", 5) == 0) {
                 smb2Asked = true;
                 break;
             }
-            d += 2 + strlen(name); // 0x02 + chaîne + '\0'
+            d += 2 + nameLen; // 0x02 + chaîne + '\0'
         }
 
         if (smb2Asked) {
@@ -514,11 +542,13 @@ void handleSMB1(uint8_t *pkt, uint32_t len) {
         return;
     }
     // ----------  SESSION SETUP ANDX (0x73) ----------
-    if (command == 0x73) {                             // SMB_COM_SESSION_SETUP_ANDX
+    if (command == 0x73) { // SMB_COM_SESSION_SETUP_ANDX
+        if (len < 47) return;
         uint16_t andxOffset = *(uint16_t *)(pkt + 45); // début des données NTLM
+        if (andxOffset < 36 || (uint32_t)andxOffset + 8 > len) return;
         uint8_t *ntlm = pkt + andxOffset;
 
-        if (memcmp(ntlm, "NTLMSSP", 7) == 0 && len > andxOffset + 8) {
+        if (memcmp(ntlm, "NTLMSSP", 7) == 0) {
             uint8_t type = ntlm[8];
             if (type == 1) { // Type1 → envoyer challenge
                 Serial.println(F("NTLM Type 1 (SMB1) received"));

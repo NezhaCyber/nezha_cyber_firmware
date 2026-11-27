@@ -2,6 +2,8 @@
 
 #include "audio_player.h"
 #if defined(HAS_SPEAKER)
+#include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/settings.h"
 #include "modules/others/audio.h"
@@ -129,11 +131,10 @@ void drawVectorIcon(int x, int y, int size, IconType icon, uint16_t color) {
         }
 
         case ICON_LOOP_OFF: {
-            // Same as LOOP_ON but in grey
-            tft.drawCircle(cx, cy, r, TFT_DARKGREY);
-            // Arrow tip to indicate loop direction
-            tft.fillTriangle(cx + r - 3, cy - 3, cx + r + 3, cy - 3, cx + r, cy + 3, TFT_DARKGREY);
-            tft.setTextColor(TFT_DARKGREY);
+            uint16_t muted = uiTextMutedColor();
+            tft.drawCircle(cx, cy, r, muted);
+            tft.fillTriangle(cx + r - 3, cy - 3, cx + r + 3, cy - 3, cx + r, cy + 3, muted);
+            tft.setTextColor(muted);
             tft.setTextSize(FP);
             tft.setCursor(cx - 2, cy - 3);
             tft.print("1");
@@ -144,86 +145,78 @@ void drawVectorIcon(int x, int y, int size, IconType icon, uint16_t color) {
     }
 }
 
-// Draw Button container + Icon with padding
+// Draw theme-aware transport button container + centered vector icon
 void drawButton(int x, int y, int size, IconType icon, bool selected, bool active) {
-    uint16_t bgColor = TFT_BLACK;
-    uint16_t iconColor = active ? TFT_WHITE : TFT_DARKGREY;
-    uint16_t borderColor = selected ? bruceConfig.priColor : TFT_DARKGREY;
+    uint16_t pri = bruceConfig.priColor;
+    uint16_t fillCol = selected ? pri : uiSurfaceHiColor();
+    uint16_t iconCol = selected ? uiTextOnAccentColor(pri) : (active ? uiTextBrightColor() : uiTextMutedColor());
+    uint16_t borderCol = selected ? bruceConfig.secColor : uiBorderDimColor();
 
-    // Highlighted button has colored background
-    if (selected) {
-        bgColor = TFT_DARKGREY;
-        iconColor = TFT_WHITE;
-        tft.fillRoundRect(x, y, size, size, 6, bgColor);
-        tft.drawRoundRect(x, y, size, size, 6, TFT_YELLOW);
-    } else {
-        tft.fillRoundRect(x, y, size, size, 6, bgColor);
-        tft.drawRoundRect(x, y, size, size, 6, borderColor);
-    }
+    tft.fillRoundRect(x, y, size, size, 8, fillCol);
+    tft.drawRoundRect(x, y, size, size, 8, borderCol);
 
-    // Add padding between icon and button border for better visual spacing
-    int iconPadding = 4;
-    drawVectorIcon(x + iconPadding, y + iconPadding, size - 2 * iconPadding, icon, iconColor);
+    int iconPadding = max(5, size / 6);
+    drawVectorIcon(x + iconPadding, y + iconPadding, size - 2 * iconPadding, icon, iconCol);
 }
 
-// Draw Styled Progress Bar
+// Draw smooth rounded Nezha progress bar
 void drawProgressBar(int x, int y, int width, int height, unsigned long position, unsigned long duration) {
-    uint16_t barBg = TFT_DARKGREY;
-    uint16_t barFill = bruceConfig.priColor;
+    uint16_t surf = uiSurfaceColor();
+    int barH = max(5, min(height, 8));
+    int barY = y + (height - barH) / 2;
 
-    // Background bar
-    int barY = y + (height / 2) - 2;
-    int barH = 4;
-    tft.fillRect(x, barY, width, barH, barBg);
+    tft.fillRect(x - 4, y - 2, width + 8, height + 4, surf);
+    tft.fillRoundRect(x, barY, width, barH, barH / 2, uiSurfaceHiColor());
 
     if (duration > 0) {
-        int fillWidth = (position * width) / duration;
+        int fillWidth = (int)((uint64_t)position * width / duration);
         if (fillWidth > width) fillWidth = width;
-
-        // Fill bar
-        tft.fillRect(x, barY, fillWidth, barH, barFill);
-
-        // Knob at the end
-        if (fillWidth > 2) { tft.fillCircle(x + fillWidth, y + (height / 2), 4, TFT_WHITE); }
+        if (fillWidth > 0) {
+            tft.fillRoundRect(x, barY, fillWidth, barH, barH / 2, bruceConfig.priColor);
+            if (fillWidth > 4) {
+                tft.fillCircle(x + fillWidth, y + height / 2, 4, bruceConfig.secColor);
+            }
+        }
     }
 }
-// Volume control popup
+
+// Theme-aware volume control popup card
 bool showVolumeControl(uint8_t &currentVolume) {
-    const int BAR_WIDTH = (tftWidth > 200) ? 60 : 40;
-    const int BAR_HEIGHT = (tftHeight > 200) ? 140 : 100;
+    bool compact = (tftHeight < 160);
+    const int BAR_WIDTH = compact ? 54 : 68;
+    const int BAR_HEIGHT = compact ? 96 : 136;
     const int BAR_X = (tftWidth - BAR_WIDTH) / 2;
-    const int BAR_Y = (tftHeight - BAR_HEIGHT) / 2;
+    const int BAR_Y = max((int)STATUS_BAR_HEIGHT + 2, (tftHeight - BAR_HEIGHT) / 2);
 
     uint8_t tempVolume = currentVolume;
     bool changed = false;
 
     auto drawVolumeBar = [&]() {
-        // Dark overlay
-        tft.fillRect(BAR_X - 2, BAR_Y - 2, BAR_WIDTH + 4, BAR_HEIGHT + 4, TFT_BLACK);
+        uint16_t surf = uiSurfaceColor();
+        uiDrawCard(BAR_X, BAR_Y, BAR_WIDTH, BAR_HEIGHT, true);
 
-        // Container
-        tft.drawRoundRect(BAR_X, BAR_Y, BAR_WIDTH, BAR_HEIGHT, 8, TFT_WHITE);
+        drawVectorIcon(BAR_X + (BAR_WIDTH - 18) / 2, BAR_Y + 9, 18, ICON_VOL, bruceConfig.priColor);
 
-        // Speaker icon at top
-        drawVectorIcon(BAR_X + (BAR_WIDTH - 20) / 2, BAR_Y + 10, 20, ICON_VOL, TFT_WHITE);
-
-        // Vertical bar
-        int innerBarH = BAR_HEIGHT - 60;
+        int innerBarH = BAR_HEIGHT - 54;
         int innerBarW = 10;
         int innerBarX = BAR_X + (BAR_WIDTH - innerBarW) / 2;
-        int innerBarY = BAR_Y + 35;
+        int innerBarY = BAR_Y + 32;
 
-        tft.fillRect(innerBarX, innerBarY, innerBarW, innerBarH, TFT_DARKGREY);
+        tft.fillRoundRect(innerBarX, innerBarY, innerBarW, innerBarH, 4, uiSurfaceHiColor());
 
         int fillH = (tempVolume * innerBarH) / 100;
-        uint16_t volColor = (tempVolume > 80) ? TFT_RED : bruceConfig.priColor;
-        tft.fillRect(innerBarX, innerBarY + (innerBarH - fillH), innerBarW, fillH, volColor);
+        uint16_t volColor = (tempVolume > 85) ? bruceConfig.secColor : bruceConfig.priColor;
+        if (fillH > 0) {
+            tft.fillRoundRect(innerBarX, innerBarY + (innerBarH - fillH), innerBarW, fillH, 4, volColor);
+        }
 
-        // Volume percentage text
-        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        char vbuf[8];
+        snprintf(vbuf, sizeof(vbuf), "%d%%", tempVolume);
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextColor(uiTextBrightColor(), surf);
         tft.setTextSize(FP);
-        tft.setCursor(BAR_X + 10, BAR_Y + BAR_HEIGHT - 15);
-        tft.printf("%3d%%", tempVolume);
+        tft.fillRect(BAR_X + 4, BAR_Y + BAR_HEIGHT - 16, BAR_WIDTH - 8, 12, surf);
+        tft.drawCentreString(vbuf, BAR_X + BAR_WIDTH / 2, BAR_Y + BAR_HEIGHT - 15, 1);
     };
 
     drawVolumeBar();
@@ -299,119 +292,90 @@ void musicPlayerUI(FS *fs, const String &filepath) {
     unsigned long duration = 0;
     uint8_t currentVolume = bruceConfig.soundVolume;
 
-    // --- Draw functions ---
+    // Extract uppercase file format badge (e.g. MP3, WAV, FLAC)
+    String formatBadge = "AUDIO";
+    int extDot = filepath.lastIndexOf('.');
+    if (extDot > 0 && extDot + 1 < (int)filepath.length()) {
+        formatBadge = filepath.substring(extDot + 1);
+        formatBadge.toUpperCase();
+        if (formatBadge.length() > 5) formatBadge = formatBadge.substring(0, 5);
+    }
+
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 12;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = compact ? 42 : 64;
+    int barX = cardX + 10;
+    int barW = cardW - 20;
+    int barY = cardY + cardH - (compact ? 14 : 20);
+    int btnSize = compact ? 32 : 44;
 
     auto drawHeader = [&]() {
-        tft.fillRect(0, 0, tftWidth, ui.HEADER_HEIGHT, bruceConfig.priColor);
-        tft.setTextColor(bruceConfig.bgColor, bruceConfig.priColor);
-        tft.setTextSize(ui.TEXT_SIZE_LARGE);
-
-        // Center title
-        String title = "AUDIO PLAYER (BETA)";
-        int w = title.length() * 6 * ui.TEXT_SIZE_LARGE;
-        tft.setCursor((tftWidth - w) / 2, (ui.HEADER_HEIGHT - (8 * ui.TEXT_SIZE_LARGE)) / 2);
-        tft.print(title);
+        drawMainBorderWithTitle("Audio Player", true);
+        uiDrawCard(cardX, cardY, cardW, cardH, true);
     };
+
     auto drawTrackInfo = [&]() {
-        int y = ui.HEADER_HEIGHT + ui.MARGIN_Y;
+        uint16_t surf = uiSurfaceColor();
+        int rowY = cardY + (compact ? 7 : 11);
+        tft.fillRect(cardX + 6, rowY - 1, cardW - 12, compact ? 18 : 22, surf);
 
-        // Background area info
-        tft.fillRect(0, y, tftWidth, ui.DISPLAY_HEIGHT, bruceConfig.bgColor);
-
-        // Music icon box - larger for better visibility
-        int iconSize = ui.DISPLAY_HEIGHT - 4;
-        int boxSize = iconSize + 45; // Wider box towards right
-        tft.drawRoundRect(ui.MARGIN_X, y + 2, boxSize, iconSize, 4, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE);
-        tft.setTextSize(FM);
-
-        // Center "AUDIO" text in box
-        String AudioFormatLabel = "AUDIO"; // TODO: Use file extension
-        int textWidth = AudioFormatLabel.length() * LW * FM;
-        int textHeight = LH * FM;
-        int centerX = ui.MARGIN_X + (boxSize - textWidth) / 2 + 2; // Offset 5
-        int centerY = y + 2 + (iconSize - textHeight) / 2;
-        tft.setCursor(centerX, centerY);
-        tft.print(AudioFormatLabel);
-
-        // Scrolling Title
-        int gap = 20; // Fixed gap from MP3 box
-        int textX = ui.MARGIN_X + boxSize + gap;
-        int maxChars = (tftWidth - textX - 5) / (6 * ui.TEXT_SIZE_LARGE);
-
-        tft.setTextColor(TFT_WHITE, bruceConfig.bgColor);
-        tft.setTextSize(ui.TEXT_SIZE_LARGE);
+        int16_t badgeW = uiDrawBadge(cardX + 10, rowY, formatBadge, bruceConfig.priColor, 16);
+        int textX = cardX + 16 + badgeW;
+        int availPx = (cardX + cardW - 10) - textX;
 
         String displayText = player.filename;
-        if (displayText.length() > maxChars) {
-            String scrolled = displayText + "   " + displayText;
-            displayText = scrolled.substring(player.scrollOffset, player.scrollOffset + maxChars);
-
-            // Scroll every 300ms
-            if (millis() - player.lastUpdate > 300) {
-                player.scrollOffset++;
-                if (player.scrollOffset >= player.filename.length() + 3) player.scrollOffset = 0;
-                player.lastUpdate = millis();
-            }
+        if (!compact) {
+            uiDrawText16(displayText, textX, rowY, availPx, uiTextBrightColor(), surf, 0);
+        } else {
+            tft.setTextDatum(TL_DATUM);
+            tft.setTextSize(FP);
+            tft.setTextColor(uiTextBrightColor(), surf);
+            tft.drawString(bruce_i18n::utf8TruncateToWidth(displayText, availPx, FP), textX, rowY + 4, 1);
         }
-
-        tft.setCursor(textX, y + (ui.DISPLAY_HEIGHT / 2) - 8);
-        tft.print(displayText);
     };
 
     auto drawTimers = [&]() {
-        int y = ui.HEADER_HEIGHT + ui.MARGIN_Y + ui.DISPLAY_HEIGHT + 2;
-        tft.setTextSize(ui.TEXT_SIZE_SMALL);
-        tft.setTextColor(TFT_LIGHTGREY, bruceConfig.bgColor);
+        uint16_t surf = uiSurfaceColor();
+        int ty = barY - (compact ? 10 : 12);
+        tft.fillRect(barX, ty, barW, LH * FP + 2, surf);
+        tft.setTextDatum(TL_DATUM);
+        tft.setTextSize(FP);
+        tft.setTextColor(uiTextMutedColor(), surf);
 
         String curr = formatTime(currentPosition);
         String tot = duration > 0 ? formatTime(duration) : "--:--";
-
-        tft.setCursor(ui.MARGIN_X, y);
-        tft.print(curr);
-
-        String totalStr = tot;
-        int w = totalStr.length() * 6;
-        tft.setCursor(tftWidth - ui.MARGIN_X - w, y);
-        tft.print(totalStr);
+        tft.drawString(curr, barX, ty, 1);
+        tft.drawRightString(tot, barX + barW, ty, 1);
     };
+
     auto drawControls = [&]() {
-        int startY = tftHeight - ui.CONTROLS_HEIGHT - ui.MARGIN_Y;
-        int totalWidth = tftWidth - (2 * ui.MARGIN_X);
-        int gap = (totalWidth - (BTN_COUNT * ui.BUTTON_SIZE)) / (BTN_COUNT - 1);
-        int x = ui.MARGIN_X;
+        int startY = cardY + cardH + (compact ? 6 : 16);
+        if (startY + btnSize > tftHeight - 6) startY = tftHeight - btnSize - 6;
+        int totalWidth = cardW;
+        int gap = max(6, (totalWidth - (BTN_COUNT * btnSize)) / (BTN_COUNT - 1));
+        int x = cardX + max(0, (totalWidth - (BTN_COUNT * btnSize + (BTN_COUNT - 1) * gap)) / 2);
 
-        // PREV button
-        drawButton(x, startY, ui.BUTTON_SIZE, ICON_PREV, selectedButton == BTN_PREV, true);
-        x += ui.BUTTON_SIZE + gap;
+        drawButton(x, startY, btnSize, ICON_PREV, selectedButton == BTN_PREV, true);
+        x += btnSize + gap;
 
-        // PLAY/PAUSE button
         IconType ppIcon = (player.isPlaying && !player.isPaused) ? ICON_PAUSE : ICON_PLAY;
-        drawButton(x, startY, ui.BUTTON_SIZE, ppIcon, selectedButton == BTN_PLAY, true);
-        x += ui.BUTTON_SIZE + gap;
+        drawButton(x, startY, btnSize, ppIcon, selectedButton == BTN_PLAY, true);
+        x += btnSize + gap;
 
-        // VOLUME button
-        drawButton(x, startY, ui.BUTTON_SIZE, ICON_VOL, selectedButton == BTN_VOLUME, true);
-        x += ui.BUTTON_SIZE + gap;
+        drawButton(x, startY, btnSize, ICON_VOL, selectedButton == BTN_VOLUME, true);
+        x += btnSize + gap;
 
-        // LOOP button
         IconType loopIcon = player.loopEnabled ? ICON_LOOP_ON : ICON_LOOP_OFF;
-        drawButton(x, startY, ui.BUTTON_SIZE, loopIcon, selectedButton == BTN_LOOP, true);
+        drawButton(x, startY, btnSize, loopIcon, selectedButton == BTN_LOOP, player.loopEnabled);
     };
 
     // Initial Draw
-    tft.fillScreen(bruceConfig.bgColor);
     drawHeader();
     drawTrackInfo();
     drawTimers();
-    drawProgressBar(
-        ui.MARGIN_X,
-        ui.HEADER_HEIGHT + ui.DISPLAY_HEIGHT + 20,
-        tftWidth - 2 * ui.MARGIN_X,
-        ui.PROGRESS_HEIGHT,
-        0,
-        1
-    );
+    drawProgressBar(barX, barY, barW, ui.PROGRESS_HEIGHT, 0, 1);
     drawControls();
 
     unsigned long lastPosUpdate = 0;
@@ -521,14 +485,7 @@ void musicPlayerUI(FS *fs, const String &filepath) {
 
         if (progressNeedsRedraw) {
             drawTimers();
-            drawProgressBar(
-                ui.MARGIN_X,
-                ui.HEADER_HEIGHT + ui.DISPLAY_HEIGHT + 20,
-                tftWidth - 2 * ui.MARGIN_X,
-                ui.PROGRESS_HEIGHT,
-                currentPosition,
-                duration
-            );
+            drawProgressBar(barX, barY, barW, ui.PROGRESS_HEIGHT, currentPosition, duration);
         }
 
         if (controlsNeedRedraw) drawControls();

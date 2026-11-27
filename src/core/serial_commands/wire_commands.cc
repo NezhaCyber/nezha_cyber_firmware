@@ -73,6 +73,18 @@ uint32_t wireUartStatusCallback(cmd *c) {
     return true;
 }
 
+uint32_t wireUartAutoBaudCallback(cmd *c) {
+    Command command(c);
+    int rx = (int)strtol(command.getArgument("rx").getValue().c_str(), nullptr, 10);
+    uint32_t baud = wire_uart_autobaud((int8_t)rx, 500);
+    if (baud == 0) {
+        serialDevice->println("ERROR: no UART traffic detected");
+        return false;
+    }
+    serialDevice->println("OK baud=" + String(baud));
+    return true;
+}
+
 /*********************************************************************
 **  wire i2c ...
 **********************************************************************/
@@ -172,6 +184,15 @@ uint32_t wireSpiFlashIdCallback(cmd *c) {
     return true;
 }
 
+uint32_t wireSpiDumpCallback(cmd *c) {
+    Command command(c);
+    uint32_t bytes = (uint32_t)strtoul(command.getArgument("bytes").getValue().c_str(), nullptr, 10);
+    String path;
+    String res = wire_spi_dump_flash(bytes, path);
+    serialDevice->println(res + (path.length() ? (" " + path) : ""));
+    return res.startsWith("OK");
+}
+
 uint32_t wireSpiEndCallback(cmd *c) {
     wire_spi_end();
     serialDevice->println("SPI released");
@@ -192,8 +213,9 @@ uint32_t wireJtagIdcodeCallback(cmd *c) {
 }
 
 /*********************************************************************
-**  wire la ...
+**  wire la ... (8/16 MB boards)
 **********************************************************************/
+#if !defined(BRUCE_COMPACT_CJK_FONT)
 uint32_t wireLaCaptureCallback(cmd *c) {
     Command command(c);
     uint32_t res = strtoul(command.getArgument("res").getValue().c_str(), nullptr, 10);
@@ -215,6 +237,7 @@ uint32_t wireLaStatusCallback(cmd *c) {
     serialDevice->println(wire_la_status());
     return true;
 }
+#endif
 
 /*********************************************************************
 **  wire cont ...
@@ -246,6 +269,8 @@ void createWireUartCommand(Command *wireCmd) {
 
     wireUartCmd.addCommand("end", wireUartEndCallback);
     wireUartCmd.addCommand("status", wireUartStatusCallback);
+    Command autoBaudCmd = wireUartCmd.addCommand("autobaud", wireUartAutoBaudCallback);
+    autoBaudCmd.addPosArg("rx", "-1");
 }
 
 void createWireI2cCommand(Command *wireCmd) {
@@ -285,6 +310,8 @@ void createWireSpiCommand(Command *wireCmd) {
     xferCmd.addPosArg("bytes");
 
     wireSpiCmd.addCommand("flashid", wireSpiFlashIdCallback);
+    Command dumpCmd = wireSpiCmd.addCommand("dump", wireSpiDumpCallback);
+    dumpCmd.addPosArg("bytes", "65536");
     wireSpiCmd.addCommand("end", wireSpiEndCallback);
 }
 
@@ -298,6 +325,7 @@ void createWireJtagCommand(Command *wireCmd) {
     idcodeCmd.addPosArg("tdo", "-1");
 }
 
+#if !defined(BRUCE_COMPACT_CJK_FONT)
 void createWireLaCommand(Command *wireCmd) {
     Command wireLaCmd = wireCmd->addCompositeCmd("la");
 
@@ -312,6 +340,7 @@ void createWireLaCommand(Command *wireCmd) {
     wireLaCmd.addCommand("dump", wireLaDumpCallback);
     wireLaCmd.addCommand("status", wireLaStatusCallback);
 }
+#endif
 
 void createWireContCommand(Command *wireCmd) {
     Command wireContCmd = wireCmd->addCompositeCmd("cont");
@@ -328,8 +357,8 @@ void createWireCommands(SimpleCLI *cli) {
     createWireSpiCommand(&wireCmd);
     createWireJtagCommand(&wireCmd);
     createWireContCommand(&wireCmd);
-    // TODO(logic-analyzer): held back from this release; re-enable together with the
-    // Logic Analyzer menu entry in WireToolsMenu.cc:
-    // createWireLaCommand(&wireCmd);
+#if !defined(BRUCE_COMPACT_CJK_FONT)
+    createWireLaCommand(&wireCmd);
+#endif
 }
 #endif

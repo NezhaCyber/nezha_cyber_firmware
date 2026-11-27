@@ -28,5 +28,5 @@ Authoritative specification: `AGENTS.md` (EN) and `AGENTS_ZH.md` (简体中文).
   - `python3 tools/gen_cjk_font.py --check-tables`
   - `pio run -e lilygo-t-deck -e m5stack-cplus1_1`
 - Report truthfully which commands ran and which did not.
-- Branch off `main` (`feat/*`, `fix/*`, `ui/*`, `i18n/*`, `docs/*`, `chore/*`) with atomic Conventional Commits.
+- Branch off `development` (`feat/*`, `fix/*`, `ui/*`, `i18n/*`, `docs/*`, `chore/*`) and target all PRs to `development` (maintainer promotes `development` → `main`) with atomic Conventional Commits.
 - Comply strictly with `SECURITY.md` (authorized research/lab use only; never hardcode secrets or weaken WebUI auth).

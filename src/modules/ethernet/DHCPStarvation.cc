@@ -17,8 +17,6 @@
 #include "lwip/pbuf.h"
 #include "lwipopts.h"
 #include <globals.h>
-#include <iomanip>
-#include <iostream>
 #include <lwip/dns.h>
 #include <lwip/err.h>
 #include <lwip/etharp.h>
@@ -35,11 +33,17 @@
 
 DHCPStarvation::DHCPStarvation() {
     setup();
+    if (!netif || !p) return;
     show_gui();
     loop();
 }
 
-DHCPStarvation::~DHCPStarvation() { pbuf_free(p); }
+DHCPStarvation::~DHCPStarvation() {
+    if (p) {
+        pbuf_free(p);
+        p = nullptr;
+    }
+}
 
 void DHCPStarvation::show_gui() {
     drawMainBorderWithTitle("DHCP Starvation");
@@ -155,18 +159,20 @@ void DHCPStarvation::setup() {
     prepare_udp_ipv4_hdr();
     prepare_dhcp_hdr();
 
-    //  UDP Header
-    memcpy(ethernet_frame + ETH_HDRLEN + IP_HLEN, &udp_payload, DHCP_HDRLEN + UDP_HLEN);
+    // UDP Header
+    memcpy(ethernet_frame + ETH_HDRLEN + IP_HLEN, &udp_payload, UDP_HLEN);
 
-    // Fill payload
-    memcpy(ethernet_frame + ETH_HDRLEN + IP_HLEN + UDP_HLEN, &dhcp_payload, UDP_HLEN);
+    // Fill DHCP payload (bounded to packet space)
+    const size_t dhcpCopyLen = (sizeof(dhcp_payload) < DHCP_HDRLEN) ? sizeof(dhcp_payload) : DHCP_HDRLEN;
+    memcpy(ethernet_frame + ETH_HDRLEN + IP_HLEN + UDP_HLEN, &dhcp_payload, dhcpCopyLen);
 
     ethernet_frame[285] = 0xff; // Close the packet
 }
 
 void DHCPStarvation::send_DHCP_packet() {
+    if (!netif || !p) return;
 
-    uint8_t *ethernet_frame = (uint8_t *)p->payload;
+    ethernet_frame = (uint8_t *)p->payload;
     randomize_mac();
     change_mac_in_packet();
 

@@ -2,6 +2,7 @@
 #include "wire_tools.h"
 
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/settings.h"
 #include "core/utils.h"
@@ -86,12 +87,24 @@ static void cont_live_screen(bool toGnd) {
         }
     }
 
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+
     drawMainBorderWithTitle(toGnd ? "Continuity: GND" : "Continuity: Pin-Pin");
-    padprintln("");
-    if (toGnd) padprintln("Probe: GPIO " + String(pinA) + " vs GND");
-    else padprintln("Probes: GPIO " + String(pinA) + " <-> GPIO " + String(pinB));
-    padprintln("");
-    tft.setTextSize(4);
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+
+    String probeTxt = toGnd ? ("GPIO " + String(pinA) + " -> GND")
+                            : ("GPIO " + String(pinA) + " <-> GPIO " + String(pinB));
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextMutedColor(), surf);
+    tft.drawCentreString(probeTxt, tftWidth / 2, cardY + (compact ? 7 : 10), 1);
+    tft.drawFastHLine(cardX + 10, cardY + (compact ? 18 : 23), cardW - 20, uiBorderDimColor());
+    printCenterFootnote("ESC: Back");
 
     uint8_t state = CONT_OPEN;
     uint8_t lastDrawn = 0xFF; // force first draw
@@ -128,25 +141,35 @@ static void cont_live_screen(bool toGnd) {
         if (state != lastDrawn || (state == CONT_SHORT && now - lastTick >= 500)) {
             lastDrawn = state;
             lastTick = now;
-            tft.setTextSize(4);
+
+            int bodyTop = cardY + (compact ? 21 : 28);
+            int bodyH = cardY + cardH - bodyTop - 6;
+            tft.fillRect(cardX + 6, bodyTop, cardW - 12, bodyH, surf);
+
+            uint16_t color = state == CONT_SHORT ? TFT_GREEN : (state == CONT_HELD ? bruceConfig.secColor : bruceConfig.priColor);
+            uint8_t bigSz = compact ? 3 : 4;
+            tft.setTextSize(bigSz);
             tft.setTextDatum(MC_DATUM);
-            uint16_t color = state == CONT_SHORT ? TFT_GREEN : (state == CONT_HELD ? TFT_YELLOW : TFT_RED);
-            tft.setTextColor(color, bruceConfig.bgColor);
-            tft.drawString(state == CONT_SHORT ? "SHORT" : (state == CONT_HELD ? "HELD" : "OPEN"),
-                           tftWidth / 2, tftHeight / 2 + 12);
+            tft.setTextColor(color, surf);
+            tft.drawString(
+                state == CONT_SHORT ? "SHORT" : (state == CONT_HELD ? "HELD" : "OPEN"),
+                tftWidth / 2,
+                bodyTop + bodyH / 2 - (compact ? 6 : 8)
+            );
+
             tft.setTextSize(FP);
             tft.setTextDatum(BC_DATUM);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+            tft.setTextColor(uiTextBrightColor(), surf);
             String status;
             if (state == CONT_SHORT) {
-                status = "contact #" + String(contacts) + "  " + String(shortMs / 1000) + "." +
+                status = "Contact #" + String(contacts) + "  " + String(shortMs / 1000) + "." +
                          String((shortMs % 1000) / 100) + "s";
             } else if (state == CONT_HELD) {
-                status = "pin driven by another device";
+                status = "Pin driven externally";
             } else {
-                status = "waiting...";
+                status = "Waiting for contact...";
             }
-            tft.drawString(status, tftWidth / 2, tftHeight - 30);
+            tft.drawString(status, tftWidth / 2, cardY + cardH - (compact ? 6 : 10));
             tft.setTextDatum(TL_DATUM);
         }
 
@@ -168,13 +191,14 @@ static void cont_live_screen(bool toGnd) {
 **  GPIO picker (same interaction as JTAG pin assignment)
 **********************************************************************/
 static int8_t cont_pick_pin(const char *title, int8_t current) {
-    options.clear();
+    std::vector<Option> localOpts;
+    localOpts.reserve(GPIO_NUM_MAX + 2);
     int8_t picked = current;
     for (int i = -1; i <= GPIO_NUM_MAX; i++) {
-        options.push_back({String(i), [i, &picked]() { picked = (int8_t)i; }, i == current});
+        localOpts.push_back({String(i), [i, &picked]() { picked = (int8_t)i; }, i == current});
     }
     int index = (current < 0) ? 0 : current + 1;
-    loopOptions(options, MENU_TYPE_SUBMENU, title, index);
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, title, index);
     return picked;
 }
 
@@ -184,14 +208,14 @@ static int8_t cont_pick_pin(const char *title, int8_t current) {
 void continuity_tester_setup() {
     returnToMenu = false;
     while (!returnToMenu) {
-        options = {
+        std::vector<Option> localOpts = {
             {"Pin A: " + String(mmPinA), []() { mmPinA = cont_pick_pin("Pin A (Drive LOW)", mmPinA); }          },
             {"Pin B: " + String(mmPinB), []() { mmPinB = cont_pick_pin("Pin B (Sense)", mmPinB); }              },
             {"Continuity: Pin<->Pin",    []() { cont_live_screen(false); }                                      },
             {"Continuity: Pin->GND",     []() { cont_live_screen(true); }                                       },
+            {"Main Menu",                []() { backToMenu(); }                                                 },
         };
-        addOptionToMainMenu();
-        loopOptions(options, MENU_TYPE_SUBMENU, "Multimeter");
+        loopOptions(localOpts, MENU_TYPE_SUBMENU, "Multimeter");
     }
 }
 

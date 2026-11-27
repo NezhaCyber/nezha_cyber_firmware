@@ -187,7 +187,11 @@ bool tgGetDataIrq(Adafruit_PN532 &nfc, uint8_t *out, uint8_t maxLen, uint8_t *ou
 
     *status = frame[7];
     uint8_t dataLen = frame[3] > 3 ? static_cast<uint8_t>(frame[3] - 3) : 0;
+    // Only sizeof(frame)-8 bytes were actually read; the length byte comes
+    // from the (possibly hostile) PN532 and must not drive memcpy past them.
+    const uint8_t available = (uint8_t)(sizeof(frame) - 8);
     uint8_t copyLen = std::min<uint8_t>(dataLen, maxLen);
+    if (copyLen > available) copyLen = available;
     if (copyLen > 0) memcpy(out, frame + 8, copyLen);
     *outLen = copyLen;
     return true;
@@ -983,9 +987,11 @@ void PN532::parse_data() {
     String strUID = printableUID.uid;
     strUID.trim();
     strUID.replace(" ", "");
-    uid.size = strUID.length() / 2;
-    for (size_t i = 0; i < strUID.length(); i += 2) {
-        uid.uidByte[i / 2] = strtoul(strUID.substring(i, i + 2).c_str(), NULL, 16);
+    size_t uidBytes = strUID.length() / 2;
+    if (uidBytes > sizeof(uid.uidByte)) uidBytes = sizeof(uid.uidByte);
+    uid.size = (uint8_t)uidBytes;
+    for (size_t i = 0; i < uidBytes; ++i) {
+        uid.uidByte[i] = strtoul(strUID.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
     printableUID.sak.trim();
@@ -994,8 +1000,10 @@ void PN532::parse_data() {
     String strAtqa = printableUID.atqa;
     strAtqa.trim();
     strAtqa.replace(" ", "");
-    for (size_t i = 0; i < strAtqa.length(); i += 2) {
-        uid.atqaByte[i / 2] = strtoul(strAtqa.substring(i, i + 2).c_str(), NULL, 16);
+    size_t atqaBytes = strAtqa.length() / 2;
+    if (atqaBytes > sizeof(uid.atqaByte)) atqaBytes = sizeof(uid.atqaByte);
+    for (size_t i = 0; i < atqaBytes; ++i) {
+        uid.atqaByte[i] = strtoul(strAtqa.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 }
 
@@ -1344,13 +1352,10 @@ int PN532::write_data_blocks() {
 
 bool PN532::write_mifare_classic_data_block(int block, String data) {
     data.replace(" ", "");
-    byte size = data.length() / 2;
-    byte buffer[size];
-
-    if (size != 16) return false;
-
-    for (size_t i = 0; i < data.length(); i += 2) {
-        buffer[i / 2] = strtoul(data.substring(i, i + 2).c_str(), NULL, 16);
+    if (data.length() != 32) return false; // exactly 16 bytes
+    uint8_t buffer[16] = {0};
+    for (size_t i = 0; i < 16; ++i) {
+        buffer[i] = strtoul(data.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
     if (authenticate_mifare_classic(block) != SUCCESS) return false;
@@ -1360,13 +1365,10 @@ bool PN532::write_mifare_classic_data_block(int block, String data) {
 
 bool PN532::write_mifare_ultralight_data_block(int block, String data) {
     data.replace(" ", "");
-    byte size = data.length() / 2;
-    byte buffer[size];
-
-    if (size != 4) return false;
-
-    for (size_t i = 0; i < data.length(); i += 2) {
-        buffer[i / 2] = strtoul(data.substring(i, i + 2).c_str(), NULL, 16);
+    if (data.length() != 8) return false; // exactly 4 bytes
+    uint8_t buffer[4] = {0};
+    for (size_t i = 0; i < 4; ++i) {
+        buffer[i] = strtoul(data.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
     return nfc.ntag2xx_WritePage(block, buffer);
@@ -1374,13 +1376,12 @@ bool PN532::write_mifare_ultralight_data_block(int block, String data) {
 
 int PN532::write_felica_data_block(int block, String data) {
     data.replace(" ", "");
-    byte size = data.length() / 2;
     uint8_t block_data[1][16] = {0};
 
-    if (size != 16) { return false; }
+    if (data.length() != 32) { return false; }
 
-    for (size_t i = 0; i < data.length(); i += 2) {
-        block_data[0][i / 2] = strtoul(data.substring(i, i + 2).c_str(), NULL, 16);
+    for (size_t i = 0; i < 16; ++i) {
+        block_data[0][i] = strtoul(data.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
     uint16_t block_list[1] = {(uint16_t)(block +

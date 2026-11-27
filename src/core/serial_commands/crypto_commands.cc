@@ -53,7 +53,14 @@ uint32_t encryptFileCallback(cmd *c) {
     cachedPassword = password;
 
     char *txt = _readFileFromSerial();
-    if (strlen(txt) == 0) return false;
+    if (txt == nullptr) {
+        serialDevice->println("Out of memory reading serial input");
+        return false;
+    }
+    if (strlen(txt) == 0) {
+        free(txt);
+        return false;
+    }
     String txtString = String(txt);
 
     FS *fs;

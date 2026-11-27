@@ -2,6 +2,7 @@
 #include <globals.h>
 
 #include "core/bus_HAL.h"
+#include "core/logging/nzlog.h"
 #include "core/powerSave.h"
 #include "core/ram_profile.h"
 #include "core/serial_commands/cli.h"
@@ -206,6 +207,19 @@ void begin_storage() {
     bool checkFS = setupSdCard();
     bruceConfig.fromFile(checkFS);
     bruceConfigPins.fromFile(checkFS);
+    // Boot as early as possible so a crash during the rest of setup is visible
+    // in /NezhaLogs/nezha.log after the next reboot.
+    nzlog::begin();
+    NZLOGI(
+        "BOOT", "storage ready: LittleFS=OK SD=%s", sdcardMounted ? "mounted" : "not mounted"
+    );
+    if (sdcardMounted) {
+        NZLOGI(
+            "BOOT", "SD total=%uKB used=%uKB", (unsigned)(SD.totalBytes() / 1024),
+            (unsigned)(SD.usedBytes() / 1024)
+        );
+    }
+    NZLOGMEM("BOOT");
 }
 
 /*********************************************************************
@@ -687,6 +701,8 @@ void setup() {
         SAFE_STACK_BUFFER_SIZE / 4
     ); // Must be invoked before Serial.begin(). Default is 256 chars
     Serial.begin(115200);
+    nzlog::begin(); // serial sink first; the SD file sink opens in begin_storage()
+    NZLOGI("BOOT", "Nezha Cyber " BRUCE_VERSION " booting");
 
     log_d("Total heap: %d", ESP.getHeapSize());
     log_d("Free heap: %d", ESP.getFreeHeap());
@@ -704,6 +720,14 @@ void setup() {
         (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)
     );
     Serial.flush();
+    NZLOGI(
+        "BOOT",
+        "psram init=%d found=%d total=%u free=%u",
+        (int)psramStarted,
+        (int)psramFound(),
+        (unsigned)ESP.getPsramSize(),
+        (unsigned)ESP.getFreePsram()
+    );
 
     RAM_LOG("setup-start");
 
@@ -799,6 +823,8 @@ void setup() {
     }
 
     RAM_LOG("setup-end");
+    NZLOGI("BOOT", "setup complete");
+    NZLOGMEM("BOOT");
 }
 
 /**********************************************************************

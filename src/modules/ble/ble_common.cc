@@ -1,4 +1,5 @@
 #include "ble_common.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/radio_mem.h"
 #include "core/ram_profile.h"
@@ -64,24 +65,33 @@ char strID[18];
 char strAddl[200];
 
 void ble_info(const String &name, const String &address, const String &signal) {
-    drawMainBorder();
-    tft.setTextColor(bruceConfig.priColor);
-    int rowStep = LH * FP + 10;
-    int row1Y = BORDER_PAD_Y + FM * LH + 4;
-    tft.drawCentreString("-=Information=-", tftWidth / 2, BORDER_PAD_Y, SMOOTH_FONT);
-    tft.drawString("Name: " + name, BORDER_PAD_X, row1Y);
-    tft.drawString("Adresse: " + address, BORDER_PAD_X, row1Y + rowStep);
-    tft.drawString("Signal: " + String(signal) + " dBm", BORDER_PAD_X, row1Y + 2 * rowStep);
-    tft.drawCentreString(
-        "   Press " + String(BTN_ALIAS) + " to act", tftWidth / 2, tftHeight - BORDER_PAD_X - LH * FP, 1
-    );
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int y = cardY + (compact ? 10 : 14);
+    int rowH = compact ? 15 : 20;
 
-    delay(300);
-    while (!check(SelPress)) {
-        while (!check(SelPress)) { yield(); }
-        returnToMenu = true;
-        break;
-    }
+    drawMainBorderWithTitle("BLE Info");
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+
+    uiDrawKeyValueRow(x, y, w, "Name", name.isEmpty() ? String("Unknown") : name, uiTextBrightColor(), surf);
+    y += rowH;
+    uiDrawKeyValueRow(x, y, w, "Address", address, bruceConfig.priColor, surf);
+    y += rowH;
+    uiDrawKeyValueRow(x, y, w, "Signal", signal + " dBm", bruceConfig.secColor, surf);
+
+    printCenterFootnote("SEL / ESC: Back");
+
+    delay(200);
+    check(SelPress);
+    check(EscPress);
+    while (!check(SelPress) && !check(EscPress)) { vTaskDelay(pdMS_TO_TICKS(15)); }
+    returnToMenu = true;
 }
 
 class AdvertisedDeviceCallbacks : public NimBLEScanCallbacks {};

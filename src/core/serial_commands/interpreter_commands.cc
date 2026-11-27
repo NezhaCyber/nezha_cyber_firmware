@@ -28,6 +28,10 @@ static uint32_t jsCallback(cmd *c) {
         }
 
         char *txt = _readFileFromSerial(fileSize + 2);
+        if (txt == nullptr) {
+            serialDevice->println("Out of memory reading serial input");
+            return false;
+        }
         return run_bjs_script_headless(txt);
     }
 

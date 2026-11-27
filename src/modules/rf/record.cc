@@ -1,4 +1,5 @@
 #include "record.h"
+#include "core/logging/nzlog.h"
 #include "protocols/rf_config.h"
 #include "protocols/rf_decoder.h"
 #include "rf_utils.h"
@@ -236,7 +237,10 @@ void rf_raw_record_create(RawRecording &recorded, bool &returnToMenu) {
     } else status.frequency = bruceConfigPins.rfFreq;
 
     // Something went wrong with scan, probably it was cancelled
-    if (status.frequency < 300) return;
+    if (status.frequency < 300) {
+        deinitRfModule();
+        return;
+    }
     recorded.frequency = status.frequency;
     setMHZ(status.frequency);
 
@@ -299,10 +303,17 @@ void rf_raw_record_create(RawRecording &recorded, bool &returnToMenu) {
 
     rmt_channel_handle_t rx_ch = NULL;
     rx_ch = setup_rf_rx();
-    if (rx_ch == NULL) return;
+    if (rx_ch == NULL) {
+        deinitRfModule();
+        return;
+    }
     ESP_LOGI("RMT_SPECTRUM", "register RX done callback");
     QueueHandle_t receive_queue = xQueueCreate(1, sizeof(rmt_rx_done_event_data_t));
-    assert(receive_queue);
+    if (receive_queue == NULL) {
+        rmt_del_channel(rx_ch);
+        deinitRfModule();
+        return;
+    }
     rmt_rx_event_callbacks_t cbs = {
         .on_recv_done = record_rmt_rx_done_callback,
     };
@@ -328,8 +339,14 @@ void rf_raw_record_create(RawRecording &recorded, bool &returnToMenu) {
         if (rx_size != 0) {
             bool valid_signal = false;
             if (rx_size >= 5) valid_signal = true;
-            if (valid_signal) {         // ignore codes shorter than 5 items
+            if (valid_signal) { // ignore codes shorter than 5 items
                 rmt_symbol_word_t *code = (rmt_symbol_word_t *)malloc(rx_size * sizeof(rmt_symbol_word_t));
+                if (code == nullptr) {
+                    NZLOGW("RF", "record: out of memory for %u RMT symbols", (unsigned)rx_size);
+                    ESP_ERROR_CHECK(rmt_receive(rx_ch, item, sizeof(item), &receive_config));
+                    rx_size = 0;
+                    continue;
+                }
 
                 // Gap calculation
                 unsigned long long signalDuration = 0;
@@ -337,7 +354,9 @@ void rf_raw_record_create(RawRecording &recorded, bool &returnToMenu) {
                     code[i] = rx_items[i];
                     signalDuration += rx_items[i].duration0 + rx_items[i].duration1;
                 }
-                rf_raw_record_accept_capture(recorded, status, fakeRssiPresent, code, rx_size, signalDuration);
+                rf_raw_record_accept_capture(
+                    recorded, status, fakeRssiPresent, code, rx_size, signalDuration
+                );
             }
             ESP_ERROR_CHECK(rmt_receive(rx_ch, item, sizeof(item), &receive_config));
             rx_size = 0;
@@ -382,6 +401,17 @@ int rf_raw_record_options(bool saved) {
     return option;
 }
 
+static void clearRawRecording(RawRecording &recorded) {
+    for (auto &code : recorded.codes) free(code);
+    recorded.codes.clear();
+    recorded.codes.shrink_to_fit();
+    recorded.codeLengths.clear();
+    recorded.codeLengths.shrink_to_fit();
+    recorded.gaps.clear();
+    recorded.gaps.shrink_to_fit();
+    recorded.frequency = 0;
+}
+
 void rf_raw_record() {
     bool replaying = false;
     bool returnToMenu = false;
@@ -396,22 +426,17 @@ void rf_raw_record() {
             rf_raw_save(recorded);
         } else if (option == 3) { // Discard
             saved = false;
-            for (auto &code : recorded.codes) free(code);
-            recorded.codes.clear();
-            recorded.codeLengths.clear();
-            recorded.gaps.clear();
-            recorded.frequency = 0;
+            clearRawRecording(recorded);
             rf_raw_record_create(recorded, returnToMenu);
         }
 
-        if (returnToMenu || check(EscPress)) return;
+        if (returnToMenu || check(EscPress)) {
+            clearRawRecording(recorded);
+            return;
+        }
         option = rf_raw_record_options(saved);
         vTaskDelay(pdMS_TO_TICKS(1));
     }
-    for (auto &code : recorded.codes) free(code);
-    recorded.codes.clear();
-    recorded.codeLengths.clear();
-    recorded.gaps.clear();
-    recorded.frequency = 0;
+    clearRawRecording(recorded);
     return;
 }

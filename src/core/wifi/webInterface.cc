@@ -1,6 +1,7 @@
 #include "webInterface.h"
 #include "core/display.h"    // using displayRedStripe as error msg
 #include "core/i18n.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h" // using keyboard when calling rename
 #include "core/passwords.h"
 #include "core/ram_profile.h"
@@ -45,14 +46,17 @@ String generateToken(int length = 24) {
 void stopWebUi() {
     tft.setLogging(false);
     isWebUIActive = false;
-    server->end();
-    server->~AsyncWebServer();
-    free(server);
-    server = nullptr;
+    if (server != nullptr) {
+        server->end();
+        server->~AsyncWebServer();
+        free(server);
+        server = nullptr;
+    }
     if (mdnsRunning) {
         MDNS.end();
         mdnsRunning = false;
     }
+    NZLOGI("WEBUI", "stopped");
 }
 
 /**********************************************************************
@@ -233,11 +237,18 @@ void handleUpload(
             String fullPath = uploadFolder + "/" + relativePath;
             String dirPath = fullPath.substring(0, fullPath.lastIndexOf("/"));
             if (dirPath.length() > 0) { createDirRecursive(dirPath, _webFS); }
-        RETRY:
-            request->_tempFile = _webFS.open(uploadFolder + "/" + filename, "w");
-            if (!request->_tempFile) {
-                // Serial.println("Failed to open file for writing: " + uploadFolder + "/" + filename);
-                goto RETRY;
+            // Bounded retry: the old unbounded goto could spin the AsyncTCP
+            // task forever (SD removed / filesystem full).
+            bool opened = false;
+            for (int attempt = 0; attempt < 5 && !opened; ++attempt) {
+                request->_tempFile = _webFS.open(uploadFolder + "/" + filename, "w");
+                opened = (bool)request->_tempFile;
+                if (!opened) vTaskDelay(pdMS_TO_TICKS(20));
+            }
+            if (!opened) {
+                NZLOGE("WEBUI", "upload: cannot open %s", (uploadFolder + "/" + filename).c_str());
+                request->send(500, "text/plain", "Cannot open destination file");
+                return;
             }
         }
 
@@ -245,13 +256,19 @@ void handleUpload(
             if (request->hasArg("password")) {
                 // encryption requested
                 static int chunck_no = 0;
+                if (index == 0) chunck_no = 0; // reset per upload request
                 if (chunck_no != 0) {
-                    // TODO: handle multiple chunks
-                    request->send(404, "text/html", "file is too big");
+                    // The on-wire .enc format has no chunk framing, so a
+                    // multi-chunk encrypted upload cannot be decrypted safely.
+                    NZLOGW("WEBUI", "encrypted upload exceeds one chunk");
+                    request->send(413, "text/html", "Encrypted upload is too big (one chunk max)");
+                    if (request->_tempFile) request->_tempFile.close();
                     return;
                 } else chunck_no += 1;
                 String enc_password = request->arg("password");
-                String plaintext = String((char *)data).substring(0, len);
+                // Length-aware construction: the upload chunk is binary and is
+                // not guaranteed to be NUL-terminated.
+                String plaintext((const char *)data, (unsigned int)len);
                 String cyphertxt = encryptString(plaintext, enc_password);
                 if (cyphertxt == "") { return; }
                 if (request->_tempFile)
@@ -472,8 +489,7 @@ void configureWebServer() {
     });
 
     // System Info
-    server->on("/systeminfo", HTTP_GET, [](AsyncWebServerRequest *request) {
-        if (checkUserWebAuth(request)) {
+    server->on("/systeminfo", HTTP_GET, [](AsyncWebServerRequest *request) {        if (checkUserWebAuth(request)) {
             char response_body[340];
             uint64_t LittleFSTotalBytes = LittleFS.totalBytes();
             uint64_t LittleFSUsedBytes = LittleFS.usedBytes();
@@ -502,6 +518,74 @@ void configureWebServer() {
             );
             request->send(200, "application/json", response_body);
         }
+    });
+
+    // Real-time system log (logcat feed). Requires the same login as the rest
+    // of the WebUI; use ?bytes=N to fetch a larger tail (max 64 KiB) or
+    // ?html=1 for a tiny auto-refreshing viewer page.
+    server->on("/logs", HTTP_GET, [](AsyncWebServerRequest *request) {
+        if (!checkUserWebAuth(request, true)) return;
+
+        if (request->hasParam("html")) {
+            static const char logPage[] =
+                "<!doctype html><html><head><meta charset='utf-8'>"
+                "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                "<title>Nezha Cyber Log</title><style>"
+                "html,body{margin:0;background:#0b0d10;color:#d7e0ea;font:12px/1.35 ui-monospace,"
+                "SFMono-Regular,Menlo,Consolas,monospace}header{position:sticky;top:0;padding:8px 10px;"
+                "background:#141922;border-bottom:1px solid #2a3444;color:#8ad7ff;font-weight:700}"
+                "pre{margin:0;padding:8px 10px;white-space:pre-wrap;word-break:break-all}"
+                "span{float:right;color:#6b7a90;font-weight:400}</style></head><body>"
+                "<header>NEZHA CYBER // SYSTEM LOG <span id='s'>connecting...</span></header>"
+                "<pre id='o'>loading...</pre><script>"
+                "var o=document.getElementById('o'),s=document.getElementById('s'),stick=true;"
+                "o.addEventListener('scroll',function(){stick=o.scrollTop+o.clientHeight>=o.scrollHeight-8});"
+                "async function t(){try{var r=await fetch('/logs?bytes=32768',{cache:'no-store'});"
+                "if(!r.ok)throw new Error(r.status);o.textContent=await r.text();"
+                "if(stick)o.scrollTop=o.scrollHeight;s.textContent='LIVE '+new Date().toLocaleTimeString();}"
+                "catch(e){s.textContent='OFFLINE '+e.message;}}t();setInterval(t,1000);"
+                "</script></body></html>";
+            request->send(200, "text/html", String(logPage));
+            return;
+        }
+
+        nzlog::begin();
+        if (!sdcardMounted) {
+            request->send(503, "text/plain", "SD card not mounted; log is serial-only.");
+            return;
+        }
+        File f = SD.open(nzlog::path(), FILE_READ);
+        if (!f) {
+            request->send(404, "text/plain", "No log file yet.");
+            return;
+        }
+
+        size_t maxBytes = 16384;
+        if (request->hasParam("bytes")) {
+            long requested = request->getParam("bytes")->value().toInt();
+            if (requested >= 1024 && requested <= 65536) maxBytes = (size_t)requested;
+        }
+        size_t size = f.size();
+        size_t want = size > maxBytes ? maxBytes : size;
+        f.seek(size - want);
+
+        char *buf = psramFound() ? static_cast<char *>(ps_malloc(want + 1))
+                                 : static_cast<char *>(malloc(want + 1));
+        if (buf == nullptr) {
+            f.close();
+            request->send(503, "text/plain", "Out of memory for log tail.");
+            return;
+        }
+        size_t got = want > 0 ? f.readBytes(buf, want) : 0;
+        buf[got] = '\0';
+        f.close();
+
+        // AsyncBasicResponse copies the String into its own body; the temporary
+        // tail buffer can therefore be released immediately.
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", String(buf));
+        response->addHeader("Cache-Control", "no-store");
+        request->send(response);
+        free(buf);
     });
 
     // Firmware & WebUI Language
@@ -787,13 +871,20 @@ void startWebUi(bool mode_ap) {
 
         Serial.println("Configuring Webserver ...");
         if (psramFound()) server = (AsyncWebServer *)ps_malloc(sizeof(AsyncWebServer));
-        else server = (AsyncWebServer *)malloc(sizeof(AsyncWebServer));
+        if (!server) server = (AsyncWebServer *)malloc(sizeof(AsyncWebServer));
+        if (server == nullptr) {
+            NZLOGE("WEBUI", "out of memory allocating AsyncWebServer");
+            displayError("Out of memory starting WebUI", true);
+            return;
+        }
 
         new (server) AsyncWebServer(default_webserverporthttp);
 
         configureWebServer();
 
         isWebUIActive = true;
+        NZLOGI("WEBUI", "started (mode=%s)", mode_ap ? "AP" : "STA");
+        NZLOGMEM("WEBUI");
     }
     tft.setLogging();
     drawWebUiScreen(mode_ap);

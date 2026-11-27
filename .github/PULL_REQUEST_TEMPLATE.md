@@ -1,5 +1,7 @@
 ## Summary
 
+> **Base Branch Notice**: All Pull Requests must target the **`development`** branch (not `main`). Promotion from `development` to `main` is handled by the maintainer.
+
 Describe what this PR changes and why.
 
 ## Type of Change

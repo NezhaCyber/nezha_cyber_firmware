@@ -29,6 +29,8 @@ static inline bool radioSafeBleInit(const std::string &name, bool = true) {
 #include <NimBLEDevice.h>
 #include <algorithm>
 #include <cmath>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
 #include <globals.h>
 #include <vector>
 
@@ -193,12 +195,31 @@ struct BleRxSession {
 };
 
 static BleRxSession *s_rxSess = nullptr;
+static SemaphoreHandle_t s_rxMutex = nullptr;
+
+static void ensureRxMutex() {
+    if (s_rxMutex == nullptr) { s_rxMutex = xSemaphoreCreateMutex(); }
+}
+
+// RAII lock so every early return in the NimBLE callbacks unlocks.
+struct RxLock {
+    bool held = false;
+    RxLock() {
+        ensureRxMutex();
+        if (s_rxMutex != nullptr) held = (xSemaphoreTake(s_rxMutex, portMAX_DELAY) == pdTRUE);
+    }
+    ~RxLock() {
+        if (held) xSemaphoreGive(s_rxMutex);
+    }
+};
 
 class BleFtServerCb : public NimBLEServerCallbacks {
     void onConnect(NimBLEServer *, NimBLEConnInfo &) override {
+        RxLock lock;
         if (s_rxSess) s_rxSess->clientConnected = true;
     }
     void onDisconnect(NimBLEServer *, NimBLEConnInfo &, int) override {
+        RxLock lock;
         if (s_rxSess) {
             s_rxSess->clientConnected = false;
             if (s_rxSess->receiving && s_rxSess->file) {
@@ -212,6 +233,7 @@ class BleFtServerCb : public NimBLEServerCallbacks {
 
 class BleFtRxCb : public NimBLECharacteristicCallbacks {
     void onWrite(NimBLECharacteristic *pChr, NimBLEConnInfo &) override {
+        RxLock lock;
         if (!s_rxSess) return;
         std::string v = pChr->getValue();
         if (v.empty()) return;
@@ -231,9 +253,20 @@ class BleFtRxCb : public NimBLECharacteristicCallbacks {
             int colon = line.lastIndexOf(':');
             String fname = (colon > 0) ? line.substring(0, colon) : line;
             size_t fsz = (colon > 0) ? (size_t)line.substring(colon + 1).toInt() : 0;
-            fname.replace("/", "_");
-            fname.replace("\\", "_");
-            if (fname.isEmpty()) fname = "rx_" + String(millis()) + ".bin";
+            // Sanitize the remote filename: no separators, no "..", only safe
+            // characters, bounded length.
+            String safe;
+            safe.reserve(64);
+            for (size_t i = 0; i < fname.length() && safe.length() < 64; ++i) {
+                char c = fname[i];
+                bool ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                          c == '.' || c == '_' || c == '-';
+                safe += ok ? c : '_';
+            }
+            fname = safe;
+            if (fname == ".." || fname == "." || fname.isEmpty()) {
+                fname = "rx_" + String(millis()) + ".bin";
+            }
 
             if (s_rxSess->fs) {
                 if (!s_rxSess->fs->exists("/ble_received")) s_rxSess->fs->mkdir("/ble_received");
@@ -244,13 +277,22 @@ class BleFtRxCb : public NimBLECharacteristicCallbacks {
                     s_rxSess->expectedSize = fsz;
                     s_rxSess->receivedBytes = 0;
                     s_rxSess->runningCrc = 0;
-                    // Write any payload bytes following the header newline in the same packet
+                    // Write any payload bytes following the header newline in the same packet.
                     if (nl >= 0 && (size_t)(nl + 1) < v.size()) {
                         const uint8_t *rem = (const uint8_t *)v.data() + nl + 1;
                         size_t remLen = v.size() - (size_t)(nl + 1);
+                        // Never count/write more than the declared size: the
+                        // old code made receivedBytes > expectedSize, which
+                        // underflowed the next writeLen subtraction.
+                        if (fsz > 0 && remLen > fsz) remLen = fsz;
                         s_rxSess->file.write(rem, remLen);
                         s_rxSess->receivedBytes += remLen;
                         s_rxSess->runningCrc = crc32Update(s_rxSess->runningCrc, rem, remLen);
+                        if (fsz > 0 && s_rxSess->receivedBytes >= fsz) {
+                            s_rxSess->file.close();
+                            s_rxSess->receiving = false;
+                            s_rxSess->complete = true;
+                        }
                     }
                 } else {
                     s_rxSess->failed = true;
@@ -283,8 +325,12 @@ class BleFtRxCb : public NimBLECharacteristicCallbacks {
         if (s_rxSess->receiving && s_rxSess->file) {
             const uint8_t *ptr = (const uint8_t *)v.data();
             size_t writeLen = v.size();
-            if (s_rxSess->expectedSize > 0 && s_rxSess->receivedBytes + writeLen > s_rxSess->expectedSize) {
-                writeLen = s_rxSess->expectedSize - s_rxSess->receivedBytes;
+            if (s_rxSess->expectedSize > 0) {
+                if (s_rxSess->receivedBytes >= s_rxSess->expectedSize) {
+                    writeLen = 0;
+                } else if (writeLen > s_rxSess->expectedSize - s_rxSess->receivedBytes) {
+                    writeLen = s_rxSess->expectedSize - s_rxSess->receivedBytes;
+                }
             }
             if (writeLen > 0) {
                 s_rxSess->file.write(ptr, writeLen);
@@ -878,7 +924,10 @@ static void bleFileReceiveMode() {
 
     BleRxSession sess;
     sess.fs = fs;
+    ensureRxMutex();
+    if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
     s_rxSess = &sess;
+    if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
 
     NimBLEServer *srv = NimBLEDevice::createServer();
     if (!srv) {
@@ -892,15 +941,37 @@ static void bleFileReceiveMode() {
 
     NimBLEService *svc = srv->getServiceByUUID(NUS_SVC_UUID);
     if (!svc) svc = srv->createService(NUS_SVC_UUID);
+    if (!svc) {
+        displayError("BLE service creation failed", true);
+        if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+        s_rxSess = nullptr;
+        if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
+        return;
+    }
     NimBLECharacteristic *rxChr = svc->getCharacteristic(NUS_RX_UUID);
     if (!rxChr) {
         rxChr = svc->createCharacteristic(
             NUS_RX_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
         );
     }
+    if (!rxChr) {
+        displayError("BLE RX characteristic failed", true);
+        if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+        s_rxSess = nullptr;
+        if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
+        return;
+    }
     rxChr->setCallbacks(&rxCb);
     NimBLECharacteristic *txChr = svc->getCharacteristic(NUS_TX_UUID);
     if (!txChr) txChr = svc->createCharacteristic(NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
+    if (!txChr) {
+        displayError("BLE TX characteristic failed", true);
+        rxChr->setCallbacks(nullptr);
+        if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+        s_rxSess = nullptr;
+        if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
+        return;
+    }
     svc->start();
 
     NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
@@ -979,10 +1050,14 @@ static void bleFileReceiveMode() {
     }
 
     adv->stop();
-    if (sess.file) sess.file.close();
     rxChr->setCallbacks(nullptr);
     srv->setCallbacks(nullptr);
+    // Wait for any in-flight NimBLE callback, close the file under the lock,
+    // then detach the stack session before it goes out of scope.
+    if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+    if (sess.file) sess.file.close();
     s_rxSess = nullptr;
+    if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
 }
 
 static void bleFileSendDirect(FS &fs, const FilePickItem &item) {
@@ -1132,7 +1207,10 @@ static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
 
     BleRxSession sess;
     sess.fs = &fs;
+    ensureRxMutex();
+    if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
     s_rxSess = &sess;
+    if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
 
     NimBLEServer *srv = NimBLEDevice::createServer();
     if (!srv) {
@@ -1146,15 +1224,37 @@ static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
 
     NimBLEService *svc = srv->getServiceByUUID(NUS_SVC_UUID);
     if (!svc) svc = srv->createService(NUS_SVC_UUID);
+    if (!svc) {
+        displayError("BLE service creation failed", true);
+        if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+        s_rxSess = nullptr;
+        if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
+        return;
+    }
     NimBLECharacteristic *rxChr = svc->getCharacteristic(NUS_RX_UUID);
     if (!rxChr) {
         rxChr = svc->createCharacteristic(
             NUS_RX_UUID, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR
         );
     }
+    if (!rxChr) {
+        displayError("BLE RX characteristic failed", true);
+        if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+        s_rxSess = nullptr;
+        if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
+        return;
+    }
     rxChr->setCallbacks(&rxCb);
     NimBLECharacteristic *txChr = svc->getCharacteristic(NUS_TX_UUID);
     if (!txChr) txChr = svc->createCharacteristic(NUS_TX_UUID, NIMBLE_PROPERTY::NOTIFY);
+    if (!txChr) {
+        displayError("BLE TX characteristic failed", true);
+        rxChr->setCallbacks(nullptr);
+        if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+        s_rxSess = nullptr;
+        if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
+        return;
+    }
     svc->start();
 
     NimBLEAdvertising *adv = NimBLEDevice::getAdvertising();
@@ -1220,7 +1320,10 @@ static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
     adv->stop();
     rxChr->setCallbacks(nullptr);
     srv->setCallbacks(nullptr);
+    if (s_rxMutex != nullptr) xSemaphoreTake(s_rxMutex, portMAX_DELAY);
+    if (sess.file) sess.file.close();
     s_rxSess = nullptr;
+    if (s_rxMutex != nullptr) xSemaphoreGive(s_rxMutex);
 }
 
 void ble_file_transfer() {

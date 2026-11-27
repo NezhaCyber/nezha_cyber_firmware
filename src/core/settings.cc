@@ -1418,9 +1418,10 @@ void setClock() {
 }
 
 void runClockLoop(bool showMenuHint) {
-    int tmp = 0;
+    unsigned long lastTick = 0;
     unsigned long hintStartTime = millis();
     bool hintVisible = showMenuHint;
+    bool firstDraw = true;
 
 #if defined(HAS_RTC)
 #if defined(HAS_RTC_BM8563)
@@ -1432,63 +1433,85 @@ void runClockLoop(bool showMenuHint) {
     _rtc.GetTime(&_time);
 #endif
 
-    // Delay due to SelPress() detected on run
-    tft.fillScreen(bruceConfig.bgColor);
-    delay(300);
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 10 : 18;
+    int cardY = STATUS_BAR_HEIGHT + (compact ? 4 : 12);
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 8 : 16);
+    uint16_t surf = uiSurfaceColor();
+
+    drawMainBorder(true);
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    delay(200);
 
     for (;;) {
-        if (millis() - tmp > 1000) {
+        unsigned long now = millis();
+        if (firstDraw || now - lastTick >= 1000) {
+            firstDraw = false;
+            lastTick = now;
 #if defined(HAS_RTC)
-            updateTimeStr(_rtc.getTimeStruct());
+            struct tm nowTm = _rtc.getTimeStruct();
 #else
-            updateTimeStr(rtc.getTimeStruct());
+            struct tm nowTm = rtc.getTimeStruct();
 #endif
-            Serial.print("Current time: ");
-            Serial.println(timeStr);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            tft.drawRect(
-                BORDER_PAD_X,
-                BORDER_PAD_X,
-                tftWidth - 2 * BORDER_PAD_X,
-                tftHeight - 2 * BORDER_PAD_X,
-                bruceConfig.priColor
-            );
+            updateTimeStr(nowTm);
+            drawStatusBar();
+
             uint8_t f_size = 4;
             for (uint8_t i = 4; i > 0; i--) {
-                if (i * LW * strlen(timeStr) < (tftWidth - BORDER_PAD_X * 2)) {
+                if (i * LW * (int)strlen(timeStr) < (cardW - 24)) {
                     f_size = i;
                     break;
                 }
             }
+            int timeH = f_size * LH;
+            int timeY = cardY + (cardH - timeH) / 2 - (compact ? 4 : 8);
+
+            // Clear time band inside card without flickering the card border
+            tft.fillRect(cardX + 6, timeY - 2, cardW - 12, timeH + 4, surf);
+            tft.setTextDatum(TL_DATUM);
             tft.setTextSize(f_size);
-            tft.drawCentreString(timeStr, tftWidth / 2, tftHeight / 2 - 13, 1);
+            tft.setTextColor(uiTextBrightColor(), surf);
+            tft.drawCentreString(timeStr, tftWidth / 2, timeY, 1);
+
+            // Date & 12h/24h indicator row
+            char dateBuf[28];
+            if (nowTm.tm_year + 1900 >= 2020) {
+                snprintf(
+                    dateBuf,
+                    sizeof(dateBuf),
+                    "%04d-%02d-%02d  %s",
+                    nowTm.tm_year + 1900,
+                    nowTm.tm_mon + 1,
+                    nowTm.tm_mday,
+                    bruceConfig.clock24hr ? "24H" : "12H"
+                );
+            } else {
+                snprintf(dateBuf, sizeof(dateBuf), "%s", bruceConfig.clock24hr ? "24H" : "12H");
+            }
+            int dateY = timeY + timeH + (compact ? 6 : 12);
+            tft.fillRect(cardX + 8, dateY, cardW - 16, LH + 4, surf);
+            tft.setTextSize(FP);
+            tft.setTextColor(bruceConfig.priColor, surf);
+            tft.drawCentreString(dateBuf, tftWidth / 2, dateY, 1);
 
             // "OK to show menu" hint management
-            if (hintVisible && (millis() - hintStartTime < 5000)) {
+            int hintY = cardY + cardH - (compact ? 14 : 18);
+            if (hintVisible && (now - hintStartTime < 5000)) {
                 tft.setTextSize(FP);
-                tft.drawCentreString(bruce_i18n::tr("OK to show menu"), tftWidth / 2, tftHeight / 2 + 25, 1);
-            } else if (hintVisible && (millis() - hintStartTime >= 5000)) {
-                // Clear hint after 5 seconds
-                tft.fillRect(
-                    BORDER_PAD_X + 1,
-                    tftHeight / 2 + 20,
-                    tftWidth - 2 * BORDER_PAD_X - 2,
-                    20,
-                    bruceConfig.bgColor
-                );
+                tft.setTextColor(uiTextMutedColor(), surf);
+                tft.drawCentreString(bruce_i18n::tr("OK to show menu"), tftWidth / 2, hintY, 1);
+            } else if (hintVisible && (now - hintStartTime >= 5000)) {
+                tft.fillRect(cardX + 8, hintY - 1, cardW - 16, LH + 6, surf);
                 hintVisible = false;
             }
-            tmp = millis();
         }
 
-        // Checks to exit the loop
         if (check(SelPress)) {
             tft.fillScreen(bruceConfig.bgColor);
             if (showMenuHint) {
-                // Exits the loop to return to the caller (ClockMenu)
                 break;
             } else {
-                // Original behavior
                 returnToMenu = true;
                 break;
             }
@@ -1500,7 +1523,7 @@ void runClockLoop(bool showMenuHint) {
             break;
         }
 
-        vTaskDelay(10 / portTICK_PERIOD_MS);
+        vTaskDelay(15 / portTICK_PERIOD_MS);
     }
 }
 

@@ -9,6 +9,7 @@
 
 #include "ir_read.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/settings.h"
@@ -20,6 +21,7 @@
 
 #define IR_FREQUENCY 38000
 #define DUTY_CYCLE 0.330000
+#define IR_TAG "IR"
 
 String uint32ToString(uint32_t value) {
     char buffer[12] = {0};
@@ -54,6 +56,14 @@ IrRead::IrRead(bool headless_mode, bool raw_mode) {
     raw = raw_mode;
     setup();
 }
+
+IrRead::~IrRead() {
+    if (irrecv != nullptr) {
+        irrecv->disableIRIn();
+        delete irrecv;
+        irrecv = nullptr;
+    }
+}
 bool quickloop = false;
 
 static uint32_t necCommandWithInverse(uint32_t command) {
@@ -77,19 +87,39 @@ static String getParsedProtocolName(const decode_results &r) {
 }
 
 void IrRead::setup() {
-    irrecv.enableIRIn();
-
-#ifdef USE_BOOST
-    hal_pmic_enable_otg();
-#endif
+    // Validate/repair the configured RX pin *before* constructing IRrecv; a
+    // stale/-1 pin used to reach the driver and fail silently (or crash).
     const std::vector<std::pair<String, int>> pins = IR_RX_PINS;
     int count = 0;
     for (auto pin : pins) {
         if (pin.second == bruceConfigPins.irRx) count++;
     }
-    if (count == 0) gsetIrRxPin(true);
 
-    setup_ir_pin(bruceConfigPins.irRx, INPUT);
+    int rxPin = bruceConfigPins.irRx;
+    if (count == 0) {
+        if (pins.empty()) {
+            displayError("No IR RX pin configured", true);
+            NZLOGE(IR_TAG, "no IR RX pin available on this board");
+            return;
+        }
+        rxPin = pins.front().second;
+        bruceConfigPins.setIrRxPin(rxPin);
+        NZLOGW(IR_TAG, "invalid IR RX pin; falling back to board default %d", rxPin);
+    }
+
+    setup_ir_pin(rxPin, INPUT);
+    irrecv = new IRrecv(rxPin, SAFE_STACK_BUFFER_SIZE / 2, 50);
+    if (irrecv == nullptr) {
+        displayError("Out of memory for IR receiver", true);
+        NZLOGE(IR_TAG, "out of memory allocating IRrecv");
+        return;
+    }
+    irrecv->enableIRIn();
+    NZLOGI(IR_TAG, "IR receiver enabled on pin %d", rxPin);
+
+#ifdef USE_BOOST
+    hal_pmic_enable_otg();
+#endif
     if (headless) return;
     returnToMenu = true;
     std::vector<Option> quickRemoteOptions = {
@@ -237,11 +267,16 @@ void IrRead::display_btn_options() {
 }
 
 void IrRead::read_signal() {
-    if (_read_signal || !irrecv.decode(&results)) return;
+    if (irrecv == nullptr || _read_signal || !irrecv->decode(&results)) return;
 
     _read_signal = true;
 
     raw = (results.decode_type == decode_type_t::UNKNOWN) || hasACState(results.decode_type);
+
+    NZLOGI(
+        IR_TAG, "captured IR: type=%s bits=%u raw=%d", typeToString(results.decode_type, results.repeat).c_str(),
+        (unsigned)results.bits, (int)raw
+    );
 
     display_banner();
 
@@ -264,7 +299,7 @@ void IrRead::discard_signal() {
     if (!_read_signal) return;
     _emulate_mode = false;
     _captured_raw_signal = "";
-    irrecv.resume();
+    if (irrecv != nullptr) irrecv->resume();
     begin();
 }
 
@@ -319,7 +354,9 @@ void IrRead::save_signal() {
 
 String IrRead::parse_state_signal() {
     String r = "";
-    uint16_t state_len = (results.bits) / 8;
+    uint16_t state_len = (results.bits + 7) / 8;
+    // IRremoteESP8266 keeps at most 512 state bytes (kStateSizeMax).
+    if (state_len > 512) state_len = 512;
     for (uint16_t i = 0; i < state_len; i++) {
         r += ((results.state[i] < 0x10) ? "0" : "");
         r += String(results.state[i], HEX) + " ";
@@ -329,12 +366,19 @@ String IrRead::parse_state_signal() {
 }
 
 String IrRead::parse_raw_signal() {
-
+    if (rawcode != nullptr) {
+        delete[] rawcode;
+        rawcode = nullptr;
+    }
     rawcode = resultToRawArray(&results);
+    if (rawcode == nullptr) {
+        raw_data_len = 0;
+        NZLOGW(IR_TAG, "IR raw capture: decoder returned no samples");
+        return "";
+    }
     raw_data_len = getCorrectedRawLength(&results);
 
     String signal_code = "";
-
     for (uint16_t i = 0; i < raw_data_len; i++) { signal_code += String(rawcode[i]) + " "; }
 
     delete[] rawcode;
@@ -430,6 +474,10 @@ void IrRead::save_device() {
     };
 
     if (fs && write_file(filename, fs)) {
+        NZLOGI(
+            IR_TAG, "saved IR device \"%s\" (%d signals) to %s", filename.c_str(), signals_read,
+            (fs == &SD) ? "SD" : "LittleFS"
+        );
         displaySuccess("File saved to " + String((fs == &SD) ? "SD Card" : "LittleFS") + ".", true);
         signals_read = 0;
         strDeviceContent = "";
@@ -443,13 +491,14 @@ void IrRead::save_device() {
 
     delay(1000);
 
-    irrecv.resume();
+    if (irrecv != nullptr) irrecv->resume();
     begin();
 }
 
 String IrRead::loop_headless(int max_loops) {
+    if (irrecv == nullptr) return "";
 
-    while (!irrecv.decode(&results)) {
+    while (!irrecv->decode(&results)) {
         max_loops -= 1;
         if (max_loops <= 0) {
             Serial.println("timeout");
@@ -458,7 +507,7 @@ String IrRead::loop_headless(int max_loops) {
         delay(1000);
     }
 
-    irrecv.disableIRIn();
+    irrecv->disableIRIn();
 
     if (!raw && results.decode_type == decode_type_t::UNKNOWN) {
         Serial.println("# decoding failed, try raw mode");

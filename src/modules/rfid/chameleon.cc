@@ -492,9 +492,11 @@ void Chameleon::parseLFUID() {
     strUID.trim();
     strUID.replace(" ", "");
 
-    lfTagData.size = strUID.length() / 2;
-    for (size_t i = 0; i < strUID.length(); i += 2) {
-        lfTagData.uidByte[i / 2] = strtoul(strUID.substring(i, i + 2).c_str(), NULL, 16);
+    size_t uidBytes = strUID.length() / 2;
+    if (uidBytes > sizeof(lfTagData.uidByte)) uidBytes = sizeof(lfTagData.uidByte);
+    lfTagData.size = (uint8_t)uidBytes;
+    for (size_t i = 0; i < uidBytes; ++i) {
+        lfTagData.uidByte[i] = strtoul(strUID.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 }
 
@@ -883,19 +885,20 @@ bool Chameleon::writeHFDataBlocks() {
 
         if (pageIndex == 0) continue;
 
-        byte size = strBytes.length() / 2;
-        byte buffer[size];
-        for (size_t i = 0; i < strBytes.length(); i += 2) {
-            buffer[i / 2] = strtoul(strBytes.substring(i, i + 2).c_str(), NULL, 16);
+        size_t byteCount = strBytes.length() / 2;
+        if (strBytes.length() % 2 != 0 || byteCount == 0 || byteCount > 16) return false;
+        uint8_t buffer[16] = {0};
+        for (size_t i = 0; i < byteCount; ++i) {
+            buffer[i] = strtoul(strBytes.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
         }
 
         blockWriteSuccess = false;
         if (isMifareClassic(chmUltra.hfTagData.sak)) {
             if (pageIndex == 0 || (pageIndex + 1) % 4 == 0) continue; // Data blocks for MIFARE Classic
-            blockWriteSuccess = chmUltra.cmdMfWriteBlock(pageIndex, {}, buffer, size);
+            blockWriteSuccess = chmUltra.cmdMfWriteBlock(pageIndex, {}, buffer, (uint8_t)byteCount);
         } else if (chmUltra.hfTagData.sak == 0x00) {
             if (pageIndex < 4 || pageIndex >= dataPages - 5) continue; // Data blocks for NTAG21X
-            blockWriteSuccess = chmUltra.cmdMfuWritePage(pageIndex, buffer, size);
+            blockWriteSuccess = chmUltra.cmdMfuWritePage(pageIndex, buffer, (uint8_t)byteCount);
         }
 
         if (!blockWriteSuccess) return false;
@@ -944,9 +947,11 @@ void Chameleon::parseHFData() {
     String strUID = printableHFUID.uid;
     strUID.trim();
     strUID.replace(" ", "");
-    hfTagData.size = strUID.length() / 2;
-    for (size_t i = 0; i < strUID.length(); i += 2) {
-        hfTagData.uidByte[i / 2] = strtoul(strUID.substring(i, i + 2).c_str(), NULL, 16);
+    size_t uidBytes = strUID.length() / 2;
+    if (uidBytes > sizeof(hfTagData.uidByte)) uidBytes = sizeof(hfTagData.uidByte);
+    hfTagData.size = (uint8_t)uidBytes;
+    for (size_t i = 0; i < uidBytes; ++i) {
+        hfTagData.uidByte[i] = strtoul(strUID.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
     printableHFUID.sak.trim();

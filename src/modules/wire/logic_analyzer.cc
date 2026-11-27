@@ -1,8 +1,9 @@
-#if !defined(LITE_VERSION)
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
 #include "wire_tools.h"
 
 #include "core/display.h"
 #include "core/mykeyboard.h"
+#include "core/scrollableTextArea.h"
 #include "core/settings.h"
 #include "core/utils.h"
 #include "core/sd_functions.h"
@@ -98,7 +99,10 @@ static void la_free_bufs(LaSession &s) {
 }
 
 static void la_clear_results(LaSession &s) {
-    for (uint8_t c = 0; c < LA_MAX_CHANNELS; c++) s.edges[c].clear();
+    for (uint8_t c = 0; c < LA_MAX_CHANNELS; c++) {
+        s.edges[c].clear();
+        s.edges[c].shrink_to_fit();
+    }
     s.valid = false;
 }
 
@@ -431,6 +435,354 @@ static void la_save_csv() {
 }
 
 /*********************************************************************
+**  VCD (Value Change Dump) Export — opens directly in PulseView/GTKWave
+**********************************************************************/
+static void la_save_vcd() {
+    LaSession &s = laSession;
+    if (!s.valid) {
+        displayError("No capture yet", true);
+        return;
+    }
+
+    FS *fs = nullptr;
+    if (setupSdCard()) fs = &SD;
+    else if (setupLittleFS()) fs = &LittleFS;
+    if (!fs) {
+        displayError("No storage mounted", true);
+        return;
+    }
+
+    if (!fs->exists("/NezhaLA")) fs->mkdir("/NezhaLA");
+    char filename[48] = {};
+    for (uint16_t n = 0; n < 1000; ++n) {
+        snprintf(filename, sizeof(filename), "/NezhaLA/la_%03u.vcd", (unsigned)n);
+        if (!fs->exists(filename)) break;
+    }
+    File file = fs->open(filename, FILE_WRITE);
+    if (!file) {
+        displayError("Failed creating VCD", true);
+        return;
+    }
+
+    // Timescale in nanoseconds matching RMT tick resolution
+    uint32_t nsPerTick = (s.resolution > 0) ? (uint32_t)(1000000000ULL / s.resolution) : 1000;
+    if (nsPerTick == 0) nsPerTick = 1;
+
+    file.println("$version Nezha Cyber Logic Analyzer $end");
+    file.printf("$timescale %uns $end\n", (unsigned)nsPerTick);
+    file.println("$scope module logic $end");
+    for (uint8_t c = 0; c < s.nch; ++c) {
+        file.printf("$var wire 1 %c ch%u_gpio%d $end\n", (char)('!' + c), (unsigned)(c + 1), (int)s.pins[c]);
+    }
+    file.println("$upscope $end");
+    file.println("$enddefinitions $end");
+    file.println("$dumpvars");
+    for (uint8_t c = 0; c < s.nch; ++c) {
+        file.printf("%u%c\n", (unsigned)s.initLevel[c], (char)('!' + c));
+    }
+    file.println("$end");
+
+    // K-way merge across channels in strictly ascending tick order (O(1) extra RAM)
+    size_t idx[LA_MAX_CHANNELS] = {0, 0, 0, 0};
+    uint64_t lastTick = UINT64_MAX;
+    while (true) {
+        uint64_t minTick = UINT64_MAX;
+        for (uint8_t c = 0; c < s.nch; ++c) {
+            if (idx[c] < s.edges[c].size()) {
+                uint64_t t = s.edges[c][idx[c]] >> 1;
+                if (t < minTick) minTick = t;
+            }
+        }
+        if (minTick == UINT64_MAX) break;
+        if (minTick != lastTick) {
+            file.printf("#%llu\n", (unsigned long long)minTick);
+            lastTick = minTick;
+        }
+        for (uint8_t c = 0; c < s.nch; ++c) {
+            while (idx[c] < s.edges[c].size() && (uint64_t)(s.edges[c][idx[c]] >> 1) == minTick) {
+                uint8_t lv = s.edges[c][idx[c]] & 1;
+                file.printf("%u%c\n", (unsigned)lv, (char)('!' + c));
+                idx[c]++;
+            }
+        }
+    }
+    file.flush();
+    file.close();
+    displaySuccess("Saved " + String(filename), true);
+}
+
+/*********************************************************************
+**  On-Device Protocol Decoders (UART, I2C, SPI, 1-Wire)
+**********************************************************************/
+static uint8_t la_sample_at(const LaSession &s, uint8_t ch, uint64_t tick) {
+    const auto &e = s.edges[ch];
+    uint8_t lvl = s.initLevel[ch];
+    size_t lo = 0, hi = e.size();
+    while (lo < hi) {
+        size_t mid = lo + (hi - lo) / 2;
+        if ((uint64_t)(e[mid] >> 1) <= tick) lo = mid + 1;
+        else hi = mid;
+    }
+    if (lo > 0) lvl = e[lo - 1] & 1;
+    return lvl;
+}
+
+static void la_decode_uart() {
+    const LaSession &s = laSession;
+    if (!s.valid || s.edges[0].size() < 2) {
+        displayError("Need capture on CH1", true);
+        return;
+    }
+    // Estimate shortest pulse on CH1 as 1 bit period
+    uint64_t minPulse = UINT64_MAX;
+    for (size_t i = 1; i < s.edges[0].size(); ++i) {
+        uint64_t dt = (uint64_t)(s.edges[0][i] >> 1) - (uint64_t)(s.edges[0][i - 1] >> 1);
+        if (dt >= 2 && dt < minPulse) minPulse = dt;
+    }
+    if (minPulse == UINT64_MAX) {
+        displayError("Cannot infer bit rate", true);
+        return;
+    }
+    uint32_t estBaud = (uint32_t)(s.resolution / minPulse);
+
+    ScrollableTextArea area("UART Decode (CH1)");
+    area.addLine("Est baud: ~" + String(estBaud) + " bps");
+
+    const auto &e = s.edges[0];
+    uint64_t maxT = e.back() >> 1;
+    String asciiLine;
+    String hexLine;
+    size_t decodedCount = 0;
+
+    for (size_t i = 0; i < e.size() && decodedCount < 128; ++i) {
+        // Start bit = falling edge (level transitions to 0)
+        if ((e[i] & 1) != 0) continue;
+        uint64_t startT = e[i] >> 1;
+        if (startT + minPulse * 9 + minPulse / 2 > maxT) break;
+
+        uint8_t byteVal = 0;
+        for (int bit = 0; bit < 8; ++bit) {
+            uint64_t sampleT = startT + (uint64_t)((bit + 1.5) * (double)minPulse);
+            if (la_sample_at(s, 0, sampleT)) byteVal |= (1U << bit);
+        }
+        uint8_t stopBit = la_sample_at(s, 0, startT + (uint64_t)(9.5 * (double)minPulse));
+
+        char hbuf[8];
+        snprintf(hbuf, sizeof(hbuf), "%02X%s", byteVal, stopBit ? " " : "!");
+        hexLine += hbuf;
+        asciiLine += (byteVal >= 32 && byteVal <= 126) ? (char)byteVal : '.';
+        decodedCount++;
+        if (decodedCount % 8 == 0) {
+            area.addLine(hexLine + "| " + asciiLine);
+            hexLine = "";
+            asciiLine = "";
+        }
+
+        // Advance past stop bit
+        uint64_t nextStart = startT + minPulse * 9 + minPulse / 2;
+        while (i + 1 < e.size() && (uint64_t)(e[i + 1] >> 1) < nextStart) ++i;
+    }
+    if (!hexLine.isEmpty()) area.addLine(hexLine + "| " + asciiLine);
+    if (decodedCount == 0) area.addLine("No valid 8N1 frames found");
+    area.show(true);
+    area.clear();
+}
+
+static void la_decode_i2c() {
+    const LaSession &s = laSession;
+    if (!s.valid || s.nch < 2) {
+        displayError("Need CH1=SDA CH2=SCL", true);
+        return;
+    }
+    ScrollableTextArea area("I2C Decode (1:SDA 2:SCL)");
+    // Walk both SDA (ch0) and SCL (ch1) edges in chronological order
+    size_t i0 = 0, i1 = 0;
+    uint8_t sda = s.initLevel[0], scl = s.initLevel[1];
+    bool inFrame = false;
+    bool firstByte = true;
+    uint8_t shift = 0;
+    uint8_t bitCnt = 0;
+    String line;
+    size_t events = 0;
+
+    while ((i0 < s.edges[0].size() || i1 < s.edges[1].size()) && events < 256) {
+        uint64_t t0 = (i0 < s.edges[0].size()) ? (s.edges[0][i0] >> 1) : UINT64_MAX;
+        uint64_t t1 = (i1 < s.edges[1].size()) ? (s.edges[1][i1] >> 1) : UINT64_MAX;
+        if (t0 <= t1) {
+            uint8_t newSda = s.edges[0][i0++] & 1;
+            if (scl == 1) {
+                if (sda == 1 && newSda == 0) {
+                    if (!line.isEmpty()) area.addLine(line);
+                    line = "[START]";
+                    inFrame = true;
+                    firstByte = true;
+                    bitCnt = 0;
+                    shift = 0;
+                    events++;
+                } else if (sda == 0 && newSda == 1 && inFrame) {
+                    line += " [STOP]";
+                    area.addLine(line);
+                    line = "";
+                    inFrame = false;
+                    events++;
+                }
+            }
+            sda = newSda;
+        } else {
+            uint8_t newScl = s.edges[1][i1++] & 1;
+            if (inFrame && scl == 0 && newScl == 1) {
+                if (bitCnt < 8) {
+                    shift = (uint8_t)((shift << 1) | (sda & 1));
+                    bitCnt++;
+                } else {
+                    const char *ack = (sda == 0) ? "A" : "N";
+                    char tok[20];
+                    if (firstByte) {
+                        snprintf(
+                            tok,
+                            sizeof(tok),
+                            " 0x%02X(%c):%s",
+                            (unsigned)(shift >> 1),
+                            (shift & 1) ? 'R' : 'W',
+                            ack
+                        );
+                        firstByte = false;
+                    } else {
+                        snprintf(tok, sizeof(tok), " %02X:%s", (unsigned)shift, ack);
+                    }
+                    line += tok;
+                    if (line.length() > 36) {
+                        area.addLine(line);
+                        line = " ";
+                    }
+                    bitCnt = 0;
+                    shift = 0;
+                    events++;
+                }
+            }
+            scl = newScl;
+        }
+    }
+    if (!line.isEmpty()) area.addLine(line);
+    if (events == 0) area.addLine("No I2C START/STOP found");
+    area.show(true);
+    area.clear();
+}
+
+static void la_decode_spi() {
+    const LaSession &s = laSession;
+    if (!s.valid || s.nch < 2) {
+        displayError("Need CH1=SCK CH2=MOSI", true);
+        return;
+    }
+    const bool hasMiso = s.nch >= 3;
+    const bool hasCs = s.nch >= 4;
+    ScrollableTextArea area("SPI Mode0 (1:SCK 2:MO)");
+    uint8_t mosiByte = 0, misoByte = 0;
+    uint8_t bitCnt = 0;
+    size_t decoded = 0;
+    String row;
+
+    for (uint32_t e : s.edges[0]) {
+        if ((e & 1) != 1) continue; // sample on SCK rising edge
+        uint64_t t = e >> 1;
+        if (hasCs && la_sample_at(s, 3, t) != 0) {
+            bitCnt = 0;
+            mosiByte = misoByte = 0;
+            continue;
+        }
+        mosiByte = (uint8_t)((mosiByte << 1) | la_sample_at(s, 1, t));
+        if (hasMiso) misoByte = (uint8_t)((misoByte << 1) | la_sample_at(s, 2, t));
+        bitCnt++;
+        if (bitCnt == 8) {
+            char tok[16];
+            if (hasMiso) snprintf(tok, sizeof(tok), "%02X/%02X ", mosiByte, misoByte);
+            else snprintf(tok, sizeof(tok), "%02X ", mosiByte);
+            row += tok;
+            decoded++;
+            if (row.length() >= 30) {
+                area.addLine(row);
+                row = "";
+            }
+            bitCnt = 0;
+            mosiByte = misoByte = 0;
+            if (decoded >= 128) break;
+        }
+    }
+    if (!row.isEmpty()) area.addLine(row);
+    if (decoded == 0) area.addLine("No SPI bytes decoded");
+    area.show(true);
+    area.clear();
+}
+
+static void la_decode_onewire() {
+    const LaSession &s = laSession;
+    if (!s.valid || s.edges[0].size() < 2) {
+        displayError("Need capture on CH1", true);
+        return;
+    }
+    ScrollableTextArea area("1-Wire Decode (CH1)");
+    const auto &e = s.edges[0];
+    uint8_t curByte = 0;
+    uint8_t bitCnt = 0;
+    String row;
+    size_t events = 0;
+
+    for (size_t i = 0; i + 1 < e.size() && events < 256; ++i) {
+        // Measure low pulse width (falling edge followed by rising edge)
+        if ((e[i] & 1) == 0 && (e[i + 1] & 1) == 1) {
+            uint64_t lowTicks = (uint64_t)(e[i + 1] >> 1) - (uint64_t)(e[i] >> 1);
+            double lowUs = (double)lowTicks * 1000000.0 / (double)s.resolution;
+            if (lowUs >= 380.0) {
+                if (!row.isEmpty()) {
+                    area.addLine(row);
+                    row = "";
+                }
+                area.addLine("[RESET " + String((int)lowUs) + "us]");
+                bitCnt = 0;
+                curByte = 0;
+                events++;
+            } else if (lowUs >= 1.0 && lowUs <= 150.0) {
+                uint8_t bit = (lowUs < 25.0) ? 1 : 0;
+                curByte |= (uint8_t)(bit << bitCnt);
+                bitCnt++;
+                if (bitCnt == 8) {
+                    char tok[6];
+                    snprintf(tok, sizeof(tok), "%02X ", curByte);
+                    row += tok;
+                    if (row.length() >= 30) {
+                        area.addLine(row);
+                        row = "";
+                    }
+                    curByte = 0;
+                    bitCnt = 0;
+                    events++;
+                }
+            }
+        }
+    }
+    if (!row.isEmpty()) area.addLine(row);
+    if (events == 0) area.addLine("No 1-Wire slots found");
+    area.show(true);
+    area.clear();
+}
+
+static void la_decode_menu() {
+    if (!laSession.valid) {
+        displayError("Capture signal first", true);
+        return;
+    }
+    std::vector<Option> decOpts = {
+        {"UART 8N1 (CH1)",       la_decode_uart   },
+        {"I2C (CH1:SDA CH2:SCL)", la_decode_i2c   },
+        {"SPI (1:SCK 2:MO 3:MI)", la_decode_spi   },
+        {"1-Wire (CH1)",         la_decode_onewire},
+        {"Back",                 []() {}          },
+    };
+    loopOptions(decOpts, MENU_TYPE_SUBMENU, "Protocol Decoder");
+}
+
+/*********************************************************************
 **  GPIO picker (same interaction as JTAG pin assignment)
 **********************************************************************/
 static int8_t la_pick_pin(const char *title, int8_t current) {
@@ -494,7 +846,9 @@ void logic_analyzer_setup() {
                  laSession.glitchNs = 0;
              }                                                                                                  },
             {"Capture",                    la_capture_and_view                                                 },
+            {"Decode Protocol",            la_decode_menu                                                      },
             {"SUMP Mode",                  []() { sump_menu(); }                                               },
+            {"Save VCD (PulseView)",       la_save_vcd                                                         },
             {"Save CSV",                   la_save_csv                                                         },
         };
         addOptionToMainMenu();

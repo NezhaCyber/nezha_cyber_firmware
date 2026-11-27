@@ -19,15 +19,14 @@ void ClockMenu::optionsMenu() {
 }
 
 void ClockMenu::showSubMenu() {
-    options = {
-        {"Timer",         [=]() { Timer(); }            },
-        {"Back to Clock", [=]() {}                      },
-        {"Exit",          [=]() { returnToMenu = true; }}
-        // Add more options here
+    std::vector<Option> localOpts = {
+        {"Timer",         []() { Timer(); }             },
+        {"Back to Clock", []() {}                       },
+        {"Exit",          []() { returnToMenu = true; } },
     };
 
-    delay(200);
-    loopOptions(options);
+    delay(150);
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "Clock");
 }
 
 void ClockMenu::drawIcon(float scale) {

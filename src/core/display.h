@@ -58,15 +58,19 @@ public:
 
     int playFrame(int x = 0, int y = 0, bool bSync = true);
 
-    int getInfo(GIFINFO *pInfo) { return gif->getInfo(pInfo); }
+    int getInfo(GIFINFO *pInfo) { return gif ? gif->getInfo(pInfo) : 0; }
 
-    void reset() { return gif->reset(); }
+    void reset() {
+        if (gif) gif->reset();
+    }
 
-    void close() { return gif->close(); }
+    void close() {
+        if (gif) gif->close();
+    }
 
-    int getCanvasWidth() { return gif->getCanvasWidth(); }
+    int getCanvasWidth() { return gif ? gif->getCanvasWidth() : 0; }
 
-    int getCanvasHeight() { return gif->getCanvasHeight(); }
+    int getCanvasHeight() { return gif ? gif->getCanvasHeight() : 0; }
 
     int getLastError();
 
@@ -130,6 +134,12 @@ uint16_t uiTextOnAccentColor(uint16_t accent = bruceConfig.priColor);
 void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t style);
 // Subtle 1px hardware divider with restrained 哪吒魔童 dual-tone Hun Tian Ling lead accent
 void drawNezhaRibbonRule(int x, int y, int w);
+// Shared Nezha Cyber elevated hardware card, status pill badge, and aligned key-value row helpers
+void uiDrawCard(int x, int y, int w, int h, bool accentRule = false);
+int16_t uiDrawBadge(int x, int y, const String &text, uint16_t fillCol, int h = 16);
+void uiDrawKeyValueRow(
+    int x, int y, int w, const String &key, const String &val, uint16_t valCol, uint16_t bgCol
+);
 int16_t uiMeasureText16(const String &text);
 String uiTruncateText16(const String &text, int16_t maxPx);
 int16_t uiDrawText16(

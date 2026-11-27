@@ -214,7 +214,7 @@ make build ENV=m5stack-cplus1_1
 
 ## 10. Git Workflow & Commit Discipline / Git 分支与提交规范
 
-- **Branching**: Always work on a dedicated branch off `main`:
+- **Branching**: Always branch off **`development`** and open all Pull Requests against **`development`** (never `main` directly — the maintainer handles `development` → `main` promotion):
   - `feat/<short-name>` — new features or hardware tools
   - `fix/<short-name>` — bug fixes
   - `ui/<short-name>` — UI / 哪吒魔童 theme polish
@@ -223,7 +223,7 @@ make build ENV=m5stack-cplus1_1
   - `chore/<topic>` — build, CI, or maintenance
 - **Atomic Conventional Commits**: Keep each commit focused on one logical change using Conventional Commits:
   `feat(scope): ...`, `fix(scope): ...`, `ui(scope): ...`, `perf(scope): ...`, `i18n(scope): ...`, `docs(scope): ...`, `chore(scope): ...`.
-- **Safety**: Never force-push `main`, never commit secrets/tokens/personal Wi-Fi credentials, and never rewrite upstream history.
+- **Safety**: Never force-push `main` or `development`, never commit secrets/tokens/personal Wi-Fi credentials, and never rewrite upstream history.
 
 ---
 

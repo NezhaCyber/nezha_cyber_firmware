@@ -232,8 +232,16 @@ void mic_test_one_task() {
     // Border around the spectrogram
     tft.drawRect(displayX - 2, displayY - 2, displayWidth + 4, displayHeight + 4, bruceConfig.priColor);
 
+    // Allocate FFT plan once outside the render loop to prevent per-frame heap churn & twiddle rebuilds.
+    fft_config_t *plan = fft_init(FFT_SIZE, FFT_REAL, FFT_FORWARD, NULL, NULL);
+    if (!plan) {
+        free(frameBuffer);
+        Serial.println("Error alloc FFT plan, exiting");
+        displayError("Not Enough RAM", true);
+        return;
+    }
+
     while (1) {
-        fft_config_t *plan = fft_init(FFT_SIZE, FFT_REAL, FFT_FORWARD, NULL, NULL);
         size_t bytesread;
         i2s_channel_read(i2s_chan, (char *)i2s_buffer, FFT_SIZE * sizeof(int16_t), &bytesread, portMAX_DELAY);
 
@@ -253,8 +261,6 @@ void mic_test_one_task() {
         }
 
         posData = (posData + 1) % HISTORY_LEN;
-
-        fft_destroy(plan);
 
         // ===== RENDER WITH SCALING =====
         for (int y = 0; y < displayHeight; y++) {
@@ -281,6 +287,7 @@ void mic_test_one_task() {
         if (check(SelPress) || check(EscPress)) break;
         vTaskDelay(pdMS_TO_TICKS(1));
     }
+    fft_destroy(plan);
     i2s_channel_disable(i2s_chan);
 
     free(frameBuffer);
@@ -317,6 +324,19 @@ void mic_test() {
         fftHistory = (uint8_t *)malloc(HISTORY_LEN * SPECTRUM_HEIGHT);
     }
     if (!i2s_buffer || !fftHistory) {
+        free(i2s_buffer);
+        free(fftHistory);
+        i2s_buffer = nullptr;
+        fftHistory = nullptr;
+        if (deinitMicroPhone()) Serial.println("Fail disabling I2S Driver");
+        if (gpioInput) {
+            gpio_hold_dis(GPIO_NUM_0);
+            pinMode(GPIO_NUM_0, INPUT);
+        } else {
+            pinMode(GPIO_NUM_0, OUTPUT);
+            digitalWrite(GPIO_NUM_0, LOW);
+        }
+        ioExpander.turnPinOnOff(IO_EXP_MIC, LOW);
         displayError("Fail to alloc buffers, exiting", true);
         return;
     }

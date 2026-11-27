@@ -1,7 +1,8 @@
 #include "net_utils.h"
 #include <HTTPClient.h>
 #include <WiFi.h>
-#include <sstream>
+#include <cstdio>
+#include <cstring>
 
 bool internetConnection() {
     WiFiClient client;
@@ -34,8 +35,14 @@ String getManufacturer(const String &mac) {
     // MY","country":"MY","blockStart":"2C3358000000","blockEnd":"2C3358FFFFFF","blockSize":16777215,"blockType":"MA-L","updated":"2021-10-13","isRand":false,"isPrivate":false}
     // company field is going to be empty if none found
     String payload{http.getString()};
-    size_t company_start_idx = payload.indexOf("company") + 10; // + 7(company) + 3(":")
-    String manufacturer = payload.substring(company_start_idx, payload.indexOf('"', company_start_idx));
+    http.end();
+
+    int company_key_idx = payload.indexOf("\"company\":\"");
+    if (company_key_idx < 0) return "UNKNOWN";
+    int company_start_idx = company_key_idx + 11; // strlen("\"company\":\"")
+    int company_end_idx = payload.indexOf('"', company_start_idx);
+    if (company_end_idx <= company_start_idx) return "UNKNOWN";
+    String manufacturer = payload.substring(company_start_idx, company_end_idx);
     if (manufacturer.isEmpty()) return "UNKNOWN";
 
     return manufacturer;
@@ -59,19 +66,43 @@ String MAC(uint8_t *data) {
 }
 
 void stringToMAC(const std::string &macStr, uint8_t MAC[6]) {
-    std::stringstream ss(macStr);
-    unsigned int temp;
-    for (int i = 0; i < 6; ++i) {
-        char delimiter;
-        ss >> std::hex >> temp;
-        MAC[i] = static_cast<uint8_t>(temp);
-        ss >> delimiter;
+    memset(MAC, 0, 6);
+    unsigned int b[6] = {0};
+    if (sscanf(macStr.c_str(), "%x:%x:%x:%x:%x:%x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) == 6 ||
+        sscanf(macStr.c_str(), "%x-%x-%x-%x-%x-%x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]) == 6) {
+        for (int i = 0; i < 6; ++i) { MAC[i] = static_cast<uint8_t>(b[i]); }
     }
+}
+
+bool stringToMACChecked(const String &macStr, uint8_t MAC[6]) {
+    memset(MAC, 0, 6);
+    if (macStr.length() < 11) return false;
+    unsigned int b[6] = {0};
+    int matched = sscanf(
+        macStr.c_str(), "%2x:%2x:%2x:%2x:%2x:%2x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]
+    );
+    if (matched != 6) {
+        matched = sscanf(
+            macStr.c_str(), "%2x-%2x-%2x-%2x-%2x-%2x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]
+        );
+    }
+    if (matched != 6) return false;
+    bool allZero = true;
+    for (int i = 0; i < 6; ++i) {
+        if (b[i] > 0xFF) return false;
+        MAC[i] = static_cast<uint8_t>(b[i]);
+        if (MAC[i] != 0) allZero = false;
+    }
+    if (allZero) return false;
+    if (MAC[0] & 0x01) return false; // multicast/broadcast
+    return true;
 }
 
 // Função para converter IP para string
 String ipToString(const uint8_t *ip) {
-    return String(ip[0]) + "." + String(ip[1]) + "." + String(ip[2]) + "." + String(ip[3]);
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+    return String(buf);
 }
 
 // Função para converter MAC para string

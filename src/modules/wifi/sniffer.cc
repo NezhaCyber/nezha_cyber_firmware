@@ -28,6 +28,7 @@
 
 #include "FS.h"
 #include "core/display.h"
+#include "core/logging/nzlog.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/wifi/webInterface.h"
@@ -1183,10 +1184,21 @@ void sniffer_setup() {
     ensureWifiPlatform();
     nvs_flash_init();
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+    // ESP_ERROR_CHECK() here rebooted the device on the second sniffer run:
+    // the driver was already initialised by a previous raw-WiFi feature and
+    // esp_wifi_init() returns ESP_ERR_WIFI_INIT_STATE. Treat that as success.
+    esp_err_t wifiErr = esp_wifi_init(&cfg);
+    if (wifiErr != ESP_OK && wifiErr != ESP_ERR_WIFI_INIT_STATE) {
+        NZLOGE("SNIFF", "esp_wifi_init: %s", esp_err_to_name(wifiErr));
+        displayError("WiFi init failed", true);
+        return;
+    }
+    wifiErr = esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    if (wifiErr != ESP_OK && wifiErr != ESP_ERR_WIFI_INIT_STATE) {
+        NZLOGW("SNIFF", "set_storage: %s", esp_err_to_name(wifiErr));
+    }
 
-    wifi_config_t wifi_config;
+    wifi_config_t wifi_config = {};
     strlcpy((char *)wifi_config.ap.ssid, "NezhaSniffer", sizeof(wifi_config.ap.ssid));
     strlcpy((char *)wifi_config.ap.password, "nezhanet", sizeof(wifi_config.ap.password));
     wifi_config.ap.ssid_len = strlen("NezhaSniffer");
@@ -1197,9 +1209,16 @@ void sniffer_setup() {
     wifi_config.ap.beacon_interval = 100;         // beacon interval in ms
 
     // Configura o modo AP
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
+    wifiErr = esp_wifi_set_mode(WIFI_MODE_AP);
+    if (wifiErr != ESP_OK) NZLOGW("SNIFF", "set_mode: %s", esp_err_to_name(wifiErr));
+    wifiErr = esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
+    if (wifiErr != ESP_OK) NZLOGW("SNIFF", "set_config: %s", esp_err_to_name(wifiErr));
+    wifiErr = esp_wifi_start();
+    if (wifiErr != ESP_OK && wifiErr != ESP_ERR_WIFI_INIT_STATE) {
+        NZLOGE("SNIFF", "esp_wifi_start: %s", esp_err_to_name(wifiErr));
+        displayError("WiFi start failed", true);
+        return;
+    }
     esp_wifi_set_promiscuous(true);
     esp_wifi_set_promiscuous_rx_cb(sniffer);
     wifi_second_chan_t secondCh = (wifi_second_chan_t)NULL;

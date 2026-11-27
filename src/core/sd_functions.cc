@@ -1,6 +1,8 @@
 #include "sd_functions.h"
 #include "bus_HAL.h"
+#include "core/logging/nzlog.h"
 #include "display.h" // using displayRedStripe as error msg
+#include "i18n.h"
 #include "modules/badusb_ble/ducky_typer.h"
 #include "modules/bjs_interpreter/interpreter.h"
 #include "modules/gps/wdgwars.h"
@@ -116,10 +118,15 @@ bool setupSdCard(uint8_t maxFiles) {
             bruceConfigPins.SDCARD_bus.cs
         );
         sdcardMounted = false;
+        NZLOGE("SD", "mount failed (pins SCK=%d MISO=%d MOSI=%d CS=%d)", bruceConfigPins.SDCARD_bus.sck,
+               bruceConfigPins.SDCARD_bus.miso, bruceConfigPins.SDCARD_bus.mosi, bruceConfigPins.SDCARD_bus.cs);
         return false;
     } else {
         Serial.println("SDCARD mounted successfully");
         sdcardMounted = true;
+        NZLOGI("SD", "mounted successfully");
+        // (Re)open the real-time log file now that the card is available.
+        nzlog::begin();
         return true;
     }
 }
@@ -129,6 +136,9 @@ bool setupSdCard(uint8_t maxFiles) {
 ** Description:   Turn Off SDCard, set sdcardMounted state to false
 ***************************************************************************************/
 void closeSdCard() {
+    // Release the log file before the filesystem goes away, otherwise the next
+    // log write would touch a closed FAT volume.
+    nzlog::end();
     SD.end();
     Serial.println("SD Card Unmounted...");
     sdcardMounted = false;
@@ -224,18 +234,22 @@ bool copyToFs(FS from, FS to, String path, bool draw) {
         Serial.println("Fail opening Source file");
         return false;
     }
-    path = path.substring(path.lastIndexOf('/'));
+    int slashIdx = path.lastIndexOf('/');
+    if (slashIdx >= 0) path = path.substring(slashIdx);
     if (!path.startsWith("/")) path = "/" + path;
     File dest = to.open(path, FILE_WRITE);
     if (!dest) {
         Serial.println("Fail creating destination file");
+        source.close();
         return false;
     }
     size_t bytesRead;
     int tot = source.size();
     int prog = 0;
 
-    if (&to == &LittleFS && (LittleFS.totalBytes() - LittleFS.usedBytes()) < tot) {
+    if (&to == &LittleFS && (LittleFS.totalBytes() - LittleFS.usedBytes()) < (size_t)tot) {
+        source.close();
+        dest.close();
         displayError("Not enought space", true);
         return false;
     }
@@ -243,6 +257,12 @@ bool copyToFs(FS from, FS to, String path, bool draw) {
     // heap-allocated (not stack) to keep this buffer off the task stack; freed before
     // every return below
     uint8_t *buff = (uint8_t *)malloc(bufSize);
+    if (!buff) {
+        source.close();
+        dest.close();
+        displayError("Not Enough RAM", true);
+        return false;
+    }
     // tft.drawRect(5,tftHeight-12, (tftWidth-10), 9, bruceConfig.priColor);
     while ((bytesRead = source.read(buff, bufSize)) > 0) {
         if (dest.write(buff, bytesRead) != bytesRead) {
@@ -254,7 +274,7 @@ bool copyToFs(FS from, FS to, String path, bool draw) {
             return false;
         } else {
             prog += bytesRead;
-            float rad = 360 * prog / tot;
+            float rad = (tot > 0) ? (360.0f * prog / tot) : 360.0f;
             if (draw)
                 tft.drawArc(
                     tftWidth / 2,
@@ -440,10 +460,11 @@ char *readBigFile(FS *fs, const String &filepath, bool binary, size_t *fileSize)
 
     size_t fileLen = file.size();
     char *buf = (char *)(psramFound() ? ps_malloc(fileLen + 1) : malloc(fileLen + 1));
-    if (fileSize != NULL) { *fileSize = file.size(); }
+    if (fileSize != NULL) { *fileSize = fileLen; }
 
     if (!buf) {
         Serial.printf("Could not allocate memory for file: %s\n", filepath.c_str());
+        file.close();
         return NULL;
     }
 
@@ -451,10 +472,12 @@ char *readBigFile(FS *fs, const String &filepath, bool binary, size_t *fileSize)
     while (bytesRead < fileLen && file.available()) {
         size_t toRead = fileLen - bytesRead;
         if (toRead > 512) { toRead = 512; }
-        file.read((uint8_t *)(buf + bytesRead), toRead);
-        bytesRead += toRead;
+        size_t chunk = file.read((uint8_t *)(buf + bytesRead), toRead);
+        if (chunk == 0) { break; }
+        bytesRead += chunk;
     }
     buf[bytesRead] = '\0';
+    if (fileSize != NULL) { *fileSize = bytesRead; }
     file.close();
 
     return buf;
@@ -721,8 +744,10 @@ String loopSD(FS &fs, bool filePicker, const String &allowed_ext, String rootPat
             String filepath = Folder + (Folder == "/" ? "" : "/") + fileList[index].filename;
             String filename = fileList[index].filename;
             Serial.println(filepath + " --> " + filename);
-            fileList.clear();  // Clear memory to allow other functions to work better
+            fileList.clear(); // Clear memory to allow other functions to work better
+            fileList.shrink_to_fit();
             sdOptions.clear(); // its parallel display list too
+            sdOptions.shrink_to_fit();
 
             options = {
                 {"View File",  [=, &fs]() { viewFile(fs, filepath); }            },
@@ -879,6 +904,7 @@ String loopSD(FS &fs, bool filePicker, const String &allowed_ext, String rootPat
         }
     }
     fileList.clear();
+    fileList.shrink_to_fit();
     return result;
 }
 
@@ -939,8 +965,8 @@ void fileInfo(FS &fs, const String &filepath) {
     int bytesize = file.size();
     float filesize = bytesize;
     String unit = "B";
-
     time_t modifiedTime = file.getLastWrite();
+    file.close();
 
     if (filesize >= 1000000) {
         filesize /= 1000000.0;
@@ -950,22 +976,55 @@ void fileInfo(FS &fs, const String &filepath) {
         unit = "kB";
     }
 
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+
     drawMainBorderWithTitle("FILE INFO");
-    padprintln("");
-    padprintln("Path: " + filepath);
-    padprintln("");
-    padprintf("Bytes: %d\n", bytesize);
-    padprintln("");
-    padprintf("Size: %.02f %s\n", filesize, unit.c_str());
-    padprintln("");
-    padprintf("Modified: %s\n", ctime(&modifiedTime));
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
 
-    file.close();
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int y = cardY + (compact ? 8 : 12);
+    int rowH = (FP == 1 && bruce_i18n::isChinese()) ? (compact ? 15 : 18) : (compact ? 13 : 17);
+
+    // Header row: filename + FS badge
+    int slash = filepath.lastIndexOf('/');
+    String baseName = (slash >= 0) ? filepath.substring(slash + 1) : filepath;
+    String fsLabel = (&fs == &SD) ? "SD" : "LittleFS";
+    int16_t badgeW = bruce_i18n::utf8PixelWidth(fsLabel, FP) + 12;
+    uiDrawBadge(x + w - badgeW, y, fsLabel, bruceConfig.priColor, 15);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextBrightColor(), surf);
+    tft.drawString(bruce_i18n::utf8TruncateToWidth(baseName, w - badgeW - 8, FP), x, y + 3, 1);
+    y += max(rowH, 18);
+    tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+    y += 4;
+
+    char sizeBuf[28];
+    snprintf(sizeBuf, sizeof(sizeBuf), "%.2f %s", filesize, unit.c_str());
+    uiDrawKeyValueRow(x, y, w, "Path", filepath, uiTextBrightColor(), surf);
+    y += rowH;
+    uiDrawKeyValueRow(x, y, w, "Size", String(sizeBuf), bruceConfig.priColor, surf);
+    y += rowH;
+    uiDrawKeyValueRow(x, y, w, "Bytes", String(bytesize), uiTextBrightColor(), surf);
+    y += rowH;
+
+    if (y + LH <= cardY + cardH - 4) {
+        String modStr = String(ctime(&modifiedTime));
+        modStr.trim();
+        uiDrawKeyValueRow(x, y, w, "Modified", modStr, uiTextMutedColor(), surf);
+    }
+
+    printCenterFootnote("SEL / ESC: Back");
     delay(100);
-
-    while (!check(EscPress) && !check(SelPress)) { delay(100); }
-
-    return;
+    check(SelPress);
+    check(EscPress);
+    while (!check(EscPress) && !check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(20)); }
 }
 
 /*********************************************************************
@@ -974,9 +1033,11 @@ void fileInfo(FS &fs, const String &filepath) {
 **  append a version number to the file name.
 **********************************************************************/
 File createNewFile(FS *&fs, String filepath, String filename) {
+    if (!fs) return File();
+
     int extIndex = filename.lastIndexOf('.');
-    String name = filename.substring(0, extIndex);
-    String ext = filename.substring(extIndex);
+    String name = (extIndex >= 0) ? filename.substring(0, extIndex) : filename;
+    String ext = (extIndex >= 0) ? filename.substring(extIndex) : "";
 
     if (filepath.endsWith("/")) filepath = filepath.substring(0, filepath.length() - 1);
     if (!(*fs).exists(filepath)) (*fs).mkdir(filepath);

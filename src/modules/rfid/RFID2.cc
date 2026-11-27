@@ -353,9 +353,11 @@ void RFID2::parse_data() {
     String strUID = printableUID.uid;
     strUID.trim();
     strUID.replace(" ", "");
-    uid.size = strUID.length() / 2;
-    for (size_t i = 0; i < strUID.length(); i += 2) {
-        uid.uidByte[i / 2] = strtoul(strUID.substring(i, i + 2).c_str(), NULL, 16);
+    size_t uidBytes = strUID.length() / 2;
+    if (uidBytes > sizeof(uid.uidByte)) uidBytes = sizeof(uid.uidByte);
+    uid.size = (uint8_t)uidBytes;
+    for (size_t i = 0; i < uidBytes; ++i) {
+        uid.uidByte[i] = strtoul(strUID.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
     printableUID.sak.trim();
@@ -630,16 +632,15 @@ int RFID2::write_data_blocks() {
 
 bool RFID2::write_mifare_classic_data_block(int block, String data) {
     data.replace(" ", "");
-    byte size = data.length() / 2;
-    byte buffer[size];
-
-    for (size_t i = 0; i < data.length(); i += 2) {
-        buffer[i / 2] = strtoul(data.substring(i, i + 2).c_str(), NULL, 16);
+    if (data.length() != 32) return false; // exactly 16 bytes
+    uint8_t buffer[16] = {0};
+    for (size_t i = 0; i < 16; ++i) {
+        buffer[i] = strtoul(data.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
     if (authenticate_mifare_classic(block) != SUCCESS) return false;
 
-    byte status = mfrc522.MIFARE_Write((byte)block, buffer, size);
+    byte status = mfrc522.MIFARE_Write((byte)block, buffer, 16);
     if (status != MFRC522::StatusCode::STATUS_OK) return false;
 
     return true;
@@ -647,14 +648,13 @@ bool RFID2::write_mifare_classic_data_block(int block, String data) {
 
 bool RFID2::write_mifare_ultralight_data_block(int block, String data) {
     data.replace(" ", "");
-    byte size = data.length() / 2;
-    byte buffer[size];
-
-    for (size_t i = 0; i < data.length(); i += 2) {
-        buffer[i / 2] = strtoul(data.substring(i, i + 2).c_str(), NULL, 16);
+    if (data.length() != 8) return false; // exactly 4 bytes
+    uint8_t buffer[4] = {0};
+    for (size_t i = 0; i < 4; ++i) {
+        buffer[i] = strtoul(data.substring(i * 2, i * 2 + 2).c_str(), NULL, 16);
     }
 
-    byte status = mfrc522.MIFARE_Ultralight_Write((byte)block, buffer, size);
+    byte status = mfrc522.MIFARE_Ultralight_Write((byte)block, buffer, 4);
     if (status != MFRC522::StatusCode::STATUS_OK) return false;
 
     return true;

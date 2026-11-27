@@ -419,6 +419,11 @@ void BruceConfig::fromFile(bool checkFS) {
         count++;
         log_e("Fail");
     }
+    // Config files are editable on the SD card; never let an out-of-range
+    // value index the keyboard layout / menu style / theme tables.
+    if (badUSBBLEKeyboardLayout < 0 || badUSBBLEKeyboardLayout > 13) { badUSBBLEKeyboardLayout = 0; }
+    if (mainMenuStyle < 0 || mainMenuStyle >= MAIN_MENU_STYLE_COUNT) { mainMenuStyle = MAIN_MENU_GRID; }
+    if (nezhaThemeStyle < 0 || nezhaThemeStyle > 3) { nezhaThemeStyle = 1; }
 
     if (!setting["badUSBBLEKeyDelay"].isNull()) {
         badUSBBLEKeyDelay = setting["badUSBBLEKeyDelay"].as<int>();

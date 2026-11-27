@@ -24,8 +24,8 @@
 #include "modules/ethernet/MACFlooding.h"
 #include <ETH.h>
 #endif
+#include <cstdlib>
 #include <globals.h>
-#include <sstream>
 void run_arp_scanner() {
 #if !defined(LITE_VERSION)
     // Prefer the Arduino ETH netif, fall back to legacy key-based lookup
@@ -88,7 +88,7 @@ void ARPScanner::readArpTableETH(netif *iface) {
 #include "lwip/tcpip.h"
 #include "ping/ping_sock.h"
 
-bool wait_ping = true;
+volatile bool wait_ping = false;
 
 static void ping_cb(esp_ping_handle_t hdl, void *args) {
     // Turn on just for debug
@@ -106,6 +106,7 @@ static void ping_cb_fail(esp_ping_handle_t hdl, void *args) {
 }
 
 void ping_target(ip_addr_t target) {
+    wait_ping = true;
     esp_ping_config_t ping_config = ESP_PING_DEFAULT_CONFIG();
     ping_config.target_addr = target;
     ping_config.count = 4; // Number of pings
@@ -137,11 +138,13 @@ void ARPScanner::setup() {
     esp_netif_ip_info_t ip_info;
 
     if (esp_netif_get_ip_info(esp_net_interface, &ip_info) != ESP_OK) {
+        UNLOCK_TCPIP_CORE();
         Serial.println("Can't get IP informations");
         return;
     }
 
     if (ip_info.ip.addr == 0 || ip_info.netmask.addr == 0) {
+        UNLOCK_TCPIP_CORE();
         Serial.println("Ethernet has no IP/netmask, aborting ARP scan");
         displayError("Ethernet not ready", true);
         return;
@@ -158,6 +161,7 @@ void ARPScanner::setup() {
     struct netif *net_iface = (struct netif *)esp_netif_get_netif_impl(esp_net_interface);
     if (net_iface == nullptr || net_iface->linkoutput == nullptr ||
         net_iface->hwaddr_len != MAC_ADDRESS_LENGTH) {
+        UNLOCK_TCPIP_CORE();
         Serial.println("Network interface not ready for ARP scan");
         return;
     }
@@ -250,33 +254,25 @@ ScanHostMenu:
 
     if (!returnToMenu) goto ScanHostMenu;
     hostslist_eth.clear();
+    hostslist_eth.shrink_to_fit();
 }
 
 bool ARPScanner::macStringToByteArray(const std::string &macStr, uint8_t macArray[6]) {
-    std::istringstream iss(macStr);
-    std::string byteStr;
+    const char *p = macStr.c_str();
     int byteCount = 0;
 
-    // Remove delimiters and convert to byte array
-    while (std::getline(iss, byteStr, ':') || std::getline(iss, byteStr, '-')) {
-        if (byteCount >= 6) {
-            // More than 6 bytes; invalid MAC address
-            return false;
-        }
-
-        try {
-            uint8_t byte = std::stoul(byteStr, nullptr, 16);
-            macArray[byteCount++] = byte;
-        } catch (const std::invalid_argument &e) {
-            // Invalid byte value; not a valid hexadecimal number
-            return false;
-        } catch (const std::out_of_range &e) {
-            // Byte value out of range; not a valid byte
-            return false;
-        }
+    while (*p != '\0') {
+        if (byteCount >= 6) return false;
+        char *end = nullptr;
+        unsigned long val = strtoul(p, &end, 16);
+        if (end == p || val > 0xFF) return false;
+        macArray[byteCount++] = static_cast<uint8_t>(val);
+        if (*end == '\0') break;
+        if (*end != ':' && *end != '-') return false;
+        p = end + 1;
+        if (*p == '\0') return false; // trailing delimiter
     }
 
-    // Check if exactly 6 bytes were parsed
     return byteCount == 6;
 }
 void ARPScanner::afterScanOptions(const Host &host) {
@@ -305,13 +301,20 @@ void ARPScanner::afterScanOptions(const Host &host) {
              auto it = std::find_if(hostslist_eth.begin(), hostslist_eth.end(), [this](const Host &host) {
                  return host.ip == gateway;
              });
+             if (it == hostslist_eth.end()) {
+                 displayError("Gateway MAC not found", true);
+                 return;
+             }
 
              uint8_t mac[6];
              esp_err_t err = esp_netif_get_mac(esp_net_interface, mac);
              if (err == ESP_OK) {
                  uint8_t gw_mac[6];
-                 macStringToByteArray((*it).mac.c_str(), gw_mac);
-                 ARPSpoofer(host, gw, gw_mac, mac, false);
+                 if (macStringToByteArray((*it).mac.c_str(), gw_mac)) {
+                     ARPSpoofer(host, gw, gw_mac, mac, false);
+                 } else {
+                     displayError("Invalid Gateway MAC", true);
+                 }
              } else {
                  ESP_LOGE("MAC Address", "Failed to get MAC address: %s", esp_err_to_name(err));
              }

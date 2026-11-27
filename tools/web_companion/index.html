@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nezha Cyber — WebSerial Flasher &amp; Companion (哪吒网络安全)</title>
+  <link rel="stylesheet" href="style.css" />
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="crest">🔥</span>
+      <div>
+        <h1>NEZHA CYBER <span class="zh">哪吒网络安全</span></h1>
+        <p class="sub" data-i18n="subtitle">WebSerial Flasher · Live CLI · Remote Nav · Health HUD</p>
+      </div>
+    </div>
+    <div class="controls">
+      <select id="baudSelect" aria-label="Baudrate">
+        <option value="115200" selected>115200 bps</option>
+        <option value="921600">921600 bps</option>
+      </select>
+      <button id="connectBtn" class="btn primary" data-i18n="connect">Connect USB-C</button>
+      <button id="langBtn" class="btn ghost">中文</button>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="console" data-i18n="tab_console">Live CLI &amp; Remote</button>
+    <button class="tab" data-tab="health" data-i18n="tab_health">Health HUD (乾坤仪)</button>
+    <button class="tab" data-tab="files" data-i18n="tab_files">File &amp; Playbook Mgr</button>
+    <button class="tab" data-tab="flash" data-i18n="tab_flash">WebSerial Flasher</button>
+  </nav>
+
+  <main class="workspace">
+    <!-- TAB 1: LIVE CLI & REMOTE NAV -->
+    <section id="tab-console" class="panel active">
+      <div class="grid-console">
+        <div class="card console-card">
+          <div class="card-head">
+            <span data-i18n="serial_terminal">USB-C Serial Terminal</span>
+            <div class="chips">
+              <button class="chip" data-cmd="info">info</button>
+              <button class="chip" data-cmd="sysmon">sysmon</button>
+              <button class="chip" data-cmd="wire i2c scan">i2c scan</button>
+              <button class="chip" data-cmd="wire uart status">uart status</button>
+              <button class="chip" data-cmd="help">help</button>
+              <button class="chip danger" id="clearTermBtn" data-i18n="clear">Clear</button>
+            </div>
+          </div>
+          <pre id="termOut" class="terminal"></pre>
+          <form id="cmdForm" class="cmd-bar">
+            <span class="prompt">&gt;</span>
+            <input id="cmdInput" type="text" autocomplete="off" placeholder="Enter Nezha CLI command (e.g. sysmon, info, loader list)..." />
+            <button type="submit" class="btn primary" data-i18n="send">Send</button>
+          </form>
+        </div>
+
+        <div class="card nav-card">
+          <div class="card-head" data-i18n="remote_nav">Remote Hardware Navigation</div>
+          <div class="dpad">
+            <button class="dpad-btn up" data-nav="up">▲</button>
+            <button class="dpad-btn left" data-nav="prev">◀</button>
+            <button class="dpad-btn ok" data-nav="select">OK</button>
+            <button class="dpad-btn right" data-nav="next">▶</button>
+            <button class="dpad-btn down" data-nav="down">▼</button>
+          </div>
+          <div class="nav-extra">
+            <button class="btn ghost" data-nav="esc">ESC / Back</button>
+            <button class="btn ghost" data-cmd="reboot">Reboot</button>
+          </div>
+          <div class="hint" data-i18n="nav_hint">
+            Uses native USB-C WebSerial (Chrome / Edge / Chromium). Zero Wi-Fi required.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: HEALTH HUD -->
+    <section id="tab-health" class="panel">
+      <div class="card">
+        <div class="card-head">
+          <span data-i18n="health_title">Live ESP32 Memory &amp; Radio Telemetry (sysmon)</span>
+          <div class="chips">
+            <button class="btn primary" id="pollHealthBtn" data-i18n="poll_start">Start Live Poll (2s)</button>
+            <button class="btn ghost" id="onceHealthBtn" data-i18n="poll_once">Refresh Now</button>
+          </div>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric">
+            <label>Board / CPU</label>
+            <div id="mBoard" class="val">--</div>
+            <small id="mUptime">Uptime: --</small>
+          </div>
+          <div class="metric">
+            <label>Internal DRAM Free</label>
+            <div id="mDram" class="val">--</div>
+            <div class="bar"><div id="bDram" class="fill"></div></div>
+          </div>
+          <div class="metric">
+            <label>Largest DMA Contiguous Block</label>
+            <div id="mDma" class="val">--</div>
+            <div class="pills">
+              <span id="pWifi" class="pill">WIFI --</span>
+              <span id="pBle" class="pill">BLE --</span>
+            </div>
+          </div>
+          <div class="metric">
+            <label>External PSRAM</label>
+            <div id="mPsram" class="val">--</div>
+            <div class="bar"><div id="bPsram" class="fill cyan"></div></div>
+          </div>
+          <div class="metric">
+            <label>LittleFS / SD Card</label>
+            <div id="mStorage" class="val">--</div>
+            <small id="mSd">SD: --</small>
+          </div>
+          <div class="metric">
+            <label>Battery &amp; Tasks</label>
+            <div id="mBat" class="val">--</div>
+            <small id="mTasks">Tasks: --</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: FILE & PLAYBOOK MANAGER -->
+    <section id="tab-files" class="panel">
+      <div class="grid-files">
+        <div class="card">
+          <div class="card-head">
+            <span data-i18n="storage_browser">Storage Browser (SD / LittleFS)</span>
+            <div class="chips">
+              <input id="pathInput" type="text" value="/" class="path-box" />
+              <button class="btn primary" id="listFilesBtn" data-i18n="list_dir">List</button>
+            </div>
+          </div>
+          <pre id="fileListOut" class="terminal small"></pre>
+        </div>
+
+        <div class="card">
+          <div class="card-head" data-i18n="playbook_builder">Playbook JSON Quick Runner (灵珠剧本)</div>
+          <textarea id="playbookArea" class="editor" spellcheck="false">{
+  "name": "Quick Bench Audit",
+  "repeat": 1,
+  "steps": [
+    { "cmd": "sysmon", "delay_ms": 250 },
+    { "cmd": "wire i2c scan", "delay_ms": 500 },
+    { "cmd": "info", "delay_ms": 250 }
+  ]
+}</textarea>
+          <div class="row-actions">
+            <button class="btn primary" id="runPlaybookBtn" data-i18n="run_steps">Execute Steps via CLI</button>
+            <button class="btn ghost" id="downloadPlaybookBtn" data-i18n="download_json">Download .json</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: WEBSERIAL FLASHER -->
+    <section id="tab-flash" class="panel">
+      <div class="card">
+        <div class="card-head" data-i18n="flasher_title">One-Click WebSerial Firmware Flasher</div>
+        <p class="desc" data-i18n="flasher_desc">
+          Select your target board manifest (generated alongside GitHub Releases for <code>NezhaCyber-&lt;env&gt;.bin</code>) and flash directly over USB-C using Chrome or Edge.
+        </p>
+        <div class="flash-grid">
+          <div class="flash-card">
+            <h3>LilyGO T-Deck / T-Deck Plus</h3>
+            <p>ESP32-S3 · 16 MB Flash · 8 MB OPI PSRAM</p>
+            <esp-web-install-button manifest="manifests/lilygo-t-deck.json">
+              <button slot="activate" class="btn primary">Install T-Deck</button>
+            </esp-web-install-button>
+          </div>
+          <div class="flash-card">
+            <h3>M5Stack Cardputer</h3>
+            <p>ESP32-S3 · 8 MB Flash · Full Keyboard</p>
+            <esp-web-install-button manifest="manifests/m5stack-cardputer.json">
+              <button slot="activate" class="btn primary">Install Cardputer</button>
+            </esp-web-install-button>
+          </div>
+          <div class="flash-card">
+            <h3>LilyGO T-Embed CC1101</h3>
+            <p>ESP32-S3 · 16 MB Flash · Sub-GHz + NFC</p>
+            <esp-web-install-button manifest="manifests/lilygo-t-embed-cc1101.json">
+              <button slot="activate" class="btn primary">Install T-Embed CC1101</button>
+            </esp-web-install-button>
+          </div>
+          <div class="flash-card">
+            <h3>M5Stack StickC Plus 1.1</h3>
+            <p>ESP32 · 4 MB Flash (Compact CJK)</p>
+            <esp-web-install-button manifest="manifests/m5stack-cplus1_1.json">
+              <button slot="activate" class="btn primary">Install StickC Plus</button>
+            </esp-web-install-button>
+          </div>
+        </div>
+        <div class="hint">
+          Note: Disconnect the Live CLI serial port before flashing so WebSerial can claim the USB-C port exclusively.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

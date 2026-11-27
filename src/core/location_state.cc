@@ -233,35 +233,54 @@ bool BruceLocationState::estimateTargetGps(float relX, float relY, double &outLa
 void BruceLocationState::showLocationInfoScreen() {
     ensureLoaded();
     drawMainBorderWithTitle("Location State");
-    int x = BORDER_PAD_X + 6;
-    int y = BORDER_PAD_Y + FM * LH + 6;
-    int rowH = (FP == 1 && bruce_i18n::isChinese()) ? 14 : (LH + 4);
+
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bright = uiTextBrightColor();
+    uint16_t pri = bruceConfig.priColor;
+    uint16_t sec = bruceConfig.secColor;
+
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int y = cardY + (compact ? 8 : 12);
+    int rowH = (FP == 1 && bruce_i18n::isChinese()) ? (compact ? 15 : 18) : (compact ? 13 : 17);
+
+    // Status header row with pill badge
     tft.setTextSize(FP);
+    tft.setTextColor(uiTextMutedColor(), surf);
+    tft.drawString(bruce_i18n::tr("Source"), x, y + 3, 1);
+    String srcStr = _valid ? _source : String(bruce_i18n::tr("No Fix"));
+    uint16_t srcCol = _valid ? TFT_DARKGREEN : TFT_RED;
+    int16_t badgeW = bruce_i18n::utf8PixelWidth(srcStr, FP) + 12;
+    uiDrawBadge(x + w - badgeW, y, srcStr, srcCol, 15);
+    y += max(rowH, 18);
+    tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+    y += 3;
 
-    auto line = [&](const char *k, const String &v, uint16_t col = TFT_WHITE) {
-        tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-        String ks = String(bruce_i18n::tr(k)) + ": ";
-        tft.drawString(ks, x, y, 1);
-        tft.setTextColor(col, bruceConfig.bgColor);
-        tft.drawString(v, x + tft.textWidth(ks), y, 1);
-        y += rowH;
-    };
-
-    line("Source", _valid ? _source : String("No Fix"), _valid ? TFT_GREEN : TFT_RED);
     if (_valid) {
         char buf[36];
         snprintf(buf, sizeof(buf), "%.6f", _lat);
-        line("Lat", String(buf), TFT_CYAN);
+        uiDrawKeyValueRow(x, y, w, "Lat", String(buf), pri, surf);
+        y += rowH;
         snprintf(buf, sizeof(buf), "%.6f", _lon);
-        line("Lon", String(buf), TFT_CYAN);
+        uiDrawKeyValueRow(x, y, w, "Lon", String(buf), pri, surf);
+        y += rowH;
     }
-    line("RF Anchors", String((unsigned)_anchors.size()) + " / " + String((unsigned)MAX_ANCHORS), TFT_YELLOW);
-    line("File", String(STATE_PATH), TFT_LIGHTGREY);
-
-    tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-    tft.drawCentreString(
-        bruce_i18n::tr("SEL=Set Anchor  ESC=Back"), tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1
+    uiDrawKeyValueRow(
+        x, y, w, "RF Anchors", String((unsigned)_anchors.size()) + " / " + String((unsigned)MAX_ANCHORS), sec, surf
     );
+    y += rowH;
+    if (y + LH <= cardY + cardH - 4) {
+        uiDrawKeyValueRow(x, y, w, "File", String(STATE_PATH), bright, surf);
+    }
+
+    printCenterFootnote("SEL=Set Anchor  ESC=Back");
 
     check(SelPress);
     check(EscPress);

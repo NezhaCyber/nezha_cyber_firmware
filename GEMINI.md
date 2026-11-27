@@ -22,4 +22,4 @@
 - **Style & Verification / 风格与验证**:
   - Follow `.clang-format` (LLVM, 4-space indent, 110 columns).
   - Run `python3 tools/gen_cjk_font.py --check-tables`, `python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py`, and `pio run -e lilygo-t-deck -e m5stack-cplus1_1` before reporting completion; disclose honestly any check that could not be executed.
-  - Work on a dedicated branch off `main` with atomic Conventional Commits and comply with [SECURITY.md](./SECURITY.md).
+  - Branch off `development` and target all PRs to `development` (maintainer handles `development` → `main`) with atomic Conventional Commits; comply with [SECURITY.md](./SECURITY.md).

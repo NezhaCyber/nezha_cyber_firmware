@@ -18,4 +18,4 @@
 - **Style, Checks & Security / 风格、验证与安全**:
   - Format C++ to `.clang-format` (LLVM, 4 spaces, 110 cols).
   - Run `python3 tools/gen_cjk_font.py --check-tables`, `python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py`, and `pio run -e lilygo-t-deck -e m5stack-cplus1_1`, and report exact results honestly.
-  - Branch off `main` with atomic Conventional Commits and comply with `SECURITY.md`.
+  - Branch off `development` and target all PRs to `development` (maintainer handles `development` → `main`) with atomic Conventional Commits and comply with `SECURITY.md`.

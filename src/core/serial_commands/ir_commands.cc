@@ -25,13 +25,17 @@ uint32_t irRxCallback(cmd *c) {
     } else {
         i = new IrRead(true); // true -> headless mode
     }
+    if (i == nullptr) {
+        serialDevice->println("Out of memory starting IR receiver");
+        return false;
+    }
 
     serialDevice->println("Waiting for signal...");
     String r = i->loop_headless(10); // 10s timeout
+    delete i;                       // always release IRrecv's capture buffer
     if (r.length() == 0) return false;
 
     serialDevice->println(r);
-    delete i;
     return true;
 }
 
@@ -133,9 +137,16 @@ uint32_t irTxBufferCallback(cmd *c) {
     if (!(_setupPsramFs())) return false;
 
     char *txt = _readFileFromSerial();
+    if (txt == nullptr) {
+        serialDevice->println("Out of memory reading serial input");
+        return false;
+    }
     String tmpfilepath = "/tmpramfile"; // TODO: Change to use char *txt directly
     File f = PSRamFS.open(tmpfilepath, FILE_WRITE);
-    if (!f) return false;
+    if (!f) {
+        free(txt);
+        return false;
+    }
 
     f.write((const uint8_t *)txt, strlen(txt));
     f.close();

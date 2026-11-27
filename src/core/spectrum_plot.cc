@@ -32,8 +32,8 @@ void SpectrumPlot::buildGeometry() {
         _plotW = tftWidth - 4;
     }
 
-    int top = BORDER_PAD_Y + 8 * FM + 2; // just below the title
-    _footY = tftHeight - 8 * FP - 8;
+    int top = BORDER_PAD_Y + 21; // stay cleanly below printTitle()'s Nezha ribbon divider
+    _footY = tftHeight - 8 * FP - 6;
     _lblY = _footY - 8 * FP - 2;
 
     int avail = _lblY - top - 2;
@@ -90,7 +90,7 @@ void SpectrumPlot::buildPalette() {
     _bodyHl = blendColors(_bg, pri, 165);
     _peak = blendColors(pri, TFT_WHITE, 150);
     _grid = blendColors(_bg, pri, 55);
-    _label = blendColors(_bg, pri, 170);
+    _label = uiTextMutedColor();
     if (_sdr) sp_build_sdr_palette();
     else buildHeatPalette(sp_heat, SP_HEAT_N);
 }
@@ -210,8 +210,8 @@ void SpectrumPlot::ruler(const int *cols, const String *labels, int count, int h
         if (tx + w > _plotL + _plotW) tx = _plotL + _plotW - w;
 
         if (i == highlight) {
-            tft.fillRect(tx - 2, _lblY - 1, w + 4, h + 2, bruceConfig.priColor);
-            tft.setTextColor(_bg, bruceConfig.priColor);
+            tft.fillRoundRect(tx - 2, _lblY - 1, w + 4, h + 2, 2, bruceConfig.priColor);
+            tft.setTextColor(uiTextOnAccentColor(bruceConfig.priColor), bruceConfig.priColor);
         } else {
             tft.setTextColor(_label, _bg);
         }

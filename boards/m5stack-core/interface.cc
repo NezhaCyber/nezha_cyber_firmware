@@ -18,6 +18,7 @@ void _setup_gpio() {
     bruceConfigPins.irRx = 22;
     bruceConfigPins.rotation = 1;
     bruceConfigPins.badusb_bus = {(gpio_num_t)22, (gpio_num_t)21}; // rx, tx (CH9329)
+    bruceConfigPins.uart_bus = {(gpio_num_t)22, (gpio_num_t)21};   // rx, tx (Grove)
     // Board's default/generic SPI bus (used by drivers without their own bus, e.g. RC522-SPI)
     bruceConfigPins.outer_bus = {(gpio_num_t)18, (gpio_num_t)19, (gpio_num_t)23, (gpio_num_t)26};
     // No dedicated PN532 pins on this board; RFID2 (RC522-SPI) shares the outer/default SPI bus

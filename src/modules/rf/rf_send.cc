@@ -1,5 +1,7 @@
 #include "rf_send.h"
+#include "core/display.h"
 #include "core/led_control.h"
+#include "core/logging/nzlog.h"
 #include "core/type_convertion.h"
 #include "protocols/rf_config.h"
 #include "protocols/rf_encoder.h"
@@ -191,8 +193,13 @@ void loopEmulate(RfCodes &data) {
             blinkLed();
 
             if (data.serial == 0) {
-                for (int i = 0; uint64_t key : keyList) {
-                    data.Bit = bitList[i++];
+                size_t bitIndex = 0;
+                for (uint64_t key : keyList) {
+                    // A malformed .sub may have more Key: lines than Bit: lines
+                    // (or a stale bitList from a previous file). Never index
+                    // past the vector's end.
+                    if (bitIndex < bitList.size()) { data.Bit = bitList[bitIndex]; }
+                    ++bitIndex;
                     data.key = key;
                     sendRfCommand(data);
                 }
@@ -259,6 +266,13 @@ bool readSubFile(FS *fs, const String &filepath, RfCodes &data) {
     }
     Serial.println("Opened sub file.");
     selected_code.filepath = filepath.substring(1 + filepath.lastIndexOf("/"));
+
+    // Reset the shared replay vectors: otherwise a previous file's Key:/Bit:
+    // entries leak into this one and the sizes no longer correspond.
+    bitList.clear();
+    bitRawList.clear();
+    keyList.clear();
+    rawDataList.clear();
 
     if (!databaseFile) Serial.println("Fail opening file");
     // Store the code(s) in the signal
@@ -478,34 +492,41 @@ void sendRfCommand(struct RfCodes rfcode, bool hideDefaultUI) {
     }
 
     if (protocol == "RAW") {
-        // count the number of elements of RAW_Data
-        int buff_size = 0;
-        int index = 0;
-        while (index >= 0) {
-            index = data.indexOf(' ', index + 1);
-            buff_size++;
+        // Count timing elements in RAW_Data without heap-allocating substrings.
+        size_t buff_size = 1;
+        const char *rawPtr = data.c_str();
+        for (size_t i = 0; rawPtr[i] != '\0'; ++i) {
+            if (rawPtr[i] == ' ') buff_size++;
         }
-        // alloc buffer for transmittimings
-        int *transmittimings =
-            (int *)calloc(sizeof(int), buff_size + 1); // should be smaller the data.length()
-        size_t transmittimings_idx = 0;
+        // Prefer PSRAM for large RAW timing buffers, falling back to internal DRAM.
+        int *transmittimings = nullptr;
+        if (psramFound()) transmittimings = (int *)ps_calloc(buff_size + 1, sizeof(int));
+        if (!transmittimings) transmittimings = (int *)calloc(buff_size + 1, sizeof(int));
+        if (!transmittimings) {
+            NZLOGE("RF", "RAW send: out of memory (%u timings)", (unsigned)(buff_size + 1));
+            if (!hideDefaultUI) displayError("Out of memory", true);
+            deinitRfModule();
+            return;
+        }
 
-        // split data into words, convert to int, and store them in transmittimings
-        int startIndex = 0;
-        index = 0;
-        for (transmittimings_idx = 0; transmittimings_idx < buff_size; transmittimings_idx++) {
-            index = data.indexOf(' ', startIndex);
-            if (index == -1) {
-                transmittimings[transmittimings_idx] = data.substring(startIndex).toInt();
-            } else {
-                transmittimings[transmittimings_idx] = data.substring(startIndex, index).toInt();
+        size_t transmittimings_idx = 0;
+        const char *p = rawPtr;
+        while (*p != '\0' && transmittimings_idx < buff_size) {
+            while (*p == ' ' || *p == '\t') ++p;
+            if (*p == '\0') break;
+            char *end = nullptr;
+            long val = strtol(p, &end, 10);
+            if (end == p) {
+                while (*p != '\0' && *p != ' ') ++p;
+                continue;
             }
-            startIndex = index + 1;
+            transmittimings[transmittimings_idx++] = static_cast<int>(val);
+            p = end;
         }
         transmittimings[transmittimings_idx] = 0; // termination
 
         // send rf command
-        rfTransmitRawTimings(transmittimings);
+        if (transmittimings_idx > 0) { rfTransmitRawTimings(transmittimings); }
         free(transmittimings);
     } else if (protocol == "BinRAW") {
         // transform from "00 01 02 ... FF" into "00000000 00000001 00000010 .... 11111111"

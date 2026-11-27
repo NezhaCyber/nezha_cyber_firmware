@@ -9,6 +9,7 @@
 #include "tag_o_matic.h"
 #include "core/bus_HAL.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "esp_task_wdt.h" //Include for Headless mode (long write trigger watchdog in JS)
 
@@ -24,16 +25,19 @@
 namespace {
 void displaySmallErrorToast(const String &txt) {
     constexpr int textSize = FP;
-    int boxWidth = txt.length() * LW * textSize + 18;
-    if (boxWidth > tftWidth - 20) boxWidth = tftWidth - 20;
-    int boxHeight = LH * textSize + 10;
+    String trTxt = bruce_i18n::tr(txt);
+    int boxWidth = min((int)(tftWidth - 20), (int)bruce_i18n::utf8PixelWidth(trTxt, textSize) + 24);
+    int boxHeight = LH * textSize + 14;
     int boxX = (tftWidth - boxWidth) / 2;
     int boxY = tftHeight / 2 - boxHeight / 2;
+    uint16_t surf = uiSurfaceColor();
 
-    tft.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 5, TFT_RED);
-    tft.setTextColor(TFT_WHITE, TFT_RED);
+    tft.fillRoundRect(boxX, boxY, boxWidth, boxHeight, 7, surf);
+    tft.drawRoundRect(boxX, boxY, boxWidth, boxHeight, 7, TFT_RED);
+    tft.fillCircle(boxX + 9, boxY + boxHeight / 2, 3, TFT_RED);
+    tft.setTextColor(uiTextBrightColor(), surf);
     tft.setTextSize(textSize);
-    tft.drawCentreString(txt, tftWidth / 2, boxY + 5);
+    tft.drawCentreString(trTxt, tftWidth / 2 + 4, boxY + (boxHeight - LH * textSize) / 2, 1);
 }
 } // namespace
 
@@ -118,25 +122,25 @@ void TagOMatic::loop() {
 }
 
 void TagOMatic::select_state() {
-    options = {};
+    std::vector<Option> localOpts;
     if (_read_uid) {
-        options.emplace_back("Clone UID", [this]() { set_state(CLONE_MODE); });
-        options.emplace_back("Custom UID", [this]() { set_state(CUSTOM_UID_MODE); });
-        options.emplace_back("Check tag", [this]() { set_state(CHECK_MODE); });
-        options.emplace_back("Write data", [this]() { set_state(WRITE_MODE); });
-        options.emplace_back("Emulate tag", [this]() { set_state(EMULATE_MODE); });
-        options.emplace_back("Save file", [this]() { set_state(SAVE_MODE); });
+        localOpts.emplace_back("Clone UID", [this]() { set_state(CLONE_MODE); });
+        localOpts.emplace_back("Custom UID", [this]() { set_state(CUSTOM_UID_MODE); });
+        localOpts.emplace_back("Check tag", [this]() { set_state(CHECK_MODE); });
+        localOpts.emplace_back("Write data", [this]() { set_state(WRITE_MODE); });
+        localOpts.emplace_back("Emulate tag", [this]() { set_state(EMULATE_MODE); });
+        localOpts.emplace_back("Save file", [this]() { set_state(SAVE_MODE); });
     }
-    options.emplace_back("Read tag", [this]() { set_state(READ_MODE); });
-    options.emplace_back("Scan tags", [this]() { set_state(SCAN_MODE); });
-    options.emplace_back("Load file", [this]() { set_state(LOAD_MODE); });
+    localOpts.emplace_back("Read tag", [this]() { set_state(READ_MODE); });
+    localOpts.emplace_back("Scan tags", [this]() { set_state(SCAN_MODE); });
+    localOpts.emplace_back("Load file", [this]() { set_state(LOAD_MODE); });
     if (ndefEmulationSupported()) {
-        options.emplace_back("Emulate NDEF", [this]() { set_state(EMULATE_NDEF_MODE); });
+        localOpts.emplace_back("Emulate NDEF", [this]() { set_state(EMULATE_NDEF_MODE); });
     }
-    options.emplace_back("Write NDEF", [this]() { set_state(WRITE_NDEF_MODE); });
-    options.emplace_back("Erase tag", [this]() { set_state(ERASE_MODE); });
+    localOpts.emplace_back("Write NDEF", [this]() { set_state(WRITE_NDEF_MODE); });
+    localOpts.emplace_back("Erase tag", [this]() { set_state(ERASE_MODE); });
 
-    loopOptions(options);
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "RFID");
 }
 
 void TagOMatic::set_state(RFID_State state) {
@@ -226,10 +230,9 @@ void TagOMatic::display_banner() {
     }
 
     tft.setTextSize(FP);
-    padprintln("");
-    tft.setTextColor(getColorVariation(bruceConfig.priColor), bruceConfig.bgColor);
+    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
     padprintln("Press [OK] to change mode.");
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    tft.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
     padprintln("");
 }
 

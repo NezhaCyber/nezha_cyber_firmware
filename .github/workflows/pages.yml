@@ -1,0 +1,85 @@
+name: Deploy WebSerial Flasher & Companion (GitHub Pages)
+
+on:
+  release:
+    types: [published]
+  push:
+    branches: [main, development]
+    paths:
+      - "tools/web_companion/**"
+      - "tools/gen_web_manifests.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag for flasher manifests (default: latest)"
+        required: false
+        default: "latest"
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-web-companion
+  cancel-in-progress: false
+
+jobs:
+  build-pages:
+    name: Stage WebSerial Companion & Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Resolve release tag
+        id: meta
+        run: |
+          if [ -n "${{ github.event.release.tag_name }}" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="latest"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Stage static site and generate esp-web-tools manifests
+        run: |
+          mkdir -p _site/manifests
+          if [ -d tools/web_companion ]; then
+            cp -r tools/web_companion/* _site/
+          else
+            cat > _site/index.html <<'HTML'
+            <!doctype html><html><body><h1>Nezha Cyber WebSerial Portal</h1><p>Merge feat/platform-ecosystem to enable the full companion UI.</p></body></html>
+          HTML
+          fi
+          python3 tools/gen_web_manifests.py \
+            --out-dir _site/manifests \
+            --repo "${{ github.repository }}" \
+            --tag "${{ steps.meta.outputs.tag }}"
+          touch _site/.nojekyll
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: build-pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

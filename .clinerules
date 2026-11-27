@@ -38,4 +38,4 @@
      python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
      pio run -e lilygo-t-deck -e m5stack-cplus1_1
      ```
-   - Report honestly which commands ran and which did not. Work on a branch off `main` with atomic Conventional Commits. Comply strictly with `SECURITY.md`.
+   - Report honestly which commands ran and which did not. Branch off `development` and target all PRs to `development` (maintainer handles `development` → `main`) with atomic Conventional Commits. Comply strictly with `SECURITY.md`.

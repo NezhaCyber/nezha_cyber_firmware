@@ -2,13 +2,13 @@ name: CI — Nezha Cyber Firmware
 
 on:
   push:
-    branches: [main]
+    branches: [main, development]
     paths-ignore:
       - "**.md"
       - "docs/**"
       - "media/**"
   pull_request:
-    branches: [main]
+    branches: [main, development]
   workflow_dispatch:
 
 concurrency:
@@ -40,7 +40,11 @@ jobs:
           test -f partitions/custom_8Mb.csv
           test -f partitions/custom_4Mb_full.csv
           test -f scripts/build/build.py
-          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
+          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py tools/gen_web_manifests.py tools/hil_smoke_test.py
+          python3 tools/hil_smoke_test.py --mock
+
+      - name: Run host-native C++ & Python unit test suite
+        run: bash test/run_tests.sh
 
   build:
     name: Build (${{ matrix.env }})
