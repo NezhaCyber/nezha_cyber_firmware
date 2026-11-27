@@ -104,13 +104,14 @@ String wire_jtag_read_idcode(int8_t tck, int8_t tms, int8_t tdi, int8_t tdo) {
 **  GPIO list picker, same interaction as Config > UART Pins
 **********************************************************************/
 static int8_t jtag_pick_pin(const char *title, int8_t current) {
-    options.clear();
+    std::vector<Option> localOpts;
+    localOpts.reserve(GPIO_NUM_MAX + 2);
     int8_t picked = current;
     for (int i = -1; i <= GPIO_NUM_MAX; i++) {
-        options.push_back({String(i), [i, &picked]() { picked = (int8_t)i; }, i == current});
+        localOpts.push_back({String(i), [i, &picked]() { picked = (int8_t)i; }, i == current});
     }
     int index = (current < 0) ? 0 : current + 1;
-    loopOptions(options, MENU_TYPE_SUBMENU, title, index);
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, title, index);
     return picked;
 }
 
@@ -120,7 +121,7 @@ static int8_t jtag_pick_pin(const char *title, int8_t current) {
 void jtag_scan_setup() {
     returnToMenu = false;
     while (!returnToMenu) {
-        options = {
+        std::vector<Option> localOpts = {
             {String("TCK: ") + int(jtagTck),  []() { jtagTck = jtag_pick_pin("TCK Pin", jtagTck); }  },
             {String("TMS: ") + int(jtagTms),  []() { jtagTms = jtag_pick_pin("TMS Pin", jtagTms); }  },
             {String("TDI: ") + int(jtagTdi),  []() { jtagTdi = jtag_pick_pin("TDI Pin", jtagTdi); }  },
@@ -132,20 +133,47 @@ void jtag_scan_setup() {
                      displayError(result.startsWith("ERR") ? result.substring(5) : result, true);
                      return;
                  }
+                 bool compact = (tftHeight < 160);
+                 int cardX = compact ? 8 : 14;
+                 int cardY = BORDER_PAD_Y + 23;
+                 int cardW = tftWidth - 2 * cardX;
+                 int cardH = tftHeight - cardY - (compact ? 18 : 22);
+                 uint16_t surf = uiSurfaceColor();
+                 int x = cardX + 10;
+                 int w = cardW - 20;
+                 int y = cardY + (compact ? 7 : 11);
+                 int rowH = compact ? 13 : 17;
+
                  drawMainBorderWithTitle("JTAG IDCODE");
-                 padprintln("");
-                 padprintln("IDCODE: " + result.substring(3));
-                 padprintln("");
-                 padprintln("TCK:" + String(jtagTck) + " TMS:" + String(jtagTms));
-                 padprintln("TDI:" + String(jtagTdi) + " TDO:" + String(jtagTdo));
-                 padprintln("");
-                 displaySuccess("Target found", false);
+                 uiDrawCard(cardX, cardY, cardW, cardH, true);
+                 uiDrawBadge(x, y, "TARGET FOUND", TFT_DARKGREEN, 15);
+                 y += 19;
+                 tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+                 y += 3;
+
+                 String idStr = result.substring(3);
+                 int sp = idStr.indexOf(' ');
+                 String hexId = (sp > 0) ? idStr.substring(0, sp) : idStr;
+                 String meta = (sp > 0) ? idStr.substring(sp + 1) : "";
+                 uiDrawKeyValueRow(x, y, w, "IDCODE", hexId, bruceConfig.priColor, surf);
+                 y += rowH;
+                 if (!meta.isEmpty()) {
+                     uiDrawKeyValueRow(x, y, w, "Detail", meta, uiTextBrightColor(), surf);
+                     y += rowH;
+                 }
+                 uiDrawKeyValueRow(
+                     x, y, w, "Pins",
+                     "CK:" + String(jtagTck) + " MS:" + String(jtagTms) + " DI:" + String(jtagTdi) + " DO:" + String(jtagTdo),
+                     bruceConfig.secColor, surf
+                 );
+                 printCenterFootnote("SEL / ESC: Back");
+                 check(EscPress);
+                 check(SelPress);
                  while (!check(EscPress) && !check(SelPress)) { wakeUpScreen(); vTaskDelay(pdMS_TO_TICKS(20)); }
-                 check(EscPress); check(SelPress);
              }},
+            {String("Main Menu"),             []() { backToMenu(); }                                 },
         };
-        addOptionToMainMenu();
-        loopOptions(options, MENU_TYPE_SUBMENU, "JTAG Scanner");
+        loopOptions(localOpts, MENU_TYPE_SUBMENU, "JTAG Scanner");
     }
 }
 #endif

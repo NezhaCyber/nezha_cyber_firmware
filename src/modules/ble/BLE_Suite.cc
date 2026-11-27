@@ -5743,19 +5743,20 @@ void showAttackProgress(const char *message, uint16_t color) {
     static uint8_t spinnerPos = 0;
     static String lastMsg;
     String msg = message ? String(message) : String("");
+    uint16_t surf = uiSurfaceColor();
+    int cardX = max(6, g.listL - 4);
+    int cardY = max((int)BORDER_PAD_Y + 22, g.top - 4);
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = max(44, g.footY - cardY - 4);
 
-    // Only repaint the frame when the message actually changes; the spinner
-    // used to be redrawn under a full-screen clear, so it flashed instead of
-    // turning.
     if (msg != lastMsg) {
         lastMsg = msg;
         drawMainBorderWithTitle("BLE Suite");
-        // same reasoning as the results screen: the caller's colour is a hint,
-        // not something to paint text with
-        tft.setTextColor(bleSeverity(color), bruceConfig.bgColor);
-        bleWrapText(msg, g.listL, g.top, g.listW - 12, g.footY - 2);
-        tft.setTextColor(bleDim(), bruceConfig.bgColor);
-        tft.drawString("working...", g.listL, g.footY, 1);
+        uiDrawCard(cardX, cardY, cardW, cardH, true);
+        tft.setTextColor(bleSeverity(color), surf);
+        bleWrapText(msg, cardX + 10, cardY + 10, cardW - 20, cardY + cardH - 6);
+        tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
+        tft.drawString(bruce_i18n::tr("working..."), g.listL, g.footY, 1);
     }
 
     const char *spinner = "|/-\\";
@@ -5771,43 +5772,17 @@ void showAttackResult(bool success, const char *message) {
 }
 
 bool confirmAttack(const char *targetName) {
-    BleUiGeom g = bleUiGeom();
-    drawMainBorderWithTitle("Confirm Attack");
-    tft.setTextSize(FP);
-
-    tft.setTextColor(bleDim(), bruceConfig.bgColor);
-    tft.drawString("Target", g.listL, g.top, 1);
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.drawString(bleFit(String(targetName), g.listW), g.listL, g.top + g.rowH, 1);
-    if (g_selectedDevice.name.length() && !g_selectedDevice.name.equalsIgnoreCase(targetName)) {
-        tft.drawString(bleFit(g_selectedDevice.name, g.listW), g.listL, g.top + 2 * g.rowH, 1);
+    drawMainBorder(true);
+    String body = String(bruce_i18n::tr("Target")) + ":\n" + String(targetName ? targetName : "");
+    if (g_selectedDevice.name.length() && targetName && !g_selectedDevice.name.equalsIgnoreCase(targetName)) {
+        body += "\n" + g_selectedDevice.name;
     }
-
-    tft.setTextColor(bleDim(), bruceConfig.bgColor);
-    tft.drawString("SEL yes   NEXT/ESC no", g.listL, g.footY, 1);
-
-    for (;;) {
-        if (check(EscPress) || check(NextPress)) return false;
-        if (check(SelPress)) return true;
-        vTaskDelay(20 / portTICK_PERIOD_MS);
-    }
+    return displayMessage(body.c_str(), "Cancel", nullptr, "Run", bruceConfig.priColor) == 1;
 }
 
 bool requireSimpleConfirmation(const char *message) {
-    BleUiGeom g = bleUiGeom();
-    drawMainBorderWithTitle("Confirm");
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    bleWrapText(String(message), g.listL, g.top, g.listW - 12, g.footY - 2);
-
-    tft.setTextSize(FP);
-    tft.setTextColor(bleDim(), bruceConfig.bgColor);
-    tft.drawString("SEL yes   NEXT/ESC no", g.listL, g.footY, 1);
-
-    for (;;) {
-        if (check(EscPress) || check(NextPress)) return false;
-        if (check(SelPress)) return true;
-        vTaskDelay(20 / portTICK_PERIOD_MS);
-    }
+    drawMainBorder(true);
+    return displayMessage(message ? message : "Continue?", "No", nullptr, "Yes", bruceConfig.priColor) == 1;
 }
 
 int8_t showAdaptiveMessage(

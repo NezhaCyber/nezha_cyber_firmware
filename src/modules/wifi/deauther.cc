@@ -435,15 +435,34 @@ void stationDeauth(Host host, const uint8_t *apBssidIn) {
     buildOptimizedDeauthFrame(disassoc_sta_to_ap, apBSSID, targetMAC, apBSSID, 0x07, true);
 
     drawMainBorderWithTitle("Station Deauth");
-    tft.setTextSize(FP);
-    padprintln("Target: " + host.mac);
-    padprintln("AP: " + macToString(apBSSID));
-    String bandStr = (band == 1) ? "5GHz" : (band == 2) ? "6GHz" : "2.4GHz";
-    padprintln("CH:" + String(channel) + " (" + bandStr + ")");
-    padprintln("Mode: AP");
-    if (useMultipleAPs) { padprintln("Mesh: " + String(sameSSID_APs.size()) + " APs"); }
-    padprintln("");
-    padprintln("Press BACK to STOP.");
+    {
+        bool compact = (tftHeight < 160);
+        int cardX = compact ? 8 : 14;
+        int cardY = BORDER_PAD_Y + 23;
+        int cardW = tftWidth - 2 * cardX;
+        int cardH = tftHeight - cardY - (compact ? 18 : 22);
+        uint16_t surf = uiSurfaceColor();
+        int x = cardX + 10;
+        int w = cardW - 20;
+        int y = cardY + (compact ? 7 : 11);
+        int rowH = compact ? 13 : 17;
+        String bandStr = (band == 1) ? "5GHz" : (band == 2) ? "6GHz" : "2.4GHz";
+
+        uiDrawCard(cardX, cardY, cardW, cardH, true);
+        uiDrawBadge(x, y, "DEAUTH TX", TFT_RED, 14);
+        uiDrawBadge(x + w - 48, y, bandStr, bruceConfig.priColor, 14);
+        y += 18;
+        tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+        y += 3;
+
+        uiDrawKeyValueRow(x, y, w, "Target", host.mac, uiTextBrightColor(), surf);
+        y += rowH;
+        uiDrawKeyValueRow(x, y, w, "AP", macToString(apBSSID), bruceConfig.priColor, surf);
+        y += rowH;
+        String chInfo = "CH " + String(channel) + (useMultipleAPs ? (" (" + String(sameSSID_APs.size()) + " AP)") : "");
+        uiDrawKeyValueRow(x, y, w, "Channel", chInfo, bruceConfig.secColor, surf);
+        printCenterFootnote("ESC: Stop");
+    }
 
     SelPress = false;
     EscPress = false;

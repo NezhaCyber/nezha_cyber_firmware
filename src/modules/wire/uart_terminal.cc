@@ -41,19 +41,20 @@ static void uart_select_baudrate() {
     bool isCustom = true;
     int selected = 0;
 
-    options.clear();
+    std::vector<Option> localOpts;
+    localOpts.reserve(BAUD_PRESET_COUNT + 1);
     for (size_t i = 0; i < BAUD_PRESET_COUNT; i++) {
         if (baudPresets[i] == uartBaud) {
             selected = i;
             isCustom = false;
         }
-        options.push_back(
+        localOpts.push_back(
             {String(baudPresets[i]) + " bps",
              [i]() { uartBaud = baudPresets[i]; },
              baudPresets[i] == uartBaud}
         );
     }
-    options.push_back(
+    localOpts.push_back(
         {"Custom",
          []() {
              String value = num_keyboard(String(uartBaud), 8, "Custom baudrate:");
@@ -68,7 +69,7 @@ static void uart_select_baudrate() {
          isCustom}
     );
 
-    loopOptions(options, MENU_TYPE_SUBMENU, "Baudrate", selected);
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "Baudrate", selected);
 }
 
 /*********************************************************************
@@ -97,29 +98,39 @@ static void uart_terminal_run() {
     Serial1.begin(uartBaud, SERIAL_8N1, pins.rx, pins.tx);
 
     drawMainBorderWithTitle("UART Terminal");
+    int barY = tft.getCursorY();
+    int barH = LH + 4;
+    uint16_t surf = uiSurfaceColor();
+    tft.fillRoundRect(BORDER_PAD_X, barY, tftWidth - 2 * BORDER_PAD_X, barH, 4, surf);
+    tft.drawRoundRect(BORDER_PAD_X, barY, tftWidth - 2 * BORDER_PAD_X, barH, 4, uiBorderDimColor());
     tft.setTextSize(FP);
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    tft.setTextColor(uiTextMutedColor(), surf);
     String info = String(uartBaud) + " 8N1  RX:" + String(pins.rx) + " TX:" + String(pins.tx);
-    tft.drawString(info, BORDER_PAD_X, tft.getCursorY());
+    tft.drawString(info, BORDER_PAD_X + 5, barY + 2, 1);
 
-    // Last text row inside the border is reserved for the input line
-    const int16_t inputY = tftHeight - BORDER_PAD_X - LH;
-    const int16_t areaY = tft.getCursorY() + LH + 2;
-    const int16_t areaH = inputY - 2 - areaY;
+    // Last framed row inside the border is reserved for the input line
+    const int16_t inputBoxH = LH + 6;
+    const int16_t inputBoxY = tftHeight - BORDER_PAD_X - inputBoxH;
+    const int16_t inputY = inputBoxY + 3;
+    const int16_t areaY = barY + barH + 2;
+    const int16_t areaH = max((int16_t)16, (int16_t)(inputBoxY - 2 - areaY));
     ScrollableTextArea area(FP, BORDER_PAD_X, areaY, tftWidth - 2 * BORDER_PAD_X, areaH, false, false);
-    const int16_t inputMaxChars = (tftWidth - 2 * BORDER_PAD_X) / LW - 2;
+    const int16_t inputMaxChars = (tftWidth - 2 * BORDER_PAD_X - 10) / LW - 2;
 
     String input = "";
     String rxRun = ""; // bytes received since the last line terminator
     bool inputDirty = true;
 
     auto drawInputLine = [&]() {
-        tft.fillRect(BORDER_PAD_X, inputY, tftWidth - 2 * BORDER_PAD_X, LH, bruceConfig.bgColor);
+        tft.fillRoundRect(BORDER_PAD_X, inputBoxY, tftWidth - 2 * BORDER_PAD_X, inputBoxH, 4, surf);
+        tft.drawRoundRect(BORDER_PAD_X, inputBoxY, tftWidth - 2 * BORDER_PAD_X, inputBoxH, 4, uiBorderDimColor());
         tft.setTextSize(FP);
-        tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+        tft.setTextColor(bruceConfig.priColor, surf);
+        tft.drawString(">", BORDER_PAD_X + 4, inputY, 1);
+        tft.setTextColor(uiTextBrightColor(), surf);
         String view = input;
         if (view.length() > (size_t)inputMaxChars) view = view.substring(view.length() - inputMaxChars);
-        tft.drawString(">" + view + "_", BORDER_PAD_X, inputY);
+        tft.drawString(view + "_", BORDER_PAD_X + 4 + LW * 2, inputY, 1);
         inputDirty = false;
     };
 

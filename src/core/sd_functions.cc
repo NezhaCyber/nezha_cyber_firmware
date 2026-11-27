@@ -1,6 +1,7 @@
 #include "sd_functions.h"
 #include "bus_HAL.h"
 #include "display.h" // using displayRedStripe as error msg
+#include "i18n.h"
 #include "modules/badusb_ble/ducky_typer.h"
 #include "modules/bjs_interpreter/interpreter.h"
 #include "modules/gps/wdgwars.h"
@@ -939,8 +940,8 @@ void fileInfo(FS &fs, const String &filepath) {
     int bytesize = file.size();
     float filesize = bytesize;
     String unit = "B";
-
     time_t modifiedTime = file.getLastWrite();
+    file.close();
 
     if (filesize >= 1000000) {
         filesize /= 1000000.0;
@@ -950,22 +951,55 @@ void fileInfo(FS &fs, const String &filepath) {
         unit = "kB";
     }
 
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+
     drawMainBorderWithTitle("FILE INFO");
-    padprintln("");
-    padprintln("Path: " + filepath);
-    padprintln("");
-    padprintf("Bytes: %d\n", bytesize);
-    padprintln("");
-    padprintf("Size: %.02f %s\n", filesize, unit.c_str());
-    padprintln("");
-    padprintf("Modified: %s\n", ctime(&modifiedTime));
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
 
-    file.close();
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int y = cardY + (compact ? 8 : 12);
+    int rowH = (FP == 1 && bruce_i18n::isChinese()) ? (compact ? 15 : 18) : (compact ? 13 : 17);
+
+    // Header row: filename + FS badge
+    int slash = filepath.lastIndexOf('/');
+    String baseName = (slash >= 0) ? filepath.substring(slash + 1) : filepath;
+    String fsLabel = (&fs == &SD) ? "SD" : "LittleFS";
+    int16_t badgeW = bruce_i18n::utf8PixelWidth(fsLabel, FP) + 12;
+    uiDrawBadge(x + w - badgeW, y, fsLabel, bruceConfig.priColor, 15);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextBrightColor(), surf);
+    tft.drawString(bruce_i18n::utf8TruncateToWidth(baseName, w - badgeW - 8, FP), x, y + 3, 1);
+    y += max(rowH, 18);
+    tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+    y += 4;
+
+    char sizeBuf[28];
+    snprintf(sizeBuf, sizeof(sizeBuf), "%.2f %s", filesize, unit.c_str());
+    uiDrawKeyValueRow(x, y, w, "Path", filepath, uiTextBrightColor(), surf);
+    y += rowH;
+    uiDrawKeyValueRow(x, y, w, "Size", String(sizeBuf), bruceConfig.priColor, surf);
+    y += rowH;
+    uiDrawKeyValueRow(x, y, w, "Bytes", String(bytesize), uiTextBrightColor(), surf);
+    y += rowH;
+
+    if (y + LH <= cardY + cardH - 4) {
+        String modStr = String(ctime(&modifiedTime));
+        modStr.trim();
+        uiDrawKeyValueRow(x, y, w, "Modified", modStr, uiTextMutedColor(), surf);
+    }
+
+    printCenterFootnote("SEL / ESC: Back");
     delay(100);
-
-    while (!check(EscPress) && !check(SelPress)) { delay(100); }
-
-    return;
+    check(SelPress);
+    check(EscPress);
+    while (!check(EscPress) && !check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(20)); }
 }
 
 /*********************************************************************

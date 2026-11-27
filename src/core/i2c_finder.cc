@@ -1,6 +1,7 @@
 #include "i2c_finder.h"
 #include "bus_HAL.h"
 #include "display.h"
+#include "i18n.h"
 #include "mykeyboard.h"
 
 #define FIRST_I2C_ADDRESS 0x08 // 0x00-0x07 and 0x78-0x7F are reserved
@@ -15,57 +16,107 @@ bool busesShared() {
            bruceConfigPins.i2c_bus.scl == bruceConfigPins.sys_i2c.scl;
 }
 
-// One line per bus: "SYS 8/18: 0x34, 0x55" / "EXT 2/1: none" / "EXT 2/1: unavailable"
-void printBusScan(I2CBusId id, const String &label) {
-    padprint(label + ": ");
+// Scan one bus and render its results inside a card section.
+void drawBusScanRow(I2CBusId id, const String &label, int x, int &y, int w, uint16_t surf) {
     I2CLease lease = i2cLeaseBus(id);
+    String addrList = "";
+    int count = 0;
+    uint16_t valCol = uiTextBrightColor();
+
     if (!lease) {
-        // Configured but couldn't be opened: a line held low, or the SoC's only controller
-        // belongs to sys_i2c.
-        tft.print("unavailable");
-        padprintln("");
-        return;
+        addrList = bruce_i18n::tr("unavailable");
+        valCol = TFT_RED;
+    } else {
+        for (uint8_t addr = FIRST_I2C_ADDRESS; addr <= LAST_I2C_ADDRESS; addr++) {
+            if (!i2cProbe(lease, addr)) continue;
+            if (count > 0) addrList += " ";
+            char hexBuf[6];
+            snprintf(hexBuf, sizeof(hexBuf), "0x%02X", addr);
+            addrList += hexBuf;
+            count++;
+        }
+        if (count == 0) {
+            addrList = bruce_i18n::tr("none");
+            valCol = uiTextMutedColor();
+        } else {
+            valCol = bruceConfig.priColor;
+        }
     }
-    bool first = true;
-    for (uint8_t addr = FIRST_I2C_ADDRESS; addr <= LAST_I2C_ADDRESS; addr++) {
-        if (!i2cProbe(lease, addr)) continue;
-        if (!first) tft.print(", ");
-        first = false;
-        tft.printf("0x%X", addr);
+
+    int16_t badgeW = uiDrawBadge(x, y, label, count > 0 ? bruceConfig.priColor : uiSurfaceHiColor(), 15);
+    char cntBuf[12];
+    snprintf(cntBuf, sizeof(cntBuf), "%d", count);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextMutedColor(), surf);
+    tft.drawRightString(String(cntBuf) + " dev", x + w, y + 3, 1);
+    (void)badgeW;
+    y += 19;
+
+    std::vector<String> lines = bruce_i18n::utf8WrapToWidth(addrList, w, FP);
+    if (lines.empty()) lines.push_back(addrList);
+    tft.setTextColor(valCol, surf);
+    for (size_t i = 0; i < lines.size() && i < 3; ++i) {
+        tft.drawString(lines[i], x + 2, y, 1);
+        y += LH * FP + 3;
     }
-    if (first) tft.print("none");
-    padprintln("");
+    y += 4;
 }
 } // namespace
 
 void find_i2c_addresses() {
-    drawMainBorderWithTitle("I2C Finder");
-    padprintln("");
-    padprintln("");
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
 
-    padprintln("Checking I2C addresses ...\n\n");
-    delay(300);
+    drawMainBorderWithTitle("I2C Finder");
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextMutedColor(), surf);
+    tft.drawCentreString(bruce_i18n::tr("Scanning I2C buses..."), tftWidth / 2, cardY + cardH / 2 - 4, 1);
+    delay(200);
+
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int y = cardY + (compact ? 8 : 12);
 
     bool sysConfigured = pinsConfigured(bruceConfigPins.sys_i2c);
     bool userConfigured = pinsConfigured(bruceConfigPins.i2c_bus);
     if (!sysConfigured && !userConfigured) {
-        padprintln("No I2C bus configured");
+        tft.setTextSize(FP);
+        tft.setTextColor(uiTextMutedColor(), surf);
+        tft.drawCentreString(bruce_i18n::tr("No I2C bus configured"), tftWidth / 2, cardY + cardH / 2 - 4, 1);
     } else if (busesShared()) {
-        printBusScan(
+        drawBusScanRow(
             I2CBusId::Sys,
-            "SYS+EXT " + String((int)bruceConfigPins.sys_i2c.sda) + "/" + String((int)bruceConfigPins.sys_i2c.scl)
+            "SYS+EXT " + String((int)bruceConfigPins.sys_i2c.sda) + "/" + String((int)bruceConfigPins.sys_i2c.scl),
+            x,
+            y,
+            w,
+            surf
         );
     } else {
-        if (sysConfigured) printBusScan(I2CBusId::Sys, i2cBusLabel(I2CBusId::Sys));
-        if (userConfigured) printBusScan(I2CBusId::User, i2cBusLabel(I2CBusId::User));
+        if (sysConfigured) drawBusScanRow(I2CBusId::Sys, i2cBusLabel(I2CBusId::Sys), x, y, w, surf);
+        if (userConfigured && y + 24 < cardY + cardH) {
+            tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+            y += 4;
+            drawBusScanRow(I2CBusId::User, i2cBusLabel(I2CBusId::User), x, y, w, surf);
+        }
     }
 
+    printCenterFootnote("SEL / ESC: Back");
+    check(SelPress);
+    check(EscPress);
     while (1) {
         if (check(EscPress) || check(SelPress)) {
             returnToMenu = true;
             break;
         }
-        vTaskDelay(pdMS_TO_TICKS(1));
+        vTaskDelay(pdMS_TO_TICKS(15));
     }
 }
 

@@ -98,19 +98,24 @@ void displayScrollingText(const String &text, Opt_Coord &coord, bool highlight) 
 ***************************************************************************************/
 void TouchFooter(uint16_t color) {
 #if defined(HAS_TOUCH) && !defined(NO_TOUCH_FOOTER)
-    tft.drawRoundRect(
-        BORDER_OFFSET_FROM_SCREEN_EDGE,
-        tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 3,
-        tftWidth - 2 * BORDER_OFFSET_FROM_SCREEN_EDGE,
-        TOUCH_FOOTER_HEIGHT - BORDER_OFFSET_FROM_SCREEN_EDGE + 3,
-        FP + 4,
-        color
-    );
-    tft.setTextColor(color);
+    int fx = BORDER_OFFSET_FROM_SCREEN_EDGE;
+    int fy = tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 3;
+    int fw = tftWidth - 2 * BORDER_OFFSET_FROM_SCREEN_EDGE;
+    int fh = TOUCH_FOOTER_HEIGHT - BORDER_OFFSET_FROM_SCREEN_EDGE + 3;
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bdim = uiBorderDimColor();
+    uint16_t fg = uiTextBrightColor();
+    tft.fillRoundRect(fx, fy, fw, fh, FP + 4, surf);
+    tft.drawRoundRect(fx, fy, fw, fh, FP + 4, bdim);
+    tft.drawFastHLine(fx + 6, fy + 1, fw - 12, color);
+    tft.drawFastVLine(tftWidth / 3, fy + 4, fh - 8, bdim);
+    tft.drawFastVLine(2 * tftWidth / 3, fy + 4, fh - 8, bdim);
+    tft.setTextColor(fg, surf);
     tft.setTextSize(FM);
-    tft.drawCentreString(bruce_i18n::tr("PREV"), tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
-    tft.drawCentreString(bruce_i18n::tr("SEL"), tftWidth / 2, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
-    tft.drawCentreString(bruce_i18n::tr("NEXT"), 5 * tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
+    int ty = fy + max(1, (fh - LH * FM) / 2);
+    tft.drawCentreString(bruce_i18n::tr("PREV"), tftWidth / 6, ty, 1);
+    tft.drawCentreString(bruce_i18n::tr("SEL"), tftWidth / 2, ty, 1);
+    tft.drawCentreString(bruce_i18n::tr("NEXT"), 5 * tftWidth / 6, ty, 1);
 #else
     (void)color;
 #endif
@@ -121,19 +126,24 @@ void TouchFooter(uint16_t color) {
 ***************************************************************************************/
 void MegaFooter(uint16_t color) {
 #if defined(HAS_TOUCH) && !defined(NO_TOUCH_FOOTER)
-    tft.drawRoundRect(
-        BORDER_OFFSET_FROM_SCREEN_EDGE,
-        tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 3,
-        tftWidth - 2 * BORDER_OFFSET_FROM_SCREEN_EDGE,
-        TOUCH_FOOTER_HEIGHT - BORDER_OFFSET_FROM_SCREEN_EDGE + 3,
-        FP + 4,
-        color
-    );
-    tft.setTextColor(color);
+    int fx = BORDER_OFFSET_FROM_SCREEN_EDGE;
+    int fy = tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 3;
+    int fw = tftWidth - 2 * BORDER_OFFSET_FROM_SCREEN_EDGE;
+    int fh = TOUCH_FOOTER_HEIGHT - BORDER_OFFSET_FROM_SCREEN_EDGE + 3;
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bdim = uiBorderDimColor();
+    uint16_t fg = uiTextBrightColor();
+    tft.fillRoundRect(fx, fy, fw, fh, FP + 4, surf);
+    tft.drawRoundRect(fx, fy, fw, fh, FP + 4, bdim);
+    tft.drawFastHLine(fx + 6, fy + 1, fw - 12, color);
+    tft.drawFastVLine(tftWidth / 3, fy + 4, fh - 8, bdim);
+    tft.drawFastVLine(2 * tftWidth / 3, fy + 4, fh - 8, bdim);
+    tft.setTextColor(fg, surf);
     tft.setTextSize(FM);
-    tft.drawCentreString(bruce_i18n::tr("Exit"), tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
-    tft.drawCentreString(bruce_i18n::tr("UP"), tftWidth / 2, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
-    tft.drawCentreString(bruce_i18n::tr("DOWN"), 5 * tftWidth / 6, tftHeight + BORDER_OFFSET_FROM_SCREEN_EDGE - 1, 1);
+    int ty = fy + max(1, (fh - LH * FM) / 2);
+    tft.drawCentreString(bruce_i18n::tr("Exit"), tftWidth / 6, ty, 1);
+    tft.drawCentreString(bruce_i18n::tr("UP"), tftWidth / 2, ty, 1);
+    tft.drawCentreString(bruce_i18n::tr("DOWN"), 5 * tftWidth / 6, ty, 1);
 #else
     (void)color;
 #endif
@@ -981,19 +991,53 @@ static void drawBackChevron(int cx, int cy, uint16_t color) {
 }
 
 void progressHandler(int progress, size_t total, const String &message) {
-    int barHeight = 8;
-    int barY = tftHeight - barHeight - 16;
-    int trackX = 20;
-    int trackW = tftWidth - 40;
-    int barWidth = (total > 0) ? map(progress, 0, total, 0, trackW) : 0;
-    if (barWidth < 3) {
+    static String s_lastMsg = "";
+    static int s_lastPct = -1;
+
+    int pct = (total > 0) ? constrain((int)((uint64_t)progress * 100ULL / total), 0, 100) : 0;
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 10 : 18;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = compact ? 52 : 66;
+    int cardY = max((int)STATUS_BAR_HEIGHT + 2, (tftHeight - cardH) / 2);
+    int trackX = cardX + 12;
+    int trackW = cardW - 24;
+    int barH = compact ? 8 : 10;
+    int barY = cardY + cardH - barH - (compact ? 11 : 14);
+    uint16_t surf = uiSurfaceColor();
+
+    bool initFrame = (progress <= 0) || (pct < s_lastPct) || (message != s_lastMsg) || (s_lastPct < 0);
+    if (initFrame) {
+        s_lastMsg = message;
         tft.fillRect(0, STATUS_BAR_HEIGHT - 4, tftWidth, tftHeight - STATUS_BAR_HEIGHT + 4, bruceConfig.bgColor);
-        tft.fillRoundRect(trackX, barY, trackW, barHeight, 4, uiSurfaceHiColor());
-        displayRedStripe(message, TFT_WHITE, bruceConfig.priColor);
+        uiDrawCard(cardX, cardY, cardW, cardH, true);
+        String trMsg = bruce_i18n::tr(message);
+        if (!compact) {
+            uiDrawText16(trMsg, cardX + 12, cardY + 12, cardW - 60, uiTextBrightColor(), surf, 0);
+        } else {
+            tft.setTextSize(FP);
+            tft.setTextColor(uiTextBrightColor(), surf);
+            tft.drawString(bruce_i18n::utf8TruncateToWidth(trMsg, cardW - 56, FP), cardX + 12, cardY + 11, 1);
+        }
+        tft.fillRoundRect(trackX, barY, trackW, barH, barH / 2, uiSurfaceHiColor());
     }
-    if (barWidth > 0) {
-        tft.fillRoundRect(trackX, barY, min(barWidth, trackW), barHeight, 4, bruceConfig.priColor);
+
+    char pctBuf[8];
+    snprintf(pctBuf, sizeof(pctBuf), "%d%%", pct);
+    tft.fillRect(cardX + cardW - 44, cardY + 10, 34, 16, surf);
+    tft.setTextSize(FP);
+    tft.setTextColor(bruceConfig.priColor, surf);
+    tft.drawRightString(pctBuf, cardX + cardW - 12, cardY + (compact ? 11 : 14), 1);
+
+    int fillW = (trackW * pct) / 100;
+    if (fillW > 0) {
+        tft.fillRoundRect(trackX, barY, min(fillW, trackW), barH, barH / 2, bruceConfig.priColor);
+        if (bruceConfig.nezhaThemeStyle > 0 && fillW >= 8) {
+            int tipW = min(6, fillW - 2);
+            tft.fillRoundRect(trackX + fillW - tipW, barY + 1, tipW, barH - 2, 2, bruceConfig.secColor);
+        }
     }
+    s_lastPct = (pct >= 100) ? -1 : pct;
 }
 
 /***************************************************************************************
@@ -1486,6 +1530,51 @@ void drawNezhaRibbonRule(int x, int y, int w) {
     }
 }
 
+void uiDrawCard(int x, int y, int w, int h, bool accentRule) {
+    if (w <= 4 || h <= 4) return;
+    uint16_t surf = uiSurfaceColor();
+    tft.fillRoundRect(x, y, w, h, 8, surf);
+    tft.drawRoundRect(x, y, w, h, 8, uiBorderDimColor());
+    if (accentRule && bruceConfig.nezhaThemeStyle > 0 && w > 24) {
+        drawNezhaRibbonRule(x + 10, y + 2, w - 20);
+    }
+}
+
+int16_t uiDrawBadge(int x, int y, const String &text, uint16_t fillCol, int h) {
+    String label = bruce_i18n::tr(text);
+    int16_t textPx = bruce_i18n::utf8PixelWidth(label, FP);
+    int16_t padX = 6;
+    int16_t w = textPx + padX * 2;
+    int16_t th = (FP == 1 && bruce_i18n::containsNonAscii(label)) ? 12 : (LH * FP);
+    if (h < th + 4) h = th + 4;
+    uint16_t fg = uiTextOnAccentColor(fillCol);
+    tft.fillRoundRect(x, y, w, h, h / 2, fillCol);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(fg, fillCol);
+    tft.drawString(label, x + padX, y + (h - th) / 2, 1);
+    return w;
+}
+
+void uiDrawKeyValueRow(
+    int x, int y, int w, const String &key, const String &val, uint16_t valCol, uint16_t bgCol
+) {
+    if (w <= 16) return;
+    String trKey = bruce_i18n::tr(key);
+    int16_t keyMax = max((int16_t)36, (int16_t)(w * 42 / 100));
+    String fittedKey = bruce_i18n::utf8TruncateToWidth(trKey, keyMax, FP);
+    int16_t keyW = bruce_i18n::utf8PixelWidth(fittedKey, FP);
+    int16_t valMax = max((int16_t)24, (int16_t)(w - keyW - 8));
+    String fittedVal = bruce_i18n::utf8TruncateToWidth(val, valMax, FP);
+
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(uiTextMutedColor(), bgCol);
+    tft.drawString(fittedKey, x, y, 1);
+    tft.setTextColor(valCol, bgCol);
+    tft.drawRightString(fittedVal, x + w, y, 1);
+}
+
 void invalidateStatusBarCache() { s_statusBarCache.valid = false; }
 
 void drawStatusBar(bool force) {
@@ -1676,7 +1765,7 @@ void printTitle(const String &title) {
             bruce_i18n::utf8TruncateToWidth(t, maxW, FP), tftWidth / 2, BORDER_PAD_Y + (16 - th) / 2, 1
         );
     }
-    tft.drawFastHLine(8, BORDER_PAD_Y + 18, tftWidth - 16, uiBorderDimColor());
+    drawNezhaRibbonRule(8, BORDER_PAD_Y + 18, tftWidth - 16);
 
     tft.setTextColor(bruceConfig.priColor, bg);
     tft.setTextSize(FP);

@@ -1,5 +1,6 @@
 #include "rf_jammer.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "rf_utils.h"
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
@@ -26,60 +27,70 @@ RFJamMode RFJammer::showModeMenu(bool defaultFull) {
     int menuIdx = defaultFull ? 0 : 1;
     bool redraw = true;
     int modeCount = isCC1101 ? RF_JAM_MODE_COUNT : 2; // Only Full+Itmt for raw GPIO
-    uint16_t accent = getComplementaryColor2(bruceConfig.priColor);
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+    uint16_t pri = bruceConfig.priColor;
+    uint16_t onAcc = uiTextOnAccentColor(pri);
+
+    drawMainBorderWithTitle("RF JAMMER MODE");
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    printCenterFootnote("SEL: Start  ESC: Back");
+
+    const char *descs[] = {
+        "Max duty cycle continuous TX",
+        "Varied pulse patterns + bursts",
+        "CC1101 HW random noise (PN9)",
+        "Sweep +/-5MHz around target"
+    };
 
     while (true) {
         if (check(EscPress)) return (RFJamMode)255; // Cancel
 
         if (redraw) {
-            drawMainBorderWithTitle("RF JAMMER MODE");
-            tft.setTextSize(FP);
-
-            int y = BORDER_PAD_Y + FM * LH + 4;
-            int lineH = max(14, tftHeight / (modeCount + 4));
-
+            int rowH = compact ? 15 : 22;
+            int y = cardY + (compact ? 6 : 10);
             for (int i = 0; i < modeCount; i++) {
-                int itemY = y + i * lineH;
-                uint16_t fg = (i == menuIdx) ? bruceConfig.bgColor : bruceConfig.priColor;
-                uint16_t bg = (i == menuIdx) ? accent : bruceConfig.bgColor;
+                int itemY = y + i * (rowH + 3);
+                bool sel = (i == menuIdx);
+                uint16_t rBg = sel ? pri : uiSurfaceHiColor();
+                uint16_t rFg = sel ? onAcc : uiTextBrightColor();
 
-                tft.fillRect(7, itemY, tftWidth - 14, lineH - 2, bg);
-                tft.setTextColor(fg, bg);
-                tft.drawCentreString(JAM_MODE_NAMES[i], tftWidth / 2, itemY + 2, 1);
+                tft.fillRoundRect(cardX + 8, itemY, cardW - 16, rowH, 5, rBg);
+                if (!sel) tft.drawRoundRect(cardX + 8, itemY, cardW - 16, rowH, 5, uiBorderDimColor());
+                tft.setTextDatum(TL_DATUM);
+                tft.setTextSize(FP);
+                tft.setTextColor(rFg, rBg);
+                tft.drawCentreString(bruce_i18n::tr(JAM_MODE_NAMES[i]), tftWidth / 2, itemY + (rowH - LH * FP) / 2, 1);
             }
 
-            // Description of selected mode
-            int descY = y + modeCount * lineH + 4;
-            tft.fillRect(7, descY, tftWidth - 14, lineH * 2, bruceConfig.bgColor);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            const char *descs[] = {
-                "Max duty cycle continuous TX",
-                "Varied pulse patterns + bursts",
-                "CC1101 HW random noise (PN9)",
-                "Sweep +/-5MHz around target"
-            };
-            tft.drawCentreString(descs[menuIdx], tftWidth / 2, descY + 2, 1);
-
-            // Footer
-            int footerY = tftHeight - BORDER_PAD_X - FP * LH - 2;
-            tft.fillRect(7, footerY, tftWidth - 14, FP * LH, bruceConfig.bgColor);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-            tft.drawCentreString("[OK]Select [ESC]Back", tftWidth / 2, footerY, 1);
-
+            int descY = cardY + cardH - (compact ? 14 : 20);
+            tft.fillRect(cardX + 8, descY - 2, cardW - 16, LH * FP + 4, surf);
+            tft.setTextSize(FP);
+            tft.setTextColor(uiTextMutedColor(), surf);
+            tft.drawCentreString(
+                bruce_i18n::utf8TruncateToWidth(bruce_i18n::tr(descs[menuIdx]), cardW - 16, FP),
+                tftWidth / 2,
+                descY,
+                1
+            );
             redraw = false;
         }
 
-        if (check(NextPress)) {
+        if (check(NextPress) || check(DownPress)) {
             menuIdx = (menuIdx + 1) % modeCount;
             redraw = true;
         }
-        if (check(PrevPress)) {
+        if (check(PrevPress) || check(UpPress)) {
             menuIdx = (menuIdx + modeCount - 1) % modeCount;
             redraw = true;
         }
         if (check(SelPress)) return (RFJamMode)menuIdx;
 
-        delay(50);
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
@@ -116,58 +127,38 @@ void RFJammer::setup() {
 }
 
 void RFJammer::display_banner() {
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    uint16_t surf = uiSurfaceColor();
+
     drawMainBorderWithTitle("RF JAMMER");
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
 
-    int y = BORDER_PAD_Y + FM * LH + 4;
-    int lineH = max(14, tftHeight / 10);
-    tft.setTextSize(FP);
-    char buf[40];
-    uint16_t accent = getComplementaryColor2(bruceConfig.priColor);
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int y = cardY + (compact ? 7 : 12);
 
-    // Line 1: Mode badge (centered, accent rounded rect)
+    // Header row: Mode badge + hardware module badge
     const char *modeName = JAM_MODE_NAMES[jamMode];
-    int mbW = strlen(modeName) * 6 + 10;
-    int mbX = (tftWidth - mbW) / 2;
-    tft.fillRoundRect(mbX, y, mbW, lineH - 2, 3, accent);
-    tft.setTextColor(bruceConfig.bgColor, accent);
-    tft.drawCentreString(modeName, tftWidth / 2, y + 2, 1);
-    y += lineH;
-
-    // Line 2: Frequency + Module badge
-    tft.fillRect(7, y, tftWidth - 14, lineH, bruceConfig.bgColor);
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    snprintf(buf, sizeof(buf), "%.2f MHz", bruceConfigPins.rfFreq);
-    tft.drawString(buf, 12, y + 2, 1);
+    uiDrawBadge(x, y, modeName, bruceConfig.priColor, 15);
     const char *modStr = isCC1101 ? "CC1101" : "RAW TX";
-    int mdW = strlen(modStr) * 6 + 8;
-    int mdX = tftWidth - 12 - mdW;
-    tft.fillRoundRect(mdX, y + 1, mdW, lineH - 3, 3, bruceConfig.priColor);
-    tft.setTextColor(bruceConfig.bgColor, bruceConfig.priColor);
-    tft.drawCentreString(modStr, mdX + mdW / 2, y + 2, 1);
-    y += lineH;
+    int16_t modW = bruce_i18n::utf8PixelWidth(modStr, FP) + 12;
+    uiDrawBadge(x + w - modW, y, modStr, uiSurfaceHiColor(), 15);
+    y += compact ? 18 : 24;
+    tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+    y += compact ? 3 : 6;
 
-    // Line 3: Timer + Stats
-    tft.setTextColor(accent, bruceConfig.bgColor);
-    tft.drawString("00:00", 12, y + 2, 1);
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    if (jamMode == RF_JAM_SWEEP) {
-        tft.drawRightString("Sweeps: 0", tftWidth - 12, y + 2, 1);
-    } else {
-        tft.drawRightString("Pulses: 0", tftWidth - 12, y + 2, 1);
-    }
-    y += lineH;
+    // Frequency row
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.2f MHz", bruceConfigPins.rfFreq);
+    uiDrawKeyValueRow(x, y, w, "Frequency", String(buf), uiTextBrightColor(), surf);
 
-    y += lineH;
-
-    // Line 5: ACTIVE indicator with dot
-    tft.fillCircle(tftWidth / 2 - 50, y + lineH / 2, 4, accent);
-    tft.setTextColor(accent, bruceConfig.bgColor);
-    tft.drawString("JAMMING ACTIVE", tftWidth / 2 - 38, y + 2, 1);
-
-    // Footer
-    int footerY = tftHeight - BORDER_PAD_X - FP * LH - 2;
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.drawCentreString("[ESC] Stop", tftWidth / 2, footerY, 1);
+    // Initial live stats & TX indicator
+    update_display(0);
+    printCenterFootnote("ESC: Stop");
 }
 
 void RFJammer::update_display(uint32_t elapsedMs) {
@@ -175,31 +166,48 @@ void RFJammer::update_display(uint32_t elapsedMs) {
     unsigned long mins = secs / 60;
     secs %= 60;
 
-    int y = BORDER_PAD_Y + FM * LH + 4;
-    int lineH = max(14, tftHeight / 10);
-    y += lineH * 2; // Skip to timer line
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 14;
+    int cardY = BORDER_PAD_Y + 23;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 18 : 22);
+    int x = cardX + 10;
+    int w = cardW - 20;
+    int rowY = cardY + (compact ? 42 : 62);
+    uint16_t surf = uiSurfaceColor();
 
-    uint16_t accent = getComplementaryColor2(bruceConfig.priColor);
-
-    // Update timer + stats
-    tft.fillRect(7, y, tftWidth - 14, lineH, bruceConfig.bgColor);
-    tft.setTextSize(FP);
-    tft.setTextColor(accent, bruceConfig.bgColor);
-    char buf[30];
-    snprintf(buf, sizeof(buf), "%02lu:%02lu", mins, secs);
-    tft.drawString(buf, 12, y + 2, 1);
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    char tbuf[16];
+    snprintf(tbuf, sizeof(tbuf), "%02lu:%02lu", mins, secs);
+    char sbuf[24];
     if (jamMode == RF_JAM_SWEEP) {
-        snprintf(buf, sizeof(buf), "Sweeps: %lu", (unsigned long)sweepCount);
+        snprintf(sbuf, sizeof(sbuf), "Sweeps: %lu", (unsigned long)sweepCount);
     } else {
-        snprintf(buf, sizeof(buf), "P: %lu", (unsigned long)pulseCount);
+        snprintf(sbuf, sizeof(sbuf), "Pulses: %lu", (unsigned long)pulseCount);
     }
-    tft.drawRightString(buf, tftWidth - 12, y + 2, 1);
 
-    // Blink activity dot
-    y += lineH * 2; // Skip to ACTIVE line
-    bool dotOn = (secs % 2 == 0);
-    tft.fillCircle(tftWidth / 2 - 50, y + lineH / 2, 4, dotOn ? accent : bruceConfig.bgColor);
+    tft.fillRect(x, rowY - 1, w, LH * FP + 4, surf);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(bruceConfig.secColor, surf);
+    tft.drawString(tbuf, x, rowY, 1);
+    tft.setTextColor(uiTextBrightColor(), surf);
+    tft.drawRightString(sbuf, x + w, rowY, 1);
+
+    // Live TX status + safety timeout progress bar
+    int barY = cardY + cardH - (compact ? 14 : 22);
+    int barH = compact ? 5 : 6;
+    tft.fillRoundRect(x, barY, w, barH, barH / 2, uiSurfaceHiColor());
+    int fillW = (int)((uint64_t)min((uint32_t)elapsedMs, (uint32_t)MAX_JAMMER_RUNTIME) * w / MAX_JAMMER_RUNTIME);
+    if (fillW > 0) tft.fillRoundRect(x, barY, min(fillW, w), barH, barH / 2, bruceConfig.priColor);
+
+    int actY = barY - (compact ? 13 : 18);
+    if (actY > rowY + LH * FP + 2) {
+        bool dotOn = (secs % 2 == 0);
+        tft.fillRect(x, actY, w, LH * FP + 4, surf);
+        tft.fillCircle(tftWidth / 2 - 46, actY + 4, 3, dotOn ? TFT_RED : uiBorderDimColor());
+        tft.setTextColor(bruceConfig.priColor, surf);
+        tft.drawCentreString("TX ACTIVE", tftWidth / 2 + 4, actY, 1);
+    }
 }
 
 // ── FULL POWER: Maximum duty cycle continuous TX ────────────────

@@ -115,7 +115,7 @@ static bool i2c_confirm_sys_write() {
 static void i2c_device_menu(WireI2cDevice dev) {
     bool sysWriteAllowed = false;
     while (!returnToMenu) {
-        options = {
+        std::vector<Option> localOpts = {
             {String("Read Register"),
              [dev]() {
                  int reg = i2c_pick_register("Register address:");
@@ -146,15 +146,8 @@ static void i2c_device_menu(WireI2cDevice dev) {
                      return;
                  }
                  displayRedStripe("Dumping..");
-                 ScrollableTextArea area(
-                     FP,
-                     BORDER_PAD_X,
-                     BORDER_PAD_Y,
-                     tftWidth - 2 * BORDER_PAD_X,
-                     tftHeight - BORDER_PAD_X - BORDER_PAD_Y,
-                     false,
-                     false
-                 );
+                 String dumpTitle = "I2C 0x" + String(dev.addr, HEX) + " Dump";
+                 ScrollableTextArea area(dumpTitle);
                  bool any = false;
                  for (int base = 0; base < 256; base += 16) {
                      String row = String(base, HEX) + ":";
@@ -173,19 +166,14 @@ static void i2c_device_menu(WireI2cDevice dev) {
                      displayError("Device stopped answering", true);
                      return;
                  }
-                 area.draw(true);
-                 while (!check(SelPress) && !check(EscPress)) {
-                     wakeUpScreen();
-                     vTaskDelay(pdMS_TO_TICKS(20));
-                 }
-                 check(SelPress);
-                 check(EscPress);
+                 area.show(true);
              }},
+            {String("Back"), []() { returnToMenu = true; }},
         };
-        addOptionToMainMenu();
         String title = "I2C 0x" + String(dev.addr, HEX) + " " + i2c_bus_tag(dev.bus);
-        loopOptions(options, MENU_TYPE_SUBMENU, title.c_str());
+        loopOptions(localOpts, MENU_TYPE_SUBMENU, title.c_str());
     }
+    returnToMenu = false;
 }
 
 /*********************************************************************
@@ -205,16 +193,16 @@ static void i2c_scan_menu() {
         return;
     }
 
-    options.clear();
+    std::vector<Option> localOpts;
     for (const WireI2cDevice &dev : found) {
-        options.push_back(
+        localOpts.push_back(
             {String("0x") + String(dev.addr, HEX) + " " + i2c_bus_tag(dev.bus),
              [dev]() { i2c_device_menu(dev); }}
         );
     }
-    options.push_back({String("Scan again"), []() { i2c_scan_menu(); }});
-    addOptionToMainMenu();
-    loopOptions(options, MENU_TYPE_SUBMENU, "I2C Devices");
+    localOpts.push_back({String("Scan again"), []() { i2c_scan_menu(); }});
+    localOpts.push_back({String("Back"), []() {}});
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "I2C Devices");
 }
 
 /*********************************************************************
@@ -225,13 +213,13 @@ void i2c_bus_setup() {
     returnToMenu = false;
     while (!returnToMenu) {
         BruceConfigPins::I2CPins pins = bruceConfigPins.i2c_bus;
-        options = {
+        std::vector<Option> localOpts = {
             {String("Pins: SDA ") + int(pins.sda) + " SCL " + int(pins.scl),
              []() { setI2CPinsMenu(bruceConfigPins.i2c_bus); }},
             {String("Scan Devices"), i2c_scan_menu},
+            {String("Main Menu"), []() { backToMenu(); }},
         };
-        addOptionToMainMenu();
-        loopOptions(options, MENU_TYPE_SUBMENU, "I2C Bus");
+        loopOptions(localOpts, MENU_TYPE_SUBMENU, "I2C Bus");
     }
 }
 #endif

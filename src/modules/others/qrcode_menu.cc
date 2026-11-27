@@ -64,30 +64,25 @@ void pix_qrcode() {
 }
 
 void qrcode_menu() {
-
-    std::vector<Option> options;
-
-    // Add QR codes from the config
+    std::vector<Option> localOpts;
     for (const auto &entry : bruceConfig.qrCodes) {
-        options.push_back({entry.menuName.c_str(), lambdaHelper(qrcode_display, entry.content)});
+        localOpts.push_back({entry.menuName.c_str(), lambdaHelper(qrcode_display, entry.content)});
     }
+    localOpts.push_back({"PIX", pix_qrcode});
+    localOpts.push_back({"Custom", custom_qrcode_menu});
+    localOpts.push_back({"Main Menu", []() { backToMenu(); }});
 
-    options.push_back({"PIX", pix_qrcode});
-    options.push_back({"Custom", custom_qrcode_menu});
-    addOptionToMainMenu();
-
-    loopOptions(options);
-    options.clear();
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "QR Codes");
 }
 
 void custom_qrcode_menu() {
-    options = {
+    std::vector<Option> localOpts = {
         {"Display",      display_custom_qrcode  },
         {"Save&Display", save_and_display_qrcode},
         {"Remove",       remove_custom_qrcode   },
-        {"Back",         qrcode_menu            }
+        {"Back",         []() {}                }
     };
-    loopOptions(options);
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "Custom QR");
 }
 
 void save_and_display_qrcode() {
@@ -119,22 +114,19 @@ void save_and_display_qrcode() {
 
 void remove_custom_qrcode() {
     if (bruceConfig.qrCodes.empty()) {
-        displayInfo("There is nothing to remove!");
-        delay(1000);
-        custom_qrcode_menu();
+        displayInfo("There is nothing to remove!", true);
+        return;
     }
-    std::vector<Option> options;
+    std::vector<Option> localOpts;
 
-    // Populate options with the QR codes from the config
     for (const auto &entry : bruceConfig.qrCodes) {
-        options.emplace_back(entry.menuName.c_str(), [=]() {
+        localOpts.emplace_back(entry.menuName.c_str(), [=]() {
             bruceConfig.removeQrCodeEntry(entry.menuName);
             log_i("Removed QR code: %s", entry.menuName.c_str());
-            custom_qrcode_menu();
         });
     }
 
-    options.emplace_back("Back", [=]() { custom_qrcode_menu(); });
+    localOpts.emplace_back("Back", []() {});
 
-    loopOptions(options);
+    loopOptions(localOpts, MENU_TYPE_SUBMENU, "Remove QR");
 }

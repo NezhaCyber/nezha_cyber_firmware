@@ -1,6 +1,7 @@
 #include "evil_portal.h"
 #include "core/config.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/utils.h"
@@ -428,45 +429,63 @@ void EvilPortal::checkAndExtendDuration() {
 void EvilPortal::drawScreen() {
     drawMainBorderWithTitle("EVIL PORTAL");
 
-    String subtitle = "AP: " + apName.substring(0, 30);
-    if (apName.length() > 30) subtitle += "...";
-    printSubtitle(subtitle);
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 12;
+    int cardY = BORDER_PAD_Y + 22;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 16 : 20);
+    uint16_t surf = uiSurfaceColor();
+    uint16_t bright = uiTextBrightColor();
+    int x = cardX + 8;
+    int w = cardW - 16;
+    int y = cardY + (compact ? 6 : 10);
+    int rowH = compact ? 12 : 16;
+
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+
+    // Header row: SSID + ACTIVE badge
+    int16_t badgeW = bruce_i18n::utf8PixelWidth("ACTIVE", FP) + 12;
+    uiDrawBadge(x + w - badgeW, y, "ACTIVE", TFT_DARKGREEN, 14);
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    tft.setTextColor(bright, surf);
+    tft.drawString(bruce_i18n::utf8TruncateToWidth("AP: " + apName, w - badgeW - 6, FP), x, y + 2, 1);
+    y += 17;
+    tft.drawFastHLine(x, y - 2, w, uiBorderDimColor());
+    y += 3;
 
     String apIp = WiFi.softAPIP().toString();
-    padprintln("");
-    if (bruceConfig.evilPortalEndpoints.showEndpoints) {
-        if (bruceConfig.evilPortalEndpoints.allowGetCreds) {
-            padprintln("-> " + apIp + bruceConfig.evilPortalEndpoints.getCredsEndpoint + " -> get creds");
-        } else {
-            padprintln("-> cred access disabled");
-        }
-        if (bruceConfig.evilPortalEndpoints.allowSetSsid) {
-            padprintln("-> " + apIp + bruceConfig.evilPortalEndpoints.setSsidEndpoint + " -> set ssid");
-        } else {
-            padprintln("-> SSID change disabled");
-        }
-    } else {
-        padprintln("Endpoints hidden");
-    }
-    padprintln("");
+    uiDrawKeyValueRow(x, y, w, "Gateway", apIp, bruceConfig.priColor, surf);
+    y += rowH;
 
-    padprintln("Captive Portal: ACTIVE");
-    padprintln("Notifications: ENABLED");
-
-    if (!_verifyPwd) {
-        padprint("Victims: " + String(totalCapturedCredentials));
-    } else {
-        padprint("Attempt: " + String(totalCapturedCredentials));
-    }
     String passMode = "";
     switch (bruceConfig.evilPortalPasswordMode) {
         case FULL_PASSWORD: passMode = "Full"; break;
         case FIRST_LAST_CHAR: passMode = "p******d"; break;
         case HIDE_PASSWORD: passMode = "*hidden*"; break;
-        case SAVE_LENGTH: passMode = "Length only"; break;
+        case SAVE_LENGTH: passMode = "Length"; break;
     }
-    padprintln("Pwd mode: " + passMode);
-    printLastCapturedCredential();
+    uiDrawKeyValueRow(
+        x, y, w, _verifyPwd ? "Attempt" : "Victims", String(totalCapturedCredentials) + "  (" + passMode + ")",
+        bruceConfig.secColor, surf
+    );
+    y += rowH;
+
+    if (bruceConfig.evilPortalEndpoints.showEndpoints && y + rowH <= cardY + cardH - 6) {
+        String ep = bruceConfig.evilPortalEndpoints.allowGetCreds ? bruceConfig.evilPortalEndpoints.getCredsEndpoint
+                                                                  : "disabled";
+        uiDrawKeyValueRow(x, y, w, "Creds URL", ep, uiTextMutedColor(), surf);
+        y += rowH;
+    }
+
+    if (lastCred.length() && y + LH <= cardY + cardH - 4) {
+        tft.drawFastHLine(x, y - 1, w, uiBorderDimColor());
+        y += 2;
+        tft.setTextColor(bright, surf);
+        tft.setCursor(x, y);
+        printLastCapturedCredential();
+    }
+
     printDeauthStatus();
 }
 

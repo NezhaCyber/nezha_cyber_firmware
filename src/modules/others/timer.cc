@@ -8,6 +8,7 @@
 
 #include "timer.h"
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/utils.h"
 #include "modules/others/audio.h"
 
@@ -43,88 +44,102 @@ void Timer::setup() {
     SettingMode settingMode = SETTING_HOURS;
 
     char timeString[12];
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 16;
+    int cardY = BORDER_PAD_Y + 24;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 16 : 22);
+    uint16_t surf = uiSurfaceColor();
 
-    tft.fillScreen(bruceConfig.bgColor);
+    fontSize = 4;
+    for (uint8_t i = 4; i > 0; i--) {
+        if (i * LW * 8 < (cardW - 24)) {
+            fontSize = i;
+            break;
+        }
+    }
+    timerX = tftWidth / 2;
+    timerY = cardY + (compact ? 12 : 26);
+    underlineY = timerY + fontSize * LH + 4;
+
+    drawMainBorderWithTitle("Set a timer", true);
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    printCenterFootnote("PREV/NEXT: +/-  SEL: Next  ESC: Back");
     delay(DELAY_VALUE);
+    check(SelPress);
+    check(EscPress);
 
-    // Setup loop: configure timer duration and options
+    bool dirty = true;
     while (true) {
-        // Format and display time string
-        snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", hours % 100, minutes % 100, seconds % 100);
+        if (dirty) {
+            snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", hours % 100, minutes % 100, seconds % 100);
+            tft.fillRect(cardX + 6, timerY - 2, cardW - 12, fontSize * LH + 10, surf);
+            tft.setTextDatum(TL_DATUM);
+            tft.setTextSize(fontSize);
+            tft.setTextColor(uiTextBrightColor(), surf);
+            tft.drawCentreString(timeString, timerX, timerY, 1);
 
-        drawMainBorderWithTitle("Set a timer", false);
-        tft.setTextSize(fontSize);
-        tft.drawCentreString(timeString, timerX, timerY, 1);
-
-        // Update underline based on current setting mode
-        clearUnderline();
-        switch (settingMode) {
-            case SETTING_HOURS:
-                underlineHours();
-                drawSoundOption(false); // Show but don't highlight
-                break;
-            case SETTING_MINUTES:
-                underlineMinutes();
-                drawSoundOption(false);
-                break;
-            case SETTING_SECONDS:
-                underlineSeconds();
-                drawSoundOption(false);
-                break;
-            case SETTING_SOUND:
-                drawSoundOption(true); // Highlight sound option
-                break;
-            default: break;
+            clearUnderline();
+            switch (settingMode) {
+                case SETTING_HOURS:
+                    underlineHours();
+                    drawSoundOption(false);
+                    break;
+                case SETTING_MINUTES:
+                    underlineMinutes();
+                    drawSoundOption(false);
+                    break;
+                case SETTING_SECONDS:
+                    underlineSeconds();
+                    drawSoundOption(false);
+                    break;
+                case SETTING_SOUND:
+                    drawSoundOption(true);
+                    break;
+                default: break;
+            }
+            dirty = false;
         }
 
-        // Handle ESC/BACK button - exit without starting timer
         if (check(EscPress)) { return; }
 
-        // Handle increment (NextPress)
-        if (check(NextPress)) {
+        if (check(NextPress) || check(UpPress)) {
             switch (settingMode) {
                 case SETTING_HOURS: hours = (hours >= MAX_HOURS) ? 0 : hours + 1; break;
                 case SETTING_MINUTES: minutes = (minutes >= MAX_MINUTES) ? 0 : minutes + 1; break;
                 case SETTING_SECONDS: seconds = (seconds >= MAX_SECONDS) ? 0 : seconds + 1; break;
-                case SETTING_SOUND:
-                    playSoundOnFinish = !playSoundOnFinish; // Toggle
-                    break;
+                case SETTING_SOUND: playSoundOnFinish = !playSoundOnFinish; break;
                 default: break;
             }
+            dirty = true;
         }
 
-        // Handle decrement (PrevPress)
-        if (check(PrevPress)) {
+        if (check(PrevPress) || check(DownPress)) {
             switch (settingMode) {
                 case SETTING_HOURS: hours = (hours <= 0) ? MAX_HOURS : hours - 1; break;
                 case SETTING_MINUTES: minutes = (minutes <= 0) ? MAX_MINUTES : minutes - 1; break;
                 case SETTING_SECONDS: seconds = (seconds <= 0) ? MAX_SECONDS : seconds - 1; break;
-                case SETTING_SOUND:
-                    playSoundOnFinish = !playSoundOnFinish; // Toggle
-                    break;
+                case SETTING_SOUND: playSoundOnFinish = !playSoundOnFinish; break;
                 default: break;
             }
+            dirty = true;
         }
 
-        // Handle selection (SelPress) - move to next field or start timer
         if (check(SelPress)) {
             settingMode = static_cast<SettingMode>(settingMode + 1);
-
-            // If completed all fields and timer is valid, start countdown
             if (settingMode >= SETTING_COMPLETE) {
                 if (hours > 0 || minutes > 0 || seconds > 0) {
                     duration = (hours * 3600 + minutes * 60 + seconds) * 1000;
-                    break; // Exit setup, proceed to loop()
+                    break;
                 }
-                // If timer is 0:0:0, reset to first field
                 settingMode = SETTING_HOURS;
             }
+            dirty = true;
         }
 
-        delay(INPUT_POLL_DELAY); // CPU saving delay
+        vTaskDelay(pdMS_TO_TICKS(15));
     }
 
-    // Start the countdown
     loop();
 }
 
@@ -143,93 +158,102 @@ void Timer::loop() {
     unsigned long startMillis = millis();
     unsigned long lastUpdateMillis = 0;
 
-    int lastSeconds = -1; // Track last displayed value to avoid unnecessary redraws
+    int lastSeconds = -1;
     char timeString[12];
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 16;
+    int cardY = BORDER_PAD_Y + 24;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 16 : 22);
+    uint16_t surf = uiSurfaceColor();
 
-    tft.fillScreen(bruceConfig.bgColor);
+    drawMainBorderWithTitle("Timer", true);
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    printCenterFootnote("ESC: Cancel");
 
-    // Countdown loop
+    int trackX = cardX + 14;
+    int trackW = cardW - 28;
+    int barH = compact ? 6 : 8;
+    int barY = cardY + cardH - (compact ? 14 : 20);
+
     while (true) {
         unsigned long currentMillis = millis();
-
-        // Calculate elapsed time (handles millis() overflow correctly)
         unsigned long elapsedMillis = currentMillis - startMillis;
 
-        // Check for ESC/BACK button - exit timer
         if (check(EscPress)) { break; }
 
-        // Check if timer has completed
-        if (elapsedMillis >= duration) {
-            // Play alarm pattern only if enabled
+        if (elapsedMillis >= (unsigned long)duration) {
             if (playSoundOnFinish) { playAlarmPattern(); }
             break;
         }
 
-        // Update display only once per second to reduce flicker and CPU usage
-        if (currentMillis - lastUpdateMillis >= DISPLAY_UPDATE_INTERVAL) {
-            unsigned long remainingMillis = duration - elapsedMillis;
-
+        if (lastSeconds < 0 || currentMillis - lastUpdateMillis >= 250) {
+            unsigned long remainingMillis = (unsigned long)duration - elapsedMillis;
             int seconds = (remainingMillis / 1000) % 60;
             int minutes = (remainingMillis / 60000) % 60;
             int hours = (remainingMillis / 3600000) % 100;
 
-            // Only redraw if the seconds value changed
             if (seconds != lastSeconds) {
                 snprintf(timeString, sizeof(timeString), "%02d:%02d:%02d", hours, minutes, seconds);
+                int timeY = cardY + (cardH - fontSize * LH - barH) / 2 - 2;
+                tft.fillRect(cardX + 6, timeY - 2, cardW - 12, fontSize * LH + 4, surf);
+                tft.setTextDatum(TL_DATUM);
+                tft.setTextSize(fontSize);
+                tft.setTextColor(uiTextBrightColor(), surf);
+                tft.drawCentreString(timeString, timerX, timeY, 1);
 
-                // Calculate optimal font size based on display width
-                uint8_t f_size = 4;
-                for (uint8_t i = 4; i > 0; i--) {
-                    if (i * LW * 8 < (tftWidth - BORDER_PAD_X * 2)) {
-                        f_size = i;
-                        break;
-                    }
+                // Live themed countdown progress bar
+                tft.fillRoundRect(trackX, barY, trackW, barH, barH / 2, uiSurfaceHiColor());
+                int fillW = (duration > 0) ? (int)((uint64_t)remainingMillis * trackW / (uint64_t)duration) : 0;
+                if (fillW > 0) {
+                    tft.fillRoundRect(trackX, barY, min(fillW, trackW), barH, barH / 2, bruceConfig.priColor);
                 }
 
-                drawMainBorder(false);
-                tft.setTextSize(f_size);
-                tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-                tft.drawCentreString(timeString, timerX, timerY, 1);
-
+                drawStatusBar();
                 lastSeconds = seconds;
             }
-
             lastUpdateMillis = currentMillis;
         }
 
-        delay(INPUT_POLL_DELAY); // CPU saving delay
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
 
 void Timer::playAlarmPattern() {
-    // Display "TIME'S UP!" message
-    tft.fillScreen(bruceConfig.bgColor);
-    drawMainBorderWithTitle("Timer finished!", false);
+    bool compact = (tftHeight < 160);
+    int cardX = compact ? 8 : 18;
+    int cardY = BORDER_PAD_Y + 26;
+    int cardW = tftWidth - 2 * cardX;
+    int cardH = tftHeight - cardY - (compact ? 14 : 22);
+    uint16_t surf = uiSurfaceColor();
 
-    tft.setTextSize(FM);
-    tft.setTextColor(TFT_RED, bruceConfig.bgColor);
-    tft.drawCentreString("TIME'S UP!", timerX, timerY - LH, 1);
+    drawMainBorderWithTitle("Timer finished!", true);
+    uiDrawCard(cardX, cardY, cardW, cardH, true);
+    tft.drawRoundRect(cardX, cardY, cardW, cardH, 8, bruceConfig.priColor);
 
+    uiDrawText16(
+        bruce_i18n::tr("TIME'S UP!"),
+        tftWidth / 2,
+        cardY + cardH / 2 - (compact ? 14 : 18),
+        cardW - 16,
+        bruceConfig.priColor,
+        surf,
+        1
+    );
     tft.setTextSize(FP);
-    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.drawCentreString("Press SEL or BACK to stop", timerX, timerY + (2 * LH), 1);
+    tft.setTextColor(uiTextMutedColor(), surf);
+    tft.drawCentreString(
+        bruce_i18n::tr("Press SEL or BACK to stop"), tftWidth / 2, cardY + cardH / 2 + (compact ? 6 : 10), 1
+    );
 
-    // Alarm pattern loop - continues until user stops it
     while (true) {
-        // Check if user wants to stop the alarm
         if (check(SelPress) || check(EscPress)) { break; }
-
-        // Pattern:
         _tone(2000, 1000);
-
         if (check(SelPress) || check(EscPress)) { break; }
         if (responsiveDelay(100)) { break; }
-
         _tone(6000, 1000);
-
         if (check(SelPress) || check(EscPress)) { break; }
         if (responsiveDelay(50)) { break; }
-
         _tone(6000, 1000);
         if (check(SelPress) || check(EscPress)) { break; }
         if (responsiveDelay(800)) { break; }
@@ -237,61 +261,39 @@ void Timer::playAlarmPattern() {
 }
 
 void Timer::clearUnderline() {
-    tft.drawLine(BORDER_PAD_X, underlineY, tftWidth - BORDER_PAD_X, underlineY, bruceConfig.bgColor);
+    tft.fillRect(BORDER_PAD_X + 8, underlineY - 1, tftWidth - 2 * BORDER_PAD_X - 16, 4, uiSurfaceColor());
 }
 
 void Timer::underlineHours() {
-    tft.drawLine(
-        timerX - (4 * LW * fontSize),
-        underlineY,
-        timerX - (2 * LW * fontSize),
-        underlineY,
-        bruceConfig.priColor
-    );
+    tft.fillRoundRect(timerX - (4 * LW * fontSize), underlineY, 2 * LW * fontSize, 3, 1, bruceConfig.priColor);
 }
 
 void Timer::underlineMinutes() {
-    tft.drawLine(
-        timerX - (LW * fontSize), underlineY, timerX + (LW * fontSize), underlineY, bruceConfig.priColor
-    );
+    tft.fillRoundRect(timerX - (LW * fontSize), underlineY, 2 * LW * fontSize, 3, 1, bruceConfig.priColor);
 }
 
 void Timer::underlineSeconds() {
-    tft.drawLine(
-        timerX + (2 * LW * fontSize),
-        underlineY,
-        timerX + (4 * LW * fontSize),
-        underlineY,
-        bruceConfig.priColor
-    );
+    tft.fillRoundRect(timerX + (2 * LW * fontSize), underlineY, 2 * LW * fontSize, 3, 1, bruceConfig.priColor);
 }
 
 void Timer::drawSoundOption(bool highlight) {
-    int optionY = underlineY + (2 * LH); // Position below timer
+    bool compact = (tftHeight < 160);
+    int optionY = underlineY + (compact ? 8 : 14);
+    uint16_t surf = uiSurfaceColor();
+    uint16_t pillBg = highlight ? bruceConfig.priColor : uiSurfaceHiColor();
+    uint16_t pillFg = highlight ? uiTextOnAccentColor(bruceConfig.priColor) : uiTextMutedColor();
 
+    tft.fillRect(BORDER_PAD_X + 10, optionY - 2, tftWidth - 2 * BORDER_PAD_X - 20, 20, surf);
+
+    String optionText =
+        String(bruce_i18n::tr("Sound")) + ": " + String(bruce_i18n::tr(playSoundOnFinish ? "ON" : "OFF"));
+    int pillW = min(tftWidth - 40, bruce_i18n::utf8PixelWidth(optionText, FP) + 22);
+    int pillH = 16;
+    int pillX = timerX - pillW / 2;
+    tft.fillRoundRect(pillX, optionY, pillW, pillH, 8, pillBg);
+    if (!highlight) tft.drawRoundRect(pillX, optionY, pillW, pillH, 8, uiBorderDimColor());
     tft.setTextSize(FP);
-
-    // Choose colors based on highlight state
-    uint16_t textColor = highlight ? bruceConfig.priColor : TFT_DARKGREY;
-    uint16_t statusColor = playSoundOnFinish ? TFT_GREEN : TFT_RED;
-
-    // Clear the line first
-    tft.fillRect(BORDER_PAD_X, optionY, tftWidth - BORDER_PAD_X * 2, LH + 2, bruceConfig.bgColor);
-
-    // Build the option text
-    char optionText[32];
-    snprintf(optionText, sizeof(optionText), "Play sound: %s", playSoundOnFinish ? "ON" : "OFF");
-
-    tft.setTextColor(textColor, bruceConfig.bgColor);
-    tft.drawCentreString(optionText, timerX, optionY, 1);
-
-    // Optional: Draw a small indicator if highlighted
-    if (highlight) {
-        int indicatorY = optionY + LH + 2;
-        int textWidth = strlen(optionText) * LW;
-        int startX = timerX - (textWidth / 2);
-        int endX = timerX + (textWidth / 2);
-
-        tft.drawLine(startX, indicatorY, endX, indicatorY, bruceConfig.priColor);
-    }
+    tft.setTextColor(pillFg, pillBg);
+    int th = (FP == 1 && bruce_i18n::containsNonAscii(optionText)) ? 12 : (LH * FP);
+    tft.drawCentreString(optionText, timerX, optionY + (pillH - th) / 2, 1);
 }
