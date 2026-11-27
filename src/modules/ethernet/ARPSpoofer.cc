@@ -17,8 +17,6 @@
 #include "modules/wifi/scan_hosts.h"
 #include <esp_wifi.h>
 #include <globals.h>
-#include <iomanip>
-#include <iostream>
 #include <lwip/dns.h>
 #include <lwip/err.h>
 #include <lwip/etharp.h>
@@ -33,14 +31,13 @@
 #include <lwip/sys.h>
 #include <lwip/timeouts.h>
 #include <modules/wifi/sniffer.h> //use PCAP file saving functions
-#include <sstream>
 
 ARPSpoofer::ARPSpoofer(
     const Host &host, IPAddress gateway, uint8_t _gatewayMAC[6], uint8_t mac[6], bool _mitm
 ) {
     mitm = _mitm;
     memcpy(gatewayMAC, _gatewayMAC, 6);
-    memcpy(mac, myMAC, 6);
+    memcpy(myMAC, mac, 6);
     setup(host, gateway);
 }
 
@@ -66,8 +63,11 @@ bool ARPSpoofer::arpPCAPfile() {
 }
 
 void ARPSpoofer::setup(const Host &host, IPAddress gateway) {
-    if (!arpPCAPfile()) Serial.println("Fail creating ARP Pcap file");
-    writeHeader(pcapFile); // write pcap header into the file
+    if (arpPCAPfile()) {
+        writeHeader(pcapFile); // write pcap header into the file
+    } else {
+        Serial.println("Fail creating ARP Pcap file");
+    }
 
     for (int i = 0; i < 4; i++) victimIP[i] = host.ip[i];
     stringToMAC(host.mac.c_str(), victimMAC);
@@ -120,8 +120,10 @@ void ARPSpoofer::loop() {
     sendARPPacket(victimIP, victimMAC, gatewayIP, gatewayMAC, pcapFile);
     sendARPPacket(gatewayIP, gatewayMAC, victimIP, victimMAC, pcapFile);
 
-    pcapFile.flush();
-    pcapFile.close();
+    if (pcapFile) {
+        pcapFile.flush();
+        pcapFile.close();
+    }
 }
 
 // Function provided by @Fl1p, thank you brother!
@@ -170,13 +172,13 @@ void ARPSpoofer::sendARPPacket(
 
     // Enviar o pacote
     netif->linkoutput(netif, p);
-    pbuf_free(p);
     Serial.println("ARP Packet sent!");
 
-    // Capturar o pacote no arquivo PCAP
+    // Capturar o pacote no arquivo PCAP antes de liberar o pbuf (evita Use-After-Free)
     if (pcapFile) {
-        pcapFile.write((const uint8_t *)p->payload, p->tot_len); // don't know if it will work
+        pcapFile.write((const uint8_t *)p->payload, p->tot_len);
         pcapFile.flush();
     }
+    pbuf_free(p);
 }
 #endif
