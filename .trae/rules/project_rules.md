@@ -20,7 +20,13 @@
 - **DMA Guard (`src/core/radio_mem.h`)**: Always call `radioHasMemForWifi()`, `radioHasMemForBle()`, and `radioSafeBleInit()` before bringing up Wi-Fi/NimBLE.
 - **LTO & Hardware Safety**: Respect `-flto -Werror=odr`, `sdcardSPI(VSPI)` vs `AUX_SPI(HSPI)` separation, `inputLock()`/`inputUnlock()`, watchdog yields (`vTaskDelay`), and **never** modify `struct keyStroke` (`include/globals.h`).
 
-## 4. UI & Bilingual i18n (`zh-CN` default + `en`) / 界面与中文字库
+## 4. Architecture, Data Structures & Coding Patterns / 架构、数据结构与编码规范
+- **Layered Architecture**: `menu_items`/`serial_commands`/`WebUI` → `src/modules/` → `src/core/` → `bus_HAL` / `boards/*/interface.cc`. Keep shared protocol/file parsers in `src/modules/` or `src/core/` so GUI and CLI stay identical.
+- **Local `std::vector<Option>` (防 UAF)**: Always build a local `std::vector<Option> localOpts` inside submenus (see `RadarMenu.cc`); never reuse global `options` for nested menus.
+- **RAII Bus & Storage**: Use move-only RAII `I2CLease` (`src/core/bus_HAL.h`), `acquireSPIBus()`, and `FS &fs` (`getFsStorage()` in `src/core/sd_functions.h`, never hardcode `SD`).
+- **Bounded PODs & Lifecycle**: Cap scan tables with `static constexpr size_t MAX_*` + fixed fields (`uint8_t mac[6]`, `char name[N]`), put static lookup tables in sorted `PROGMEM` arrays, follow the 4-phase lifecycle (Guard → Init → Dirty-Flag Loop → Deterministic Teardown), and avoid C++ exceptions, RTTI, `<iostream>`, and `std::regex`.
+
+## 5. UI & Bilingual i18n (`zh-CN` default + `en`) / 界面与中文字库
 - Use theme helpers from `src/core/display.h` (`uiSurfaceColor()`, `uiBorderDimColor()`, `uiTextBrightColor()`, `uiTextOnAccentColor()`, `uiDrawText16()`) and support both touch+trackball (`320×240`) and 3-button (`240×135`) controls.
 - Route user-facing strings through `bruce_i18n::tr()`. Keep `src/core/lang_zh_cn.h` strictly ASCII `strcmp`-sorted.
 - **Never** hand-edit `src/core/cjk_font_data.h`; regenerate and verify via:
@@ -28,7 +34,7 @@
   python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check && python3 tools/gen_cjk_font.py --check-tables
   ```
 
-## 5. Formatting, Build Verification & Git / 格式化、验证与提交
+## 6. Formatting, Build Verification & Git / 格式化、验证与提交
 - C++ follows `.clang-format` (LLVM, 4 spaces, 110 columns, attached braces).
 - Verify before finishing:
   ```sh
