@@ -2,9 +2,10 @@
 #include "i18n.h"
 #define _scrollBuffer tft
 ScrollableTextArea::ScrollableTextArea(const String &title)
-    : firstVisibleLine{0}, _redraw{true}, _title(title), _fontSize(FP), _startX(BORDER_PAD_X),
-      _startY(BORDER_PAD_Y), _width(tftWidth - 2 * BORDER_PAD_X),
-      _height(tftHeight - BORDER_OFFSET_FROM_SCREEN_EDGE - BORDER_PAD_X - BORDER_PAD_Y) {
+    : firstVisibleLine{0}, lastVisibleLine{0}, _redraw{true}, _title(title), _fontSize(FP),
+      _startX(BORDER_PAD_X), _startY(BORDER_PAD_Y), _width(tftWidth - 2 * BORDER_PAD_X),
+      _height(tftHeight - BORDER_OFFSET_FROM_SCREEN_EDGE - BORDER_PAD_X - BORDER_PAD_Y),
+      _indentWrappedLines(false) {
     drawMainBorder();
 
     if (!_title.isEmpty()) {
@@ -20,8 +21,9 @@ ScrollableTextArea::ScrollableTextArea(
     uint8_t fontSize, int16_t startX, int16_t startY, int32_t width, int32_t height, bool drawBorders,
     bool indentWrappedLines
 )
-    : firstVisibleLine{0}, _redraw{true}, _title(""), _fontSize(fontSize), _startX(startX), _startY(startY),
-      _width(width), _height(height), _indentWrappedLines(indentWrappedLines) {
+    : firstVisibleLine{0}, lastVisibleLine{0}, _redraw{true}, _title(""), _fontSize(fontSize),
+      _startX(startX), _startY(startY), _width(width), _height(height),
+      _indentWrappedLines(indentWrappedLines) {
     if (drawBorders) { drawMainBorder(); }
     setup();
 }
@@ -58,16 +60,17 @@ void ScrollableTextArea::scrollDown() {
 void ScrollableTextArea::scrollToLine(size_t lineNumber) {
     if (linesBuffer.empty()) return; // Ensure there's content to scroll
 
-    if (lineNumber > linesBuffer.size() - _maxVisibleLines) {
-        firstVisibleLine =
-            (linesBuffer.size() > _maxVisibleLines) ? linesBuffer.size() - _maxVisibleLines : 0;
-    } else {
-        firstVisibleLine = lineNumber;
+    size_t maxFirst = (linesBuffer.size() > _maxVisibleLines) ? (linesBuffer.size() - _maxVisibleLines) : 0;
+    size_t target = (lineNumber > maxFirst) ? maxFirst : lineNumber;
+    if (target != firstVisibleLine) {
+        firstVisibleLine = target;
+        _redraw = true;
     }
 }
 
 String ScrollableTextArea::getLine(size_t lineNumber) {
-    return linesBuffer[(lineNumber >= linesBuffer.size()) ? linesBuffer.size() : lineNumber];
+    if (linesBuffer.empty()) return "";
+    return linesBuffer[(lineNumber >= linesBuffer.size()) ? (linesBuffer.size() - 1) : lineNumber];
 }
 
 size_t ScrollableTextArea::getMaxLines() { return linesBuffer.size(); }
@@ -118,8 +121,16 @@ void ScrollableTextArea::update(bool force) {
 }
 
 void ScrollableTextArea::fromFile(File file) {
-    linesBuffer.clear();
-    while (file.available()) addLine(file.readStringUntil('\n'));
+    clear();
+    // Guard against huge files exhausting internal DRAM on 4 MB non-PSRAM boards.
+    constexpr size_t kMinFreeHeapBytes = 12 * 1024;
+    while (file.available()) {
+        if (ESP.getFreeHeap() < kMinFreeHeapBytes) {
+            addLine("[... truncated: low memory ...]");
+            break;
+        }
+        addLine(file.readStringUntil('\n'));
+    }
 
     draw(true);
     delay(100);
@@ -128,7 +139,10 @@ void ScrollableTextArea::fromFile(File file) {
 
 void ScrollableTextArea::clear() {
     firstVisibleLine = 0;
+    lastVisibleLine = 0;
     linesBuffer.clear();
+    linesBuffer.shrink_to_fit();
+    _redraw = true;
 }
 
 void ScrollableTextArea::fromString(const String &text) {
@@ -182,11 +196,12 @@ void ScrollableTextArea::addLine(const String &text) {
 
     // Automatically split into multiple lines
     while (start < text.length()) {
-        size_t len = _maxCharactersPerLine;
+        size_t len = (_maxCharactersPerLine > 0) ? _maxCharactersPerLine : 1;
 
         if (!firstLine && _indentWrappedLines) {
-            buff = " " + text.substring(start, start + len - 1); // Reduce length for space
-            start += len - 1;
+            size_t step = (len > 1) ? (len - 1) : 1;
+            buff = " " + text.substring(start, start + step); // Reduce length for space
+            start += step;
         } else {
             buff = text.substring(start, start + len);
             start += len;
