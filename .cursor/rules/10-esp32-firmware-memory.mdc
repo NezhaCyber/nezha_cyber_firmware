@@ -1,0 +1,38 @@
+---
+description: ESP32/ESP32-S3 4MB Flash budget, DMA/PSRAM safety, SPI isolation, ODR, and dual-input UI rules
+globs:
+  - "src/**/*.cc"
+  - "src/**/*.h"
+  - "include/**/*.h"
+  - "boards/**/*"
+  - "platformio.ini"
+alwaysApply: false
+---
+
+# ESP32 / ESP32-S3 Firmware, Memory & UI Engineering Rules
+
+## 1. Dual Flash-Tier Budget (16 MB + 4 MB) / 双档 Flash 预算
+- Primary verified targets:
+  - `lilygo-t-deck` / `lilygo-t-deck-pro`: ESP32-S3, 16 MB Flash, 8 MB OPI PSRAM, `320×240`, touch + trackball + keyboard (`NO_TOUCH_FOOTER=1`).
+  - `m5stack-cplus1_1` / `CYD-2432S028`: ESP32, 4 MB Flash (`0x3E8000` app ceiling), **no PSRAM**, `BRUCE_COMPACT_CJK_FONT=1`, `240×135`, 3 buttons (`HAS_3_BUTTONS`).
+  - `LAUNCHER_*`: 4 MB Lite builds (`LITE_VERSION=1`).
+- Guard heavy UI assets, large tables, and optional codecs with `#if !defined(LITE_VERSION)` and/or `#if !defined(BRUCE_COMPACT_CJK_FONT)`.
+- Keep read-only lookup tables in `PROGMEM` / `const`. Respect `env_4mb` `lib_ignore` (`FastLED`, `ESP8266Audio`, `ESP8266SAM`).
+
+## 2. Internal DRAM & DMA Contiguous Block Safety (`src/core/radio_mem.h`)
+- Wi-Fi, NimBLE, and SD/SPI DMA share internal DRAM (`MALLOC_CAP_DMA`).
+- Always gate radio startup with `radioHasMemForWifi()`, `radioHasMemForBle()`, and `radioSafeBleInit()` — never bypass them.
+- Place large non-DMA buffers/sprites in PSRAM when `psramFound()` is true, with clean non-PSRAM fallback.
+- Avoid `String` concatenation churn in tight loops; use stack `char buf[N]` + `snprintf(buf, sizeof(buf), ...)`.
+- Check allocation return pointers (`nullptr`) and use `RAM_LOG("stage")` (`src/core/ram_profile.h`) for memory diagnostics.
+
+## 3. ODR, SPI Bus, Input & Watchdog Safety
+- Builds enable `-flto -Werror=odr`: never create mismatched struct/class layouts across translation units via inconsistent `#ifdef`s.
+- Never alter `struct keyStroke` in `include/globals.h`.
+- Preserve `sdcardSPI(VSPI)` vs `AUX_SPI(HSPI)` and `USE_HSPI_PORT` isolation in `src/main.cc`.
+- Guard shared input state with `inputLock()` / `inputUnlock()`. Every blocking loop must yield (`vTaskDelay` / `yield`) and handle `EscPress` exit.
+
+## 4. 哪吒魔童 UI & Dual Form-Factor Ergonomics
+- Use `src/core/display.h` theme helpers (`uiSurfaceColor()`, `uiSurfaceHiColor()`, `uiBorderDimColor()`, `uiTextBrightColor()`, `uiTextMutedColor()`, `uiTextOnAccentColor()`, `blendColors()`, `uiDrawText16()`, `drawNezhaCrest()`, `drawNezhaRibbonRule()`).
+- Compute coordinates from `tftWidth`, `tftHeight`, `LW`, `LH`, and `STATUS_BAR_HEIGHT` so every screen fits both `320×240` and `240×135`.
+- Use `bruce_i18n::tr()` and UTF-8 display helpers (`utf8PixelWidth`, `utf8TruncateToWidth`, `utf8WrapToWidth`) so Chinese/English strings never clip mid-character.
