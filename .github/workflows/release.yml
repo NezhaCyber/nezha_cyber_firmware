@@ -3,7 +3,7 @@ name: Release — Nezha Cyber Firmware
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]*.[0-9]*"
   workflow_dispatch:
     inputs:
       tag:
@@ -32,119 +32,172 @@ jobs:
   verify:
     name: Pre-Release Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
     steps:
+      - name: Enforce main branch on manual dispatch
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Manual releases must be triggered from the main branch (got ${GITHUB_REF})."
+          exit 1
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
-      - name: Resolve release tag & channel
+      - name: Resolve & validate release tag
         id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          INPUT_PRE: ${{ inputs.prerelease }}
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
-          IS_PRE="${{ inputs.prerelease }}"
+          TAG="${INPUT_TAG:-$GITHUB_REF_NAME}"
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+'; then
+            echo "::error::Release tag must match v<major>.<minor>... (got '$TAG')."
+            exit 1
+          fi
+          IS_PRE="${INPUT_PRE:-false}"
           if [[ "$TAG" == *-* ]]; then
             IS_PRE="true"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "is_prerelease=${IS_PRE:-false}" >> "$GITHUB_OUTPUT"
+          echo "is_prerelease=$IS_PRE" >> "$GITHUB_OUTPUT"
 
-      - name: Verify i18n tables, Unicode glyphs & build scripts
+      - name: Verify i18n, build scripts & unit tests
         run: |
           python3 tools/gen_cjk_font.py --check-tables
-          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py
+          python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py tools/gen_web_manifests.py tools/hil_smoke_test.py
+          python3 tools/hil_smoke_test.py --mock
+          bash test/run_tests.sh
 
   build:
-    name: Build (${{ matrix.env }})
+    name: Build Group (${{ matrix.group }})
     needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { env: "lilygo-t-deck",              board: "LilyGO T-Deck",               mcu: "esp32s3", flash: "16MB" }
-          - { env: "lilygo-t-deck-pro",          board: "LilyGO T-Deck Plus",          mcu: "esp32s3", flash: "16MB" }
-          - { env: "m5stack-cplus1_1",           board: "M5StickC Plus 1.1",           mcu: "esp32",   flash: "4MB"  }
-          - { env: "LAUNCHER_m5stack-cplus1_1",  board: "M5StickC Plus 1.1 (Launcher)", mcu: "esp32",  flash: "4MB"  }
-          - { env: "m5stack-cplus2",             board: "M5StickC Plus2",              mcu: "esp32",   flash: "8MB"  }
-          - { env: "m5stack-cardputer",          board: "M5Stack Cardputer",           mcu: "esp32s3", flash: "8MB"  }
-          - { env: "m5stack-cores3",             board: "M5Stack CoreS3",              mcu: "esp32s3", flash: "16MB" }
-          - { env: "m5stack-core2",              board: "M5Stack Core2",               mcu: "esp32",   flash: "16MB" }
-          - { env: "lilygo-t-embed-cc1101",      board: "LilyGO T-Embed CC1101",       mcu: "esp32s3", flash: "16MB" }
-          - { env: "lilygo-t-embed",             board: "LilyGO T-Embed",              mcu: "esp32s3", flash: "16MB" }
-          - { env: "CYD-2432S028",               board: "CYD-2432S028 (2.8\")",        mcu: "esp32",   flash: "4MB"  }
-          - { env: "LAUNCHER_CYD-2432S028",      board: "CYD-2432S028 (Launcher)",     mcu: "esp32",   flash: "4MB"  }
+          - group: esp32s3-lilygo
+            boards: '[{"env":"lilygo-t-deck","board":"LilyGO T-Deck","mcu":"esp32s3","flash":"16MB"},{"env":"lilygo-t-deck-pro","board":"LilyGO T-Deck Plus","mcu":"esp32s3","flash":"16MB"},{"env":"lilygo-t-embed-cc1101","board":"LilyGO T-Embed CC1101","mcu":"esp32s3","flash":"16MB"},{"env":"lilygo-t-embed","board":"LilyGO T-Embed","mcu":"esp32s3","flash":"16MB"}]'
+          - group: esp32s3-m5stack
+            boards: '[{"env":"m5stack-cardputer","board":"M5Stack Cardputer","mcu":"esp32s3","flash":"8MB"},{"env":"m5stack-cores3","board":"M5Stack CoreS3","mcu":"esp32s3","flash":"16MB"}]'
+          - group: esp32-full
+            boards: '[{"env":"m5stack-core2","board":"M5Stack Core2","mcu":"esp32","flash":"16MB"},{"env":"m5stack-cplus2","board":"M5StickC Plus2","mcu":"esp32","flash":"8MB"},{"env":"m5stack-cplus1_1","board":"M5StickC Plus 1.1","mcu":"esp32","flash":"4MB"},{"env":"CYD-2432S028","board":"CYD-2432S028 (2.8\")","mcu":"esp32","flash":"4MB"}]'
+          - group: esp32-launcher
+            boards: '[{"env":"LAUNCHER_m5stack-cplus1_1","board":"M5StickC Plus 1.1 (Launcher)","mcu":"esp32","flash":"4MB"},{"env":"LAUNCHER_CYD-2432S028","board":"CYD-2432S028 (Launcher)","mcu":"esp32","flash":"4MB"}]'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
-      - name: Cache PlatformIO
-        uses: actions/cache@v4
+      - name: Cache PlatformIO toolchain (shared across boards & workflows)
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
             ~/.platformio/packages
             ~/.platformio/platforms
-          key: pio-rel-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'boards/**/*.ini') }}
+          key: pio-toolchain-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
           restore-keys: |
-            pio-rel-${{ runner.os }}-${{ matrix.env }}-
-            pio-rel-${{ runner.os }}-
+            pio-toolchain-${{ runner.os }}-
+
+      - name: Cache group libdeps & object buildcache
+        uses: actions/cache@v6
+        with:
+          path: |
+            .pio/libdeps
+            .pio/buildcache
+          key: pio-rel-${{ runner.os }}-${{ matrix.group }}-${{ hashFiles('platformio.ini', 'boards/**/*.ini') }}
+          restore-keys: |
+            pio-rel-${{ runner.os }}-${{ matrix.group }}-
 
       - name: Install PlatformIO
-        run: pip install --upgrade platformio
+        run: pip install --disable-pip-version-check --no-warn-script-location "platformio>=6.1,<7"
 
-      - name: Build ${{ matrix.board }} (${{ matrix.env }})
-        run: pio run -e ${{ matrix.env }}
-
-      - name: Package merged factory & OTA binaries + metadata
+      - name: Build & package boards in ${{ matrix.group }}
+        env:
+          BOARDS_JSON: ${{ matrix.boards }}
         run: |
-          mkdir -p dist
-          cp "NezhaCyber-${{ matrix.env }}.bin" "dist/NezhaCyber-${{ matrix.env }}.bin"
-          if [ -f ".pio/build/${{ matrix.env }}/firmware.bin" ]; then
-            cp ".pio/build/${{ matrix.env }}/firmware.bin" "dist/NezhaCyber-${{ matrix.env }}-ota.bin"
-          fi
-          cat > "dist/meta-${{ matrix.env }}.json" <<EOF
-          {
-            "env": "${{ matrix.env }}",
-            "board": "${{ matrix.board }}",
-            "mcu": "${{ matrix.mcu }}",
-            "flash": "${{ matrix.flash }}",
-            "factory_bin": "NezhaCyber-${{ matrix.env }}.bin",
-            "ota_bin": "NezhaCyber-${{ matrix.env }}-ota.bin"
-          }
-          EOF
+          python3 - <<'PY'
+          import json
+          import os
+          import shutil
+          import subprocess
+          from pathlib import Path
+
+          boards = json.loads(os.environ["BOARDS_JSON"])
+          dist = Path("dist")
+          dist.mkdir(exist_ok=True)
+
+          for item in boards:
+              env_name = item["env"]
+              print(f"\n=== Building {item['board']} ({env_name}) ===", flush=True)
+              subprocess.run(["pio", "run", "-e", env_name], check=True)
+
+              factory_src = Path(f"NezhaCyber-{env_name}.bin")
+              if not factory_src.is_file():
+                  raise FileNotFoundError(f"Expected merged binary not found: {factory_src}")
+              shutil.copy2(factory_src, dist / factory_src.name)
+
+              ota_src = Path(".pio") / "build" / env_name / "firmware.bin"
+              ota_name = f"NezhaCyber-{env_name}-ota.bin"
+              if ota_src.is_file():
+                  shutil.copy2(ota_src, dist / ota_name)
+
+              meta = {
+                  "env": env_name,
+                  "board": item["board"],
+                  "mcu": item["mcu"],
+                  "flash": item["flash"],
+                  "factory_bin": factory_src.name,
+                  "ota_bin": ota_name,
+              }
+              (dist / f"meta-{env_name}.json").write_text(
+                  json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+              )
+
+              # Reclaim per-env build objects while preserving shared .pio/buildcache
+              shutil.rmtree(Path(".pio") / "build" / env_name, ignore_errors=True)
+          PY
 
       - name: Upload built firmware artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: release-bin-${{ matrix.env }}
+          name: release-bin-${{ matrix.group }}
           path: dist/
           if-no-files-found: error
+          retention-days: 1
 
   publish:
     name: Package & Publish GitHub Release
     needs: [verify, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout repository (for sd_files bundle)
-        uses: actions/checkout@v4
+      - name: Checkout release packaging scripts & sd_files
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            scripts/build
+            sd_files
 
       - name: Download all built firmware artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release-assets
           pattern: release-bin-*
@@ -157,22 +210,26 @@ jobs:
           fi
 
       - name: Generate SHA256SUMS.txt, manifest.json & Release Notes
+        env:
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
         run: |
           python3 scripts/build/package_release.py \
             --assets-dir release-assets \
-            --tag "${{ needs.verify.outputs.tag }}" \
+            --tag "$RELEASE_TAG" \
             --notes-out RELEASE_NOTES.md
+          test -s release-assets/manifest.json
+          test -s release-assets/SHA256SUMS.txt
 
       - name: Publish to GitHub Releases
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.verify.outputs.tag }}
           name: "🔥 Nezha Cyber (哪吒网络安全) ${{ needs.verify.outputs.tag }}"
           body_path: RELEASE_NOTES.md
           generate_release_notes: true
-          draft: ${{ inputs.draft == true }}
+          draft: ${{ github.event_name == 'workflow_dispatch' && inputs.draft == true }}
           prerelease: ${{ needs.verify.outputs.is_prerelease == 'true' }}
-          make_latest: ${{ (needs.verify.outputs.is_prerelease != 'true' && inputs.draft != true) && 'true' || 'false' }}
+          make_latest: ${{ (needs.verify.outputs.is_prerelease != 'true' && !(github.event_name == 'workflow_dispatch' && inputs.draft == true)) && 'true' || 'false' }}
           fail_on_unmatched_files: false
           files: |
             release-assets/NezhaCyber-*.bin
