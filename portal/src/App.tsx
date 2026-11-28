@@ -1,24 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { BrowserCompatibilityAlert } from "@/components/BrowserCompatibilityAlert";
 import { CyberBackdrop } from "@/components/CyberBackdrop";
-import { DeviceConnectionPanel } from "@/components/DeviceConnectionPanel";
-import { DownloadModeGuide } from "@/components/DownloadModeGuide";
+import { SerialMonitorPanel } from "@/components/SerialMonitorPanel";
 import {
-  FirmwareSelectorPanel,
+  SimpleFlasherView,
   type FirmwareSourceMode,
   type ManifestFlashLayout,
-} from "@/components/FirmwareSelectorPanel";
-import { FlashActionPanel } from "@/components/FlashActionPanel";
-import { HardwarePreview } from "@/components/HardwarePreview";
-import { SerialMonitorPanel } from "@/components/SerialMonitorPanel";
-import { TopBar } from "@/components/TopBar";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+} from "@/components/SimpleFlasherView";
+import { TopBar, type PortalTab } from "@/components/TopBar";
+import { UsbFileTransferView } from "@/components/UsbFileTransferView";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { useManifest } from "@/hooks/useManifest";
+import { useUsbFileTransfer } from "@/hooks/useUsbFileTransfer";
 import { useWebSerial } from "@/hooks/useWebSerial";
 import { LocaleProvider, useLocale } from "@/i18n/LocaleContext";
 import type { BinarySegmentInput } from "@/services/espFlasher";
@@ -36,25 +31,37 @@ function PortalWorkspace() {
   const { t } = useLocale();
   const { manifest, loading: manifestLoading, error: manifestError } = useManifest();
 
+  const [activeTab, setActiveTab] = useState<PortalTab>("flash");
   const [sourceMode, setSourceMode] = useState<FirmwareSourceMode>("manifest");
   const [selectedVersion, setSelectedVersion] = useState<string>("");
   const [selectedBoardId, setSelectedBoardId] = useState<string>("lilygo-t-deck");
   const [flashLayout, setFlashLayout] = useState<ManifestFlashLayout>("merged");
   const [eraseAll, setEraseAll] = useState<boolean>(false);
   const [localParts, setLocalParts] = useState<CustomLocalPart[]>([]);
-  const [monitorOpen, setMonitorOpen] = useState<boolean>(true);
-  const [autoMatchedNotice, setAutoMatchedNotice] = useState<boolean>(false);
+
+  // Ref bridge so flasher / monitor cleanly release the USB Files session before acquiring port
+  const releaseUsbFilesRef = useRef<() => Promise<void>>(async () => {});
 
   const handleAutoDetectBoard = useCallback((boardId: string) => {
     setSelectedBoardId(boardId);
-    setAutoMatchedNotice(true);
   }, []);
 
   const serial = useWebSerial({
     onAutoDetectBoard: handleAutoDetectBoard,
+    onBeforeAcquirePort: async () => {
+      await releaseUsbFilesRef.current();
+    },
   });
 
-  // Initialize release selection once manifest loads
+  const usbFiles = useUsbFileTransfer({
+    selectedPort: serial.selectedPort?.port ?? null,
+    releaseOtherSerialUsers: serial.disconnectAll,
+    onPortAuthorized: serial.refreshAuthorizedPorts,
+    onLog: serial.appendLog,
+  });
+
+  releaseUsbFilesRef.current = usbFiles.disconnect;
+
   useEffect(() => {
     if (manifest && manifest.releases.length > 0 && !selectedVersion) {
       setSelectedVersion(manifest.releases[0].version);
@@ -103,7 +110,6 @@ function PortalWorkspace() {
   };
 
   const handleStartFlash = async () => {
-    setMonitorOpen(true);
     if (sourceMode === "manifest") {
       if (activeManifestParts.length === 0) return;
       await serial.flashManifestParts(activeManifestParts, eraseAll);
@@ -124,9 +130,14 @@ function PortalWorkspace() {
     await serial.flashLocalSegments(segments, eraseAll);
   };
 
-  const handleOpenMonitorAfterFlash = async () => {
-    setMonitorOpen(true);
+  const handleOpenConsoleAfterFlash = async () => {
+    setActiveTab("console");
     await serial.attachSerialMonitor();
+  };
+
+  const handleOpenUsbFilesAfterFlash = async () => {
+    await serial.hardReset();
+    setActiveTab("files");
   };
 
   const hasChipMismatch =
@@ -144,156 +155,129 @@ function PortalWorkspace() {
 
   return (
     <div className="relative flex min-h-screen flex-col">
-      <CyberBackdrop phase={serial.progress.phase} />
+      <CyberBackdrop phase={usbFiles.transfer.active ? "flashing" : serial.progress.phase} />
 
       <TopBar
         repository={repository}
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
         phase={serial.progress.phase}
-        isConnected={serial.isConnected}
-        detectedPortsCount={serial.knownPorts.length}
+        usbTransferActive={usbFiles.transfer.active}
       />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:py-8">
-        {/* Hero Telemetry Header */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, ease: "easeOut" }}
-          className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between"
-        >
-          <div className="max-w-2xl space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="crimson" className="telemetry-mono text-[10px]">
-                NEZHA CYBER LAB
-              </Badge>
-              {serial.isSupported && (
-                <Badge variant="cyan" className="telemetry-mono text-[10px]">
-                  <ShieldCheck className="h-3 w-3" />
-                  {t("browserSupportedBadge")}
-                </Badge>
-              )}
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              {t("brandTitle")}{" "}
-              <span className="text-muted-foreground font-normal">/ Web Serial Flasher</span>
-            </h1>
-            <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              {t("brandTagline")}
-            </p>
-          </div>
-        </motion.section>
-
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-7 sm:px-6 sm:py-10">
         <BrowserCompatibilityAlert isSupported={serial.isSupported} />
 
-        {/* Main 12-Column Hardware Workstation Grid */}
-        <div className="grid gap-5 lg:grid-cols-12">
-          {/* Left Primary Workflow Column (Steps 01 -> 02 -> 03) */}
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.05 }}
-            className="space-y-5 lg:col-span-7"
-          >
-            <DeviceConnectionPanel
-              isSupported={serial.isSupported}
-              knownPorts={serial.knownPorts}
-              selectedPort={serial.selectedPort}
-              onSelectPort={serial.setSelectedPort}
-              baudRate={serial.baudRate}
-              onChangeBaudRate={serial.setBaudRate}
-              chipInfo={serial.chipInfo}
-              selectedBoard={selectedBoard}
-              phase={serial.progress.phase}
-              isBusy={serial.isBusy}
-              onRequestPort={serial.requestAndConnectPort}
-              onConnectPort={serial.connectPort}
-              onDisconnect={serial.disconnectAll}
-              onRefreshPorts={serial.refreshAuthorizedPorts}
-            />
+        <AnimatePresence mode="wait">
+          {activeTab === "flash" && (
+            <motion.div
+              key="tab-flash"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <SimpleFlasherView
+                isSupported={serial.isSupported}
+                manifest={manifest}
+                manifestLoading={manifestLoading}
+                manifestError={manifestError}
+                selectedRelease={selectedRelease}
+                onSelectReleaseVersion={setSelectedVersion}
+                selectedBoard={selectedBoard}
+                onSelectBoardId={setSelectedBoardId}
+                sourceMode={sourceMode}
+                onChangeSourceMode={setSourceMode}
+                flashLayout={flashLayout}
+                onChangeFlashLayout={setFlashLayout}
+                localParts={localParts}
+                onAddLocalFiles={handleAddLocalFiles}
+                onUpdateLocalPartOffset={handleUpdateLocalPartOffset}
+                onRemoveLocalPart={handleRemoveLocalPart}
+                knownPorts={serial.knownPorts}
+                selectedPort={serial.selectedPort}
+                baudRate={serial.baudRate}
+                onChangeBaudRate={serial.setBaudRate}
+                chipInfo={serial.chipInfo}
+                progress={serial.progress}
+                errorMessage={serial.errorMessage}
+                isConnected={serial.isConnected}
+                isBusy={serial.isBusy}
+                eraseAll={eraseAll}
+                onChangeEraseAll={setEraseAll}
+                canFlash={canFlash}
+                segmentCount={segmentCount}
+                onRequestPort={serial.requestAndConnectPort}
+                onConnectPort={serial.connectPort}
+                onDisconnect={serial.disconnectAll}
+                onStartFlash={handleStartFlash}
+                onHardReset={serial.hardReset}
+                onOpenUsbFiles={handleOpenUsbFilesAfterFlash}
+                onOpenConsole={handleOpenConsoleAfterFlash}
+              />
+            </motion.div>
+          )}
 
-            <FirmwareSelectorPanel
-              manifest={manifest}
-              manifestLoading={manifestLoading}
-              manifestError={manifestError}
-              sourceMode={sourceMode}
-              onChangeSourceMode={setSourceMode}
-              selectedRelease={selectedRelease}
-              onSelectReleaseVersion={setSelectedVersion}
-              selectedBoard={selectedBoard}
-              onSelectBoardId={(id) => {
-                setSelectedBoardId(id);
-                setAutoMatchedNotice(false);
-              }}
-              flashLayout={flashLayout}
-              onChangeFlashLayout={setFlashLayout}
-              localParts={localParts}
-              onAddLocalFiles={handleAddLocalFiles}
-              onUpdateLocalPartOffset={handleUpdateLocalPartOffset}
-              onRemoveLocalPart={handleRemoveLocalPart}
-              activeOffset={serial.progress.currentPartOffset}
-              phase={serial.progress.phase}
-              autoMatchedNotice={autoMatchedNotice}
-              isBusy={serial.isBusy}
-            />
+          {activeTab === "files" && (
+            <motion.div
+              key="tab-files"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <UsbFileTransferView
+                isSupported={serial.isSupported}
+                connected={usbFiles.connected}
+                connecting={usbFiles.connecting}
+                loadingList={usbFiles.loadingList}
+                currentPath={usbFiles.currentPath}
+                entries={usbFiles.entries}
+                storageInfo={usbFiles.storageInfo}
+                deviceBanner={usbFiles.deviceBanner}
+                transfer={usbFiles.transfer}
+                error={usbFiles.error}
+                previewFile={usbFiles.previewFile}
+                onClosePreview={() => usbFiles.setPreviewFile(null)}
+                onConnect={usbFiles.connect}
+                onDisconnect={usbFiles.disconnect}
+                onNavigate={usbFiles.refreshDirectory}
+                onUploadFiles={usbFiles.uploadFiles}
+                onCancelTransfer={usbFiles.cancelUpload}
+                onCreateFolder={usbFiles.makeFolder}
+                onDeleteEntry={usbFiles.removeEntry}
+                onDownloadOrPreview={usbFiles.downloadOrPreview}
+              />
+            </motion.div>
+          )}
 
-            <FlashActionPanel
-              isConnected={serial.isConnected}
-              isBusy={serial.isBusy}
-              canFlash={canFlash}
-              eraseAll={eraseAll}
-              onChangeEraseAll={setEraseAll}
-              progress={serial.progress}
-              errorMessage={serial.errorMessage}
-              onStartFlash={handleStartFlash}
-              onHardReset={serial.hardReset}
-              onOpenMonitor={handleOpenMonitorAfterFlash}
-              segmentCount={segmentCount}
-            />
-          </motion.div>
-
-          {/* Right Instrument Column: Hardware Schematic & Download Mode Guide */}
-          <motion.aside
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.12 }}
-            className="space-y-5 lg:col-span-5"
-          >
-            <HardwarePreview
-              board={selectedBoard}
-              chipInfo={serial.chipInfo}
-              phase={serial.progress.phase}
-              percent={serial.progress.overallPercent}
-            />
-            <DownloadModeGuide board={selectedBoard} />
-          </motion.aside>
-        </div>
-
-        {/* Full-Width Collapsible Live Serial Monitor (Step 04) */}
-        <motion.section
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.18 }}
-          className="mt-5"
-        >
-          <SerialMonitorPanel
-            open={monitorOpen}
-            onToggleOpen={() => setMonitorOpen((v) => !v)}
-            isSupported={serial.isSupported}
-            monitorConnected={serial.monitorConnected}
-            isFlashingBusy={serial.isBusy}
-            lines={serial.terminalLines}
-            onAttach={serial.attachSerialMonitor}
-            onDetach={serial.detachSerialMonitor}
-            onClear={serial.clearTerminal}
-            onSendCommand={serial.sendSerialCommand}
-          />
-        </motion.section>
+          {activeTab === "console" && (
+            <motion.div
+              key="tab-console"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+            >
+              <SerialMonitorPanel
+                isSupported={serial.isSupported}
+                monitorConnected={serial.monitorConnected}
+                isFlashingBusy={serial.isBusy || usbFiles.transfer.active}
+                lines={serial.terminalLines}
+                onAttach={serial.attachSerialMonitor}
+                onDetach={serial.detachSerialMonitor}
+                onHardReset={serial.hardReset}
+                onClear={serial.clearTerminal}
+                onSendCommand={serial.sendSerialCommand}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      <footer className="mt-8 border-t border-border/70 bg-background/60 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <footer className="mt-10 border-t border-border/60 bg-background/60 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl flex-col gap-1.5 px-4 py-4 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="telemetry-mono">{t("footerAuthor")}</div>
-          <Separator orientation="vertical" className="hidden h-3 sm:block" />
           <div>{t("footerNotice")}</div>
         </div>
       </footer>

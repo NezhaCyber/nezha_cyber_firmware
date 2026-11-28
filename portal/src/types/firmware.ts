@@ -131,3 +131,33 @@ export interface TerminalLine {
   text: string;
   source: "device" | "system" | "tx" | "error";
 }
+
+export interface DeviceFileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+}
+
+export interface StorageVolumeStats {
+  available: boolean;
+  totalBytes: number;
+  usedBytes: number;
+  freeBytes: number;
+}
+
+export interface DeviceStorageInfo {
+  sd: StorageVolumeStats;
+  littlefs: StorageVolumeStats;
+}
+
+export interface UsbTransferProgress {
+  active: boolean;
+  direction: "upload" | "download";
+  fileName: string;
+  transferredBytes: number;
+  totalBytes: number;
+  percent: number;
+  speedBps: number;
+  statusText: string;
+}

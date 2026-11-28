@@ -33,6 +33,7 @@ const INITIAL_PROGRESS: FlashProgressState = {
 
 export interface UseWebSerialOptions {
   onAutoDetectBoard?: (boardId: string) => void;
+  onBeforeAcquirePort?: () => Promise<void>;
 }
 
 export function useWebSerial(options?: UseWebSerialOptions) {
@@ -52,7 +53,9 @@ export function useWebSerial(options?: UseWebSerialOptions) {
   const lineIdRef = useRef<number>(1);
   const rxBufferRef = useRef<string>("");
   const autoBoardCbRef = useRef(options?.onAutoDetectBoard);
+  const beforeAcquireCbRef = useRef(options?.onBeforeAcquirePort);
   autoBoardCbRef.current = options?.onAutoDetectBoard;
+  beforeAcquireCbRef.current = options?.onBeforeAcquirePort;
 
   const appendLog = useCallback(
     (text: string, source: TerminalLine["source"] = "system") => {
@@ -77,29 +80,26 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     [],
   );
 
-  const appendRawChunk = useCallback(
-    (chunk: string) => {
-      rxBufferRef.current += chunk;
-      const parts = rxBufferRef.current.split(/\r?\n/);
-      rxBufferRef.current = parts.pop() ?? "";
-      if (parts.length > 0) {
-        const timestamp = formatTimeStamp();
-        setTerminalLines((prev) => {
-          const additions: TerminalLine[] = parts.map((line) => ({
-            id: lineIdRef.current++,
-            timestamp,
-            text: line.replace(/\x1b\[[0-9;]*m/g, ""),
-            source: "device",
-          }));
-          const merged = [...prev, ...additions];
-          return merged.length > MAX_TERMINAL_LINES
-            ? merged.slice(merged.length - MAX_TERMINAL_LINES)
-            : merged;
-        });
-      }
-    },
-    [],
-  );
+  const appendRawChunk = useCallback((chunk: string) => {
+    rxBufferRef.current += chunk;
+    const parts = rxBufferRef.current.split(/\r?\n/);
+    rxBufferRef.current = parts.pop() ?? "";
+    if (parts.length > 0) {
+      const timestamp = formatTimeStamp();
+      setTerminalLines((prev) => {
+        const additions: TerminalLine[] = parts.map((line) => ({
+          id: lineIdRef.current++,
+          timestamp,
+          text: line.replace(/\x1b\[[0-9;]*m/g, ""),
+          source: "device",
+        }));
+        const merged = [...prev, ...additions];
+        return merged.length > MAX_TERMINAL_LINES
+          ? merged.slice(merged.length - MAX_TERMINAL_LINES)
+          : merged;
+      });
+    }
+  }, []);
 
   const refreshAuthorizedPorts = useCallback(async () => {
     if (!isSupported) return;
@@ -124,7 +124,6 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     }
   }, [isSupported]);
 
-  // Passive USB auto-detect + hot-plug listeners
   useEffect(() => {
     if (!isSupported) return;
     void refreshAuthorizedPorts();
@@ -134,7 +133,10 @@ export function useWebSerial(options?: UseWebSerialOptions) {
       const port = serialEvent.target;
       if (port) {
         const summary = describeSerialPort(port, 0);
-        appendLog(`[usb] Hot-plug detected: ${summary.deviceLabel} (${summary.vendorHex}:${summary.productHex})`, "system");
+        appendLog(
+          `[usb] Detected ${summary.deviceLabel} (${summary.vendorHex}:${summary.productHex})`,
+          "system",
+        );
         if (summary.suggestedBoardId) {
           autoBoardCbRef.current?.(summary.suggestedBoardId);
         }
@@ -164,7 +166,6 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     };
   }, [isSupported, refreshAuthorizedPorts, appendLog]);
 
-  // Ensure hardware ports are released on unmount
   useEffect(() => {
     return () => {
       void flasherRef.current.disconnect();
@@ -188,6 +189,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
   const connectPort = useCallback(
     async (targetSummary: UsbPortInfoSummary, customBaud?: number) => {
       setErrorMessage(null);
+      await beforeAcquireCbRef.current?.();
       if (monitorRef.current.isOpen) {
         await monitorRef.current.close();
         setMonitorConnected(false);
@@ -236,7 +238,6 @@ export function useWebSerial(options?: UseWebSerialOptions) {
         await refreshAuthorizedPorts();
         await connectPort(summary);
       } catch (err) {
-        // User cancelling the native chooser is not a hard error
         if (err instanceof DOMException && err.name === "NotFoundError") {
           return;
         }
@@ -268,17 +269,17 @@ export function useWebSerial(options?: UseWebSerialOptions) {
         for (let i = 0; i < parts.length; i++) {
           const part = parts[i];
           const url = resolveAssetUrl(part.path);
-          appendLog(`[fetch] Downloading ${part.name} (${part.offset}) from ${url}...`, "system");
+          appendLog(`[fetch] Downloading ${part.name} (${part.offset})...`, "system");
           const response = await fetch(url, { cache: "no-store" });
           if (!response.ok) {
             throw new Error(
-              `Missing firmware artifact (${response.status}): ${part.path}. Drop the built .bin into portal/public/${part.path} or use the Local .bin tab.`,
+              `Firmware binary not found (${response.status}): ${part.path}`,
             );
           }
           const contentType = response.headers.get("content-type") || "";
           if (contentType.includes("text/html")) {
             throw new Error(
-              `Received HTML instead of binary for ${part.path}. Ensure the .bin artifact exists under portal/public/firmware/.`,
+              `Binary missing at ${part.path}. Drop built .bin into portal/public/firmware/ or use Local .bin.`,
             );
           }
           const buf = new Uint8Array(await response.arrayBuffer());
@@ -355,7 +356,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     }
 
     if (monitorRef.current.isOpen) {
-      appendLog("[monitor] Pulsing RTS reset on active serial monitor...", "system");
+      appendLog("[monitor] Pulsing RTS reset...", "system");
       await monitorRef.current.pulseReset();
     }
   }, [appendLog]);
@@ -363,6 +364,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
   const attachSerialMonitor = useCallback(async () => {
     if (!isSupported) return;
     setErrorMessage(null);
+    await beforeAcquireCbRef.current?.();
 
     let targetPort = selectedPort?.port ?? null;
     if (!targetPort) {
@@ -380,9 +382,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
       }
     }
 
-    // Release esptool transport before opening 115200 raw monitor stream
     if (flasherRef.current.isConnected) {
-      appendLog("[monitor] Releasing bootloader transport for 115200 bps monitor...", "system");
       await flasherRef.current.disconnect();
       setChipInfo(null);
     }
@@ -393,25 +393,23 @@ export function useWebSerial(options?: UseWebSerialOptions) {
         onStatus: (open) => {
           setMonitorConnected(open);
           appendLog(
-            open ? "[monitor] Attached at 115200 bps (8N1)." : "[monitor] Serial stream closed.",
+            open ? "[monitor] Attached at 115200 bps." : "[monitor] Disconnected.",
             "system",
           );
         },
-        onError: (msg) => {
-          appendLog(`[monitor] ${msg}`, "error");
-        },
+        onError: (msg) => appendLog(`[monitor] ${msg}`, "error"),
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
-      appendLog(`[monitor] Failed to open port: ${msg}`, "error");
+      appendLog(`[monitor] ${msg}`, "error");
     }
   }, [isSupported, selectedPort, knownPorts.length, refreshAuthorizedPorts, appendLog, appendRawChunk]);
 
   const detachSerialMonitor = useCallback(async () => {
     await monitorRef.current.close();
     setMonitorConnected(false);
-    appendLog("[monitor] Detached serial monitor.", "system");
+    appendLog("[monitor] Detached.", "system");
   }, [appendLog]);
 
   const sendSerialCommand = useCallback(

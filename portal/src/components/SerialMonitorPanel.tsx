@@ -1,12 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
-  ChevronDown,
-  ChevronUp,
   Copy,
   Download,
   Plug,
+  RotateCcw,
   Send,
   Terminal,
   Trash2,
@@ -21,29 +19,27 @@ import { cn } from "@/lib/utils";
 import type { TerminalLine } from "@/types/firmware";
 
 interface SerialMonitorPanelProps {
-  open: boolean;
-  onToggleOpen: () => void;
   isSupported: boolean;
   monitorConnected: boolean;
   isFlashingBusy: boolean;
   lines: TerminalLine[];
   onAttach: () => void;
   onDetach: () => void;
+  onHardReset: () => void;
   onClear: () => void;
   onSendCommand: (cmd: string) => void;
 }
 
-const QUICK_COMMANDS = ["info", "sysmon", "wire i2c scan", "help", "reboot"];
+const QUICK_COMMANDS = ["info", "sysmon", "ls /", "help", "reboot"];
 
 export function SerialMonitorPanel({
-  open,
-  onToggleOpen,
   isSupported,
   monitorConnected,
   isFlashingBusy,
   lines,
   onAttach,
   onDetach,
+  onHardReset,
   onClear,
   onSendCommand,
 }: SerialMonitorPanelProps) {
@@ -61,7 +57,7 @@ export function SerialMonitorPanel({
     if (autoScroll && viewportRef.current) {
       viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
     }
-  }, [lines, autoScroll, open]);
+  }, [lines, autoScroll]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,230 +116,199 @@ export function SerialMonitorPanel({
   };
 
   return (
-    <Card className="overflow-hidden">
-      {/* Collapsible Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
-        <button
-          type="button"
-          onClick={onToggleOpen}
-          className="flex items-center gap-3 text-left focus:outline-none"
-        >
-          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-muted/50">
-            <Terminal className="h-4 w-4 text-cyber-cyan" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="telemetry-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-cyber-crimson">
-                {t("step4Label")}
-              </span>
-              <Badge
-                variant={monitorConnected ? "emerald" : "secondary"}
-                className="telemetry-mono text-[10px]"
-              >
-                <span
-                  className={cn(
-                    "mr-1 inline-block h-1.5 w-1.5 rounded-full",
-                    monitorConnected ? "bg-cyber-emerald animate-pulse" : "bg-muted-foreground/50",
-                  )}
-                />
-                {monitorConnected ? "115200 LIVE" : "STANDBY"}
-              </Badge>
-              <span className="telemetry-mono text-[10px] text-muted-foreground">
-                {lines.length} lines
-              </span>
-            </div>
-            <div className="text-sm font-semibold text-foreground">{t("monitorTitle")}</div>
-          </div>
-        </button>
+    <div className="mx-auto max-w-4xl space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-foreground">{t("monitorTitle")}</h2>
+          <p className="text-xs text-muted-foreground">{t("monitorSubtitle")}</p>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant={monitorConnected ? "emerald" : "secondary"}
+            className="telemetry-mono text-[10px]"
+          >
+            <span
+              className={cn(
+                "mr-1 inline-block h-1.5 w-1.5 rounded-full",
+                monitorConnected ? "bg-cyber-emerald animate-pulse" : "bg-muted-foreground/50",
+              )}
+            />
+            {monitorConnected ? "115200 LIVE" : "STANDBY"}
+          </Badge>
+
           {!monitorConnected ? (
             <Button
-              variant="outline"
+              variant="cyber"
               size="sm"
               disabled={!isSupported || isFlashingBusy}
               onClick={onAttach}
-              className="h-8 gap-1.5 text-xs"
+              className="gap-1.5"
             >
-              <Plug className="h-3.5 w-3.5 text-cyber-cyan" />
+              <Plug className="h-3.5 w-3.5" />
               {t("monitorConnectBtn")}
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onDetach}
-              className="h-8 gap-1.5 border-cyber-emerald/50 text-xs hover:border-destructive/60 hover:text-destructive"
-            >
-              <Unplug className="h-3.5 w-3.5" />
-              {t("monitorDisconnectBtn")}
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={onHardReset} className="gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                {t("hardResetBtn")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDetach}
+                className="gap-1.5 hover:border-destructive/60 hover:text-destructive"
+              >
+                <Unplug className="h-3.5 w-3.5" />
+                {t("monitorDisconnectBtn")}
+              </Button>
+            </>
           )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggleOpen}
-            className="h-8 gap-1 text-xs text-muted-foreground"
-          >
-            <span>{open ? t("monitorCollapse") : t("monitorExpand")}</span>
-            {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </Button>
         </div>
       </div>
 
-      {/* Expandable Terminal Body */}
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            key="terminal-body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-            className="overflow-hidden border-t border-border/80"
-          >
-            {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 bg-muted/35 px-4 py-2">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="telemetry-mono mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {t("monitorQuickCmds")}:
-                </span>
-                {QUICK_COMMANDS.map((qCmd) => (
-                  <button
-                    key={qCmd}
-                    type="button"
-                    disabled={!monitorConnected}
-                    onClick={() => onSendCommand(qCmd)}
-                    className="telemetry-mono rounded border border-border/80 bg-background/70 px-2 py-0.5 text-[11px] text-foreground transition-colors hover:border-cyber-cyan/60 hover:text-cyber-cyan disabled:opacity-40"
-                  >
-                    {qCmd}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setShowTimestamps((v) => !v)}
-                  className={cn(
-                    "rounded border px-2 py-0.5 text-[11px] transition-colors",
-                    showTimestamps
-                      ? "border-cyber-cyan/50 bg-cyber-cyan/10 text-cyber-cyan"
-                      : "border-border text-muted-foreground",
-                  )}
-                >
-                  {t("monitorTimestamps")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAutoScroll((v) => !v)}
-                  className={cn(
-                    "rounded border px-2 py-0.5 text-[11px] transition-colors",
-                    autoScroll
-                      ? "border-cyber-cyan/50 bg-cyber-cyan/10 text-cyber-cyan"
-                      : "border-border text-muted-foreground",
-                  )}
-                >
-                  {t("monitorAutoscroll")}
-                </button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleCopy}
-                  disabled={lines.length === 0}
-                  className="h-7 gap-1 px-2 text-[11px]"
-                >
-                  {copied ? (
-                    <Check className="h-3.5 w-3.5 text-cyber-emerald" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                  {copied ? t("monitorCopiedBtn") : t("monitorCopyBtn")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleDownload}
-                  disabled={lines.length === 0}
-                  className="h-7 gap-1 px-2 text-[11px]"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  {t("monitorDownloadBtn")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onClear}
-                  disabled={lines.length === 0}
-                  className="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  {t("monitorClearBtn")}
-                </Button>
-              </div>
-            </div>
-
-            {/* Terminal Stream Output */}
-            <div
-              ref={viewportRef}
-              className="terminal-surface telemetry-mono h-72 overflow-y-auto px-4 py-3 text-xs leading-relaxed"
-            >
-              {lines.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-center text-slate-500">
-                  {t("monitorEmptyHint")}
-                </div>
-              ) : (
-                lines.map((line) => (
-                  <div
-                    key={line.id}
-                    className={cn(
-                      "whitespace-pre-wrap break-all",
-                      line.source === "error" && "text-rose-400",
-                      line.source === "system" && "text-cyan-400/90",
-                      line.source === "tx" && "text-amber-300 font-semibold",
-                      line.source === "device" && "text-slate-200",
-                    )}
-                  >
-                    {showTimestamps && (
-                      <span className="mr-2 select-none text-[10px] text-slate-500">
-                        [{line.timestamp}]
-                      </span>
-                    )}
-                    {line.text}
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Command TX Input */}
-            <form
-              onSubmit={handleSubmit}
-              className="flex items-center gap-2 border-t border-border/80 bg-muted/25 px-4 py-2.5"
-            >
-              <span className="telemetry-mono text-xs font-bold text-cyber-crimson">&gt;_</span>
-              <Input
-                value={command}
-                onChange={(e) => setCommand(e.target.value)}
-                onKeyDown={handleKeyDown}
+      <Card className="overflow-hidden">
+        {/* Compact Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/75 bg-muted/35 px-4 py-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Terminal className="mr-0.5 h-3.5 w-3.5 text-cyber-cyan" />
+            <span className="telemetry-mono mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+              {t("monitorQuickCmds")}:
+            </span>
+            {QUICK_COMMANDS.map((qCmd) => (
+              <button
+                key={qCmd}
+                type="button"
                 disabled={!monitorConnected}
-                placeholder={t("monitorPlaceholder")}
-                className="telemetry-mono h-8 flex-1 text-xs"
-              />
-              <Button
-                type="submit"
-                size="sm"
-                variant="default"
-                disabled={!monitorConnected || command.trim().length === 0}
-                className="h-8 gap-1.5 text-xs"
+                onClick={() => onSendCommand(qCmd)}
+                className="telemetry-mono rounded border border-border/80 bg-background/70 px-2 py-0.5 text-[11px] text-foreground transition-colors hover:border-cyber-cyan/60 hover:text-cyber-cyan disabled:opacity-40"
               >
-                <Send className="h-3.5 w-3.5" />
-                {t("monitorSendBtn")}
-              </Button>
-            </form>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </Card>
+                {qCmd}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowTimestamps((v) => !v)}
+              className={cn(
+                "rounded border px-2 py-0.5 text-[11px] transition-colors",
+                showTimestamps
+                  ? "border-cyber-cyan/50 bg-cyber-cyan/10 text-cyber-cyan"
+                  : "border-border text-muted-foreground",
+              )}
+            >
+              {t("monitorTimestamps")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAutoScroll((v) => !v)}
+              className={cn(
+                "rounded border px-2 py-0.5 text-[11px] transition-colors",
+                autoScroll
+                  ? "border-cyber-cyan/50 bg-cyber-cyan/10 text-cyber-cyan"
+                  : "border-border text-muted-foreground",
+              )}
+            >
+              {t("monitorAutoscroll")}
+            </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopy}
+              disabled={lines.length === 0}
+              className="h-7 gap-1 px-2 text-[11px]"
+            >
+              {copied ? (
+                <Check className="h-3.5 w-3.5 text-cyber-emerald" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              {copied ? t("monitorCopiedBtn") : t("monitorCopyBtn")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDownload}
+              disabled={lines.length === 0}
+              className="h-7 gap-1 px-2 text-[11px]"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {t("monitorDownloadBtn")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClear}
+              disabled={lines.length === 0}
+              className="h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-destructive"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t("monitorClearBtn")}
+            </Button>
+          </div>
+        </div>
+
+        {/* Stream Viewport */}
+        <div
+          ref={viewportRef}
+          className="terminal-surface telemetry-mono h-[420px] overflow-y-auto px-4 py-3 text-xs leading-relaxed"
+        >
+          {lines.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-center text-slate-500">
+              {t("monitorEmptyHint")}
+            </div>
+          ) : (
+            lines.map((line) => (
+              <div
+                key={line.id}
+                className={cn(
+                  "whitespace-pre-wrap break-all",
+                  line.source === "error" && "text-rose-400",
+                  line.source === "system" && "text-cyan-400/90",
+                  line.source === "tx" && "text-amber-300 font-semibold",
+                  line.source === "device" && "text-slate-200",
+                )}
+              >
+                {showTimestamps && (
+                  <span className="mr-2 select-none text-[10px] text-slate-500">
+                    [{line.timestamp}]
+                  </span>
+                )}
+                {line.text}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Command Input */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center gap-2 border-t border-border/80 bg-muted/25 px-4 py-2.5"
+        >
+          <span className="telemetry-mono text-xs font-bold text-cyber-crimson">&gt;_</span>
+          <Input
+            value={command}
+            onChange={(e) => setCommand(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={!monitorConnected}
+            placeholder={t("monitorPlaceholder")}
+            className="telemetry-mono h-8 flex-1 text-xs"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            variant="default"
+            disabled={!monitorConnected || command.trim().length === 0}
+            className="h-8 gap-1.5 text-xs"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {t("monitorSendBtn")}
+          </Button>
+        </form>
+      </Card>
+    </div>
   );
 }
