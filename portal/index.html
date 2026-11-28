@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Nezha Cyber Firmware (哪吒赛博固件) — Browser-based Web Serial ESP32-S3 / LILYGO T-Deck flasher and live diagnostic console."
+    />
+    <meta name="theme-color" content="#06070a" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>Nezha Cyber Flasher · 哪吒赛博固件烧录台</title>
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem("nezha-portal-theme") || "auto";
+          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          var resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
+          document.documentElement.classList.toggle("dark", resolved === "dark");
+          document.documentElement.classList.toggle("light", resolved === "light");
+        } catch (_) {}
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen bg-background text-foreground antialiased selection:bg-primary/30 selection:text-foreground">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

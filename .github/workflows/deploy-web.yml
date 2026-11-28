@@ -1,0 +1,65 @@
+name: Deploy Web Flasher Portal (GitHub Pages)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "portal/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-portal
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build Nezha Cyber Web Flasher (/portal)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: portal
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check & build production bundle
+        env:
+          VITE_BASE_PATH: "./"
+        run: npm run build
+
+      - name: Disable Jekyll processing on Pages artifact
+        run: touch dist/.nojekyll
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: portal/dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
