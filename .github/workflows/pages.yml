@@ -2,22 +2,23 @@ name: Deploy Web Flasher Portal (GitHub Pages)
 
 on:
   release:
-    types: [published]
+    types: [published, edited]
   push:
     branches: [main]
     paths:
       - "portal/**"
       - "tools/gen_web_manifests.py"
+      - "tools/sync_portal_releases.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag for flasher manifests & binaries (default: latest)"
+        description: "Release tag for esp-web-tools manifests (default: latest)"
         required: false
         default: "latest"
         type: string
       sync_release_bins:
-        description: "Copy published GitHub Release .bin assets into static Pages bundle (same-origin, zero CORS issues)"
+        description: "Mirror published GitHub Release .bin assets (stable + beta) into static Pages (same-origin, zero CORS)"
         required: false
         default: true
         type: boolean
@@ -34,11 +35,10 @@ concurrency:
 jobs:
   build:
     name: Build & Stage Static Portal (/portal)
-    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout portal & manifest generator only
+      - name: Checkout portal & manifest tools only
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
@@ -77,7 +77,7 @@ jobs:
           echo "Building static portal with VITE_BASE_PATH=$VITE_BASE_PATH"
           npm run build
 
-      - name: Resolve release tag & stage static manifests + optional release binaries
+      - name: Sync GitHub Releases (Stable + Beta + Archive) & stage static manifests
         env:
           GH_TOKEN: ${{ github.token }}
           REPO_NAME: ${{ github.repository }}
@@ -99,57 +99,12 @@ jobs:
             --repo "$REPO_NAME" \
             --tag "$TAG"
 
-          # Mirror published factory .bin files into static Pages so Web Serial fetches same-origin without CORS blocks
+          # Sync multi-version GitHub Releases (stable + beta + archive) + real memory sizes into portal manifest
+          SYNC_ARGS=(--repo "$REPO_NAME" --dist-dir portal/dist --max-releases 12 --max-mirror-releases 4)
           if [ "$SYNC_BINS" = "true" ]; then
-            if [ "$TAG" = "latest" ]; then
-              RESOLVED_TAG=$(gh release view --repo "$REPO_NAME" --json tagName -q .tagName 2>/dev/null || true)
-            else
-              RESOLVED_TAG="$TAG"
-            fi
-
-            if [ -n "$RESOLVED_TAG" ]; then
-              OUT_DIR="portal/dist/firmware/releases/${RESOLVED_TAG}"
-              mkdir -p "$OUT_DIR"
-              if gh release download "$RESOLVED_TAG" \
-                --repo "$REPO_NAME" \
-                --pattern "NezhaCyber-*.bin" \
-                --dir "$OUT_DIR" \
-                --clobber 2>/dev/null; then
-                rm -f "$OUT_DIR"/NezhaCyber-*-ota.bin
-                RESOLVED_TAG="$RESOLVED_TAG" python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          tag = os.environ["RESOLVED_TAG"]
-          rel_dir = Path("portal/dist/firmware/releases") / tag
-          bins = {p.name for p in rel_dir.glob("NezhaCyber-*.bin")}
-          if not bins:
-              raise SystemExit(0)
-
-          mpath = Path("portal/dist/firmware/manifest.json")
-          manifest = json.loads(mpath.read_text(encoding="utf-8"))
-          if manifest.get("releases"):
-              latest = manifest["releases"][0]
-              latest["version"] = tag
-              for b in latest.get("builds", []):
-                  merged = b.get("flashModes", {}).get("merged")
-                  if not merged:
-                      continue
-                  for part in merged.get("parts", []):
-                      if part.get("name") in bins:
-                          part["path"] = f"firmware/releases/{tag}/{part['name']}"
-              mpath.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-              print(f"Synced {len(bins)} release binaries into static Pages for {tag}")
-          PY
-              else
-                echo "No published release binaries found for '$RESOLVED_TAG'; continuing with portal-only deploy."
-                rmdir "$OUT_DIR" 2>/dev/null || true
-              fi
-            else
-              echo "No published GitHub Release yet; continuing with static portal deploy."
-            fi
+            SYNC_ARGS+=(--sync-bins)
           fi
+          python3 tools/sync_portal_releases.py "${SYNC_ARGS[@]}"
 
       - name: Finalize static Pages output (.nojekyll, SPA 404 fallback, sanity check)
         run: |

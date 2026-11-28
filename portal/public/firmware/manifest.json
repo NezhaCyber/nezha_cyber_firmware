@@ -2,15 +2,17 @@
   "project": "Nezha Cyber Firmware",
   "projectZh": "哪吒赛博固件",
   "repository": "NezhaCyber/nezha_cyber_firmware",
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "updatedAt": "2026-11-28",
   "releases": [
     {
       "version": "v2.1.0",
       "channel": "stable",
       "releaseDate": "2026-11-28",
-      "notesEn": "Unified Nezha Cyber OS with 100% Chinese/English UI, Military EW Radar v2, WireGuard, Sub-GHz / IR / RFID suites, and Nezha Pet.",
-      "notesZh": "统一版哪吒赛博系统：内置全中文/英文字库、军工电子战雷达 v2、WireGuard、Sub-GHz / 红外 / RFID 工具集与哪吒宠物。",
+      "releaseUrl": "https://github.com/NezhaCyber/nezha_cyber_firmware/releases/tag/v2.1.0",
+      "source": "bundled",
+      "notesEn": "Unified Nezha Cyber OS with bilingual UI, clean Radar v2, WireGuard, NetDiscovery, DNS Tools, Wordlist Gen, and Nezha Pet.",
+      "notesZh": "统一版哪吒赛博系统：内置中英文双语字库、低噪战术雷达 v2、WireGuard、网络发现、DNS 工具、字典生成器与哪吒宠物。",
       "builds": [
         {
           "id": "lilygo-t-deck",
@@ -20,6 +22,9 @@
           "mcu": "ESP32-S3",
           "chipFamily": "esp32s3",
           "flashSize": "16 MB",
+          "flashSizeMB": 16,
+          "maxAppBytes": 6553600,
+          "edition": "full",
           "psram": "8 MB OPI PSRAM",
           "display": "320×240 ST7789 + GT911 Touch",
           "partitionTable": "partitions/custom_16Mb.csv",
@@ -84,6 +89,9 @@
           "mcu": "ESP32-S3",
           "chipFamily": "esp32s3",
           "flashSize": "16 MB",
+          "flashSizeMB": 16,
+          "maxAppBytes": 6553600,
+          "edition": "full",
           "psram": "8 MB OPI PSRAM",
           "display": "320×240 ST7789 + LoRa + GPS",
           "partitionTable": "partitions/custom_16Mb.csv",
@@ -141,86 +149,6 @@
           }
         },
         {
-          "id": "lilygo-t-embed-cc1101",
-          "env": "lilygo-t-embed-cc1101",
-          "boardName": "LILYGO T-Embed CC1101",
-          "boardNameZh": "LILYGO T-Embed CC1101",
-          "mcu": "ESP32-S3",
-          "chipFamily": "esp32s3",
-          "flashSize": "16 MB",
-          "psram": "8 MB OPI PSRAM",
-          "display": "320×170 ST7789 + Rotary Encoder",
-          "partitionTable": "partitions/custom_16Mb.csv",
-          "featured": false,
-          "usbHints": [
-            { "vendorId": "0x303a", "productId": "0x1001" }
-          ],
-          "downloadModeHintEn": "Hold the center Encoder button (GPIO0) while plugging USB-C or pressing Reset.",
-          "downloadModeHintZh": "插入 USB-C 或按下 Reset 键时，按住中心旋钮按键 (GPIO0)。",
-          "partitions": [
-            { "label": "Bootloader", "offset": "0x0000", "size": "0x8000", "role": "boot" },
-            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
-            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
-            { "label": "Factory App", "offset": "0x10000", "size": "0x640000", "role": "app" },
-            { "label": "LittleFS / SPIFFS", "offset": "0x650000", "size": "0x9A0000", "role": "fs" },
-            { "label": "CoreDump", "offset": "0xFF0000", "size": "0x10000", "role": "dump" }
-          ],
-          "flashModes": {
-            "merged": {
-              "labelEn": "Full Merged Factory Image (0x0)",
-              "labelZh": "完整合并出厂镜像 (0x0)",
-              "parts": [
-                {
-                  "name": "NezhaCyber-lilygo-t-embed-cc1101.bin",
-                  "label": "Merged Factory Image",
-                  "offset": "0x0",
-                  "path": "firmware/releases/v2.1.0/NezhaCyber-lilygo-t-embed-cc1101.bin"
-                }
-              ]
-            }
-          }
-        },
-        {
-          "id": "m5stack-cardputer",
-          "env": "m5stack-cardputer",
-          "boardName": "M5Stack Cardputer",
-          "boardNameZh": "M5Stack Cardputer 卡片电脑",
-          "mcu": "ESP32-S3",
-          "chipFamily": "esp32s3",
-          "flashSize": "8 MB",
-          "psram": "None (StampS3)",
-          "display": "240×135 ST7789 + Keyboard",
-          "partitionTable": "partitions/custom_8Mb.csv",
-          "featured": false,
-          "usbHints": [
-            { "vendorId": "0x303a", "productId": "0x1001" }
-          ],
-          "downloadModeHintEn": "Power OFF -> Hold G0 button next to USB-C -> Plug USB-C or switch ON -> Release G0.",
-          "downloadModeHintZh": "关闭电源 -> 按住 USB-C 旁的 G0 键 -> 插入 USB-C 或开启电源 -> 松开 G0。",
-          "partitions": [
-            { "label": "Bootloader", "offset": "0x0000", "size": "0x8000", "role": "boot" },
-            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
-            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
-            { "label": "Factory App", "offset": "0x10000", "size": "0x4E0000", "role": "app" },
-            { "label": "LittleFS / SPIFFS", "offset": "0x4F0000", "size": "0x300000", "role": "fs" },
-            { "label": "CoreDump", "offset": "0x7F0000", "size": "0x10000", "role": "dump" }
-          ],
-          "flashModes": {
-            "merged": {
-              "labelEn": "Full Merged Factory Image (0x0)",
-              "labelZh": "完整合并出厂镜像 (0x0)",
-              "parts": [
-                {
-                  "name": "NezhaCyber-m5stack-cardputer.bin",
-                  "label": "Merged Factory Image",
-                  "offset": "0x0",
-                  "path": "firmware/releases/v2.1.0/NezhaCyber-m5stack-cardputer.bin"
-                }
-              ]
-            }
-          }
-        },
-        {
           "id": "m5stack-cplus1_1",
           "env": "m5stack-cplus1_1",
           "boardName": "M5StickC Plus 1.1",
@@ -228,16 +156,19 @@
           "mcu": "ESP32",
           "chipFamily": "esp32",
           "flashSize": "4 MB",
+          "flashSizeMB": 4,
+          "maxAppBytes": 4096000,
+          "edition": "compact",
           "psram": "None",
           "display": "240×135 ST7789 + 3 Buttons",
           "partitionTable": "partitions/custom_4Mb_full.csv",
-          "featured": false,
+          "featured": true,
           "usbHints": [
             { "vendorId": "0x0403", "productId": "0x6001" },
             { "vendorId": "0x1a86", "productId": "0x55d4" }
           ],
-          "downloadModeHintEn": "Connect via USB-C data cable. Auto-reset via DTR/RTS is handled automatically.",
-          "downloadModeHintZh": "直接通过 USB-C 数据线连接即可，DTR/RTS 将自动触发下载模式。",
+          "downloadModeHintEn": "Connect via USB-C data cable. Must use <4MB Compact or Launcher Lite firmware.",
+          "downloadModeHintZh": "直接通过 USB-C 数据线连接即可；4MB 机型必须使用 <4MB 紧凑版或轻量版固件。",
           "partitions": [
             { "label": "Bootloader", "offset": "0x1000", "size": "0x7000", "role": "boot" },
             { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
@@ -283,40 +214,34 @@
               ]
             }
           }
-        }
-      ]
-    },
-    {
-      "version": "v2.0.0",
-      "channel": "archive",
-      "releaseDate": "2026-10-15",
-      "notesEn": "Initial Nezha Cyber standalone fork with 哪吒魔童 Theme Studio and bilingual CJK bitmap font pipeline.",
-      "notesZh": "哪吒赛博固件首个独立分支版本，搭载哪吒魔童主题工坊与紧凑型中文字库管线。",
-      "builds": [
+        },
         {
-          "id": "lilygo-t-deck",
-          "env": "lilygo-t-deck",
-          "boardName": "LILYGO T-Deck",
-          "boardNameZh": "LILYGO T-Deck 标准版",
+          "id": "m5stack-cardputer",
+          "env": "m5stack-cardputer",
+          "boardName": "M5Stack Cardputer",
+          "boardNameZh": "M5Stack Cardputer 卡片电脑",
           "mcu": "ESP32-S3",
           "chipFamily": "esp32s3",
-          "flashSize": "16 MB",
-          "psram": "8 MB OPI PSRAM",
-          "display": "320×240 ST7789 + GT911 Touch",
-          "partitionTable": "partitions/custom_16Mb.csv",
+          "flashSize": "8 MB",
+          "flashSizeMB": 8,
+          "maxAppBytes": 5111808,
+          "edition": "standard",
+          "psram": "None (StampS3)",
+          "display": "240×135 ST7789 + Keyboard",
+          "partitionTable": "partitions/custom_8Mb.csv",
           "featured": true,
           "usbHints": [
             { "vendorId": "0x303a", "productId": "0x1001" }
           ],
-          "downloadModeHintEn": "Power OFF -> Hold Trackball (GPIO0) -> Power ON -> Release Trackball.",
-          "downloadModeHintZh": "关闭电源开关 -> 按住轨迹球 (GPIO0) -> 打开电源开关 -> 松开轨迹球。",
+          "downloadModeHintEn": "Power OFF -> Hold G0 button next to USB-C -> Plug USB-C or switch ON -> Release G0.",
+          "downloadModeHintZh": "关闭电源 -> 按住 USB-C 旁的 G0 键 -> 插入 USB-C 或开启电源 -> 松开 G0。",
           "partitions": [
             { "label": "Bootloader", "offset": "0x0000", "size": "0x8000", "role": "boot" },
             { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
             { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
-            { "label": "Factory App", "offset": "0x10000", "size": "0x640000", "role": "app" },
-            { "label": "LittleFS / SPIFFS", "offset": "0x650000", "size": "0x9A0000", "role": "fs" },
-            { "label": "CoreDump", "offset": "0xFF0000", "size": "0x10000", "role": "dump" }
+            { "label": "Factory App", "offset": "0x10000", "size": "0x4E0000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x4F0000", "size": "0x300000", "role": "fs" },
+            { "label": "CoreDump", "offset": "0x7F0000", "size": "0x10000", "role": "dump" }
           ],
           "flashModes": {
             "merged": {
@@ -324,32 +249,78 @@
               "labelZh": "完整合并出厂镜像 (0x0)",
               "parts": [
                 {
-                  "name": "NezhaCyber-lilygo-t-deck.bin",
+                  "name": "NezhaCyber-m5stack-cardputer.bin",
                   "label": "Merged Factory Image",
                   "offset": "0x0",
-                  "path": "firmware/releases/v2.0.0/NezhaCyber-lilygo-t-deck.bin"
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-m5stack-cardputer.bin"
                 }
               ]
             }
           }
         },
         {
-          "id": "lilygo-t-deck-pro",
-          "env": "lilygo-t-deck-pro",
-          "boardName": "LILYGO T-Deck Plus",
-          "boardNameZh": "LILYGO T-Deck Plus 增强版",
+          "id": "LAUNCHER_m5stack-cplus1_1",
+          "env": "LAUNCHER_m5stack-cplus1_1",
+          "boardName": "M5StickC Plus 1.1 (Launcher Lite)",
+          "boardNameZh": "M5StickC Plus 1.1 (轻量启动器版 <4MB)",
+          "mcu": "ESP32",
+          "chipFamily": "esp32",
+          "flashSize": "4 MB",
+          "flashSizeMB": 4,
+          "maxAppBytes": 2555904,
+          "edition": "lite",
+          "psram": "None",
+          "display": "240×135 ST7789 · Extra 1.5MB FS",
+          "partitionTable": "partitions/custom_4Mb.csv",
+          "featured": false,
+          "usbHints": [
+            { "vendorId": "0x0403", "productId": "0x6001" },
+            { "vendorId": "0x1a86", "productId": "0x55d4" }
+          ],
+          "downloadModeHintEn": "Connect via USB-C data cable. Lightweight <2.5MB app build with 1.5MB free LittleFS for 4MB M5StickC Plus.",
+          "downloadModeHintZh": "USB-C 直连刷入；超轻 <2.5MB 应用固件，为 4MB M5StickC Plus 保留 1.5MB 板载存储。",
+          "partitions": [
+            { "label": "Bootloader", "offset": "0x1000", "size": "0x7000", "role": "boot" },
+            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
+            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
+            { "label": "Factory App", "offset": "0x10000", "size": "0x270000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x280000", "size": "0x180000", "role": "fs" }
+          ],
+          "flashModes": {
+            "merged": {
+              "labelEn": "Full Merged Factory Image (0x0)",
+              "labelZh": "完整合并出厂镜像 (0x0)",
+              "parts": [
+                {
+                  "name": "NezhaCyber-LAUNCHER_m5stack-cplus1_1.bin",
+                  "label": "Merged Factory Image",
+                  "offset": "0x0",
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-LAUNCHER_m5stack-cplus1_1.bin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "lilygo-t-embed-cc1101",
+          "env": "lilygo-t-embed-cc1101",
+          "boardName": "LILYGO T-Embed CC1101",
+          "boardNameZh": "LILYGO T-Embed CC1101",
           "mcu": "ESP32-S3",
           "chipFamily": "esp32s3",
           "flashSize": "16 MB",
+          "flashSizeMB": 16,
+          "maxAppBytes": 6553600,
+          "edition": "full",
           "psram": "8 MB OPI PSRAM",
-          "display": "320×240 ST7789 + LoRa + GPS",
+          "display": "320×170 ST7789 + Rotary Encoder",
           "partitionTable": "partitions/custom_16Mb.csv",
-          "featured": true,
+          "featured": false,
           "usbHints": [
             { "vendorId": "0x303a", "productId": "0x1001" }
           ],
-          "downloadModeHintEn": "Power OFF -> Hold Trackball (GPIO0) -> Power ON -> Release Trackball.",
-          "downloadModeHintZh": "关闭电源开关 -> 按住轨迹球 (GPIO0) -> 打开电源开关 -> 松开轨迹球。",
+          "downloadModeHintEn": "Hold the center Encoder button (GPIO0) while plugging USB-C or pressing Reset.",
+          "downloadModeHintZh": "插入 USB-C 或按下 Reset 键时，按住中心旋钮按键 (GPIO0)。",
           "partitions": [
             { "label": "Bootloader", "offset": "0x0000", "size": "0x8000", "role": "boot" },
             { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
@@ -364,10 +335,267 @@
               "labelZh": "完整合并出厂镜像 (0x0)",
               "parts": [
                 {
-                  "name": "NezhaCyber-lilygo-t-deck-pro.bin",
+                  "name": "NezhaCyber-lilygo-t-embed-cc1101.bin",
                   "label": "Merged Factory Image",
                   "offset": "0x0",
-                  "path": "firmware/releases/v2.0.0/NezhaCyber-lilygo-t-deck-pro.bin"
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-lilygo-t-embed-cc1101.bin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "m5stack-cplus2",
+          "env": "m5stack-cplus2",
+          "boardName": "M5StickC Plus2",
+          "boardNameZh": "M5StickC Plus2 (8MB)",
+          "mcu": "ESP32",
+          "chipFamily": "esp32",
+          "flashSize": "8 MB",
+          "flashSizeMB": 8,
+          "maxAppBytes": 5111808,
+          "edition": "standard",
+          "psram": "2 MB PSRAM",
+          "display": "240×135 ST7789 + 3 Buttons",
+          "partitionTable": "partitions/custom_8Mb.csv",
+          "featured": false,
+          "usbHints": [
+            { "vendorId": "0x1a86", "productId": "0x55d4" }
+          ],
+          "downloadModeHintEn": "Connect via USB-C data cable. Auto-reset via DTR/RTS is handled automatically.",
+          "downloadModeHintZh": "直接通过 USB-C 数据线连接即可，自动进入下载模式。",
+          "partitions": [
+            { "label": "Bootloader", "offset": "0x1000", "size": "0x7000", "role": "boot" },
+            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
+            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
+            { "label": "Factory App", "offset": "0x10000", "size": "0x4E0000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x4F0000", "size": "0x300000", "role": "fs" },
+            { "label": "CoreDump", "offset": "0x7F0000", "size": "0x10000", "role": "dump" }
+          ],
+          "flashModes": {
+            "merged": {
+              "labelEn": "Full Merged Factory Image (0x0)",
+              "labelZh": "完整合并出厂镜像 (0x0)",
+              "parts": [
+                {
+                  "name": "NezhaCyber-m5stack-cplus2.bin",
+                  "label": "Merged Factory Image",
+                  "offset": "0x0",
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-m5stack-cplus2.bin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "CYD-2432S028",
+          "env": "CYD-2432S028",
+          "boardName": "CYD-2432S028 (2.8\")",
+          "boardNameZh": "CYD-2432S028 2.8寸屏 (4MB 紧凑版)",
+          "mcu": "ESP32",
+          "chipFamily": "esp32",
+          "flashSize": "4 MB",
+          "flashSizeMB": 4,
+          "maxAppBytes": 4096000,
+          "edition": "compact",
+          "psram": "None",
+          "display": "320×240 ILI9341 Touch",
+          "partitionTable": "partitions/custom_4Mb_full.csv",
+          "featured": false,
+          "usbHints": [
+            { "vendorId": "0x1a86", "productId": "0x7523" }
+          ],
+          "downloadModeHintEn": "Hold BOOT while pressing Reset (or auto-reset via CH340). Must use <4MB firmware.",
+          "downloadModeHintZh": "按住 BOOT 键同时按 Reset（多数 CH340 支持自动下载）；需使用 <4MB 固件。",
+          "partitions": [
+            { "label": "Bootloader", "offset": "0x1000", "size": "0x7000", "role": "boot" },
+            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
+            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
+            { "label": "Factory App", "offset": "0x10000", "size": "0x3E8000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x3F8000", "size": "0x8000", "role": "fs" }
+          ],
+          "flashModes": {
+            "merged": {
+              "labelEn": "Full Merged Factory Image (0x0)",
+              "labelZh": "完整合并出厂镜像 (0x0)",
+              "parts": [
+                {
+                  "name": "NezhaCyber-CYD-2432S028.bin",
+                  "label": "Merged Factory Image",
+                  "offset": "0x0",
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-CYD-2432S028.bin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "LAUNCHER_CYD-2432S028",
+          "env": "LAUNCHER_CYD-2432S028",
+          "boardName": "CYD-2432S028 (Launcher Lite)",
+          "boardNameZh": "CYD-2432S028 (轻量启动器版 <4MB)",
+          "mcu": "ESP32",
+          "chipFamily": "esp32",
+          "flashSize": "4 MB",
+          "flashSizeMB": 4,
+          "maxAppBytes": 2555904,
+          "edition": "lite",
+          "psram": "None",
+          "display": "320×240 ILI9341 · Extra 1.5MB FS",
+          "partitionTable": "partitions/custom_4Mb.csv",
+          "featured": false,
+          "usbHints": [
+            { "vendorId": "0x1a86", "productId": "0x7523" }
+          ],
+          "downloadModeHintEn": "Lightweight <2.5MB app build with 1.5MB free LittleFS for 4MB CYD.",
+          "downloadModeHintZh": "适用于 4MB CYD 的超轻 <2.5MB 版本，保留 1.5MB 可用空间。",
+          "partitions": [
+            { "label": "Bootloader", "offset": "0x1000", "size": "0x7000", "role": "boot" },
+            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
+            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
+            { "label": "Factory App", "offset": "0x10000", "size": "0x270000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x280000", "size": "0x180000", "role": "fs" }
+          ],
+          "flashModes": {
+            "merged": {
+              "labelEn": "Full Merged Factory Image (0x0)",
+              "labelZh": "完整合并出厂镜像 (0x0)",
+              "parts": [
+                {
+                  "name": "NezhaCyber-LAUNCHER_CYD-2432S028.bin",
+                  "label": "Merged Factory Image",
+                  "offset": "0x0",
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-LAUNCHER_CYD-2432S028.bin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "m5stack-cores3",
+          "env": "m5stack-cores3",
+          "boardName": "M5Stack CoreS3",
+          "boardNameZh": "M5Stack CoreS3",
+          "mcu": "ESP32-S3",
+          "chipFamily": "esp32s3",
+          "flashSize": "16 MB",
+          "flashSizeMB": 16,
+          "maxAppBytes": 6553600,
+          "edition": "full",
+          "psram": "8 MB PSRAM",
+          "display": "320×240 IPS Touch",
+          "partitionTable": "partitions/custom_16Mb.csv",
+          "featured": false,
+          "usbHints": [
+            { "vendorId": "0x303a", "productId": "0x1001" }
+          ],
+          "downloadModeHintEn": "Hold the Reset button on the side for ~3 seconds until the green LED lights up.",
+          "downloadModeHintZh": "长按侧面 Reset 键约 3 秒直到绿灯亮起进入下载模式。",
+          "partitions": [
+            { "label": "Bootloader", "offset": "0x0000", "size": "0x8000", "role": "boot" },
+            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
+            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
+            { "label": "Factory App", "offset": "0x10000", "size": "0x640000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x650000", "size": "0x9A0000", "role": "fs" },
+            { "label": "CoreDump", "offset": "0xFF0000", "size": "0x10000", "role": "dump" }
+          ],
+          "flashModes": {
+            "merged": {
+              "labelEn": "Full Merged Factory Image (0x0)",
+              "labelZh": "完整合并出厂镜像 (0x0)",
+              "parts": [
+                {
+                  "name": "NezhaCyber-m5stack-cores3.bin",
+                  "label": "Merged Factory Image",
+                  "offset": "0x0",
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-m5stack-cores3.bin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "m5stack-core2",
+          "env": "m5stack-core2",
+          "boardName": "M5Stack Core2",
+          "boardNameZh": "M5Stack Core2",
+          "mcu": "ESP32",
+          "chipFamily": "esp32",
+          "flashSize": "16 MB",
+          "flashSizeMB": 16,
+          "maxAppBytes": 6553600,
+          "edition": "full",
+          "psram": "8 MB PSRAM",
+          "display": "320×240 IPS Touch",
+          "partitionTable": "partitions/custom_16Mb.csv",
+          "featured": false,
+          "usbHints": [
+            { "vendorId": "0x10c4", "productId": "0xea60" },
+            { "vendorId": "0x1a86", "productId": "0x55d4" }
+          ],
+          "downloadModeHintEn": "Connect via USB-C data cable. Auto-reset via CP2104/CH9102 is automatic.",
+          "downloadModeHintZh": "直接通过 USB-C 数据线连接即可，板载串口芯片自动触发下载模式。",
+          "partitions": [
+            { "label": "Bootloader", "offset": "0x1000", "size": "0x7000", "role": "boot" },
+            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
+            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
+            { "label": "Factory App", "offset": "0x10000", "size": "0x640000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x650000", "size": "0x9A0000", "role": "fs" },
+            { "label": "CoreDump", "offset": "0xFF0000", "size": "0x10000", "role": "dump" }
+          ],
+          "flashModes": {
+            "merged": {
+              "labelEn": "Full Merged Factory Image (0x0)",
+              "labelZh": "完整合并出厂镜像 (0x0)",
+              "parts": [
+                {
+                  "name": "NezhaCyber-m5stack-core2.bin",
+                  "label": "Merged Factory Image",
+                  "offset": "0x0",
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-m5stack-core2.bin"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "id": "lilygo-t-embed",
+          "env": "lilygo-t-embed",
+          "boardName": "LILYGO T-Embed",
+          "boardNameZh": "LILYGO T-Embed 标准版",
+          "mcu": "ESP32-S3",
+          "chipFamily": "esp32s3",
+          "flashSize": "16 MB",
+          "flashSizeMB": 16,
+          "maxAppBytes": 6553600,
+          "edition": "full",
+          "psram": "8 MB OPI PSRAM",
+          "display": "320×170 ST7789 + Rotary Encoder",
+          "partitionTable": "partitions/custom_16Mb.csv",
+          "featured": false,
+          "usbHints": [
+            { "vendorId": "0x303a", "productId": "0x1001" }
+          ],
+          "downloadModeHintEn": "Hold the center Encoder button (GPIO0) while plugging USB-C or pressing Reset.",
+          "downloadModeHintZh": "插入 USB-C 或按下 Reset 键时，按住中心旋钮按键 (GPIO0)。",
+          "partitions": [
+            { "label": "Bootloader", "offset": "0x0000", "size": "0x8000", "role": "boot" },
+            { "label": "Partition Table", "offset": "0x8000", "size": "0x1000", "role": "table" },
+            { "label": "NVS", "offset": "0x9000", "size": "0x6000", "role": "nvs" },
+            { "label": "Factory App", "offset": "0x10000", "size": "0x640000", "role": "app" },
+            { "label": "LittleFS / SPIFFS", "offset": "0x650000", "size": "0x9A0000", "role": "fs" },
+            { "label": "CoreDump", "offset": "0xFF0000", "size": "0x10000", "role": "dump" }
+          ],
+          "flashModes": {
+            "merged": {
+              "labelEn": "Full Merged Factory Image (0x0)",
+              "labelZh": "完整合并出厂镜像 (0x0)",
+              "parts": [
+                {
+                  "name": "NezhaCyber-lilygo-t-embed.bin",
+                  "label": "Merged Factory Image",
+                  "offset": "0x0",
+                  "path": "firmware/releases/v2.1.0/NezhaCyber-lilygo-t-embed.bin"
                 }
               ]
             }

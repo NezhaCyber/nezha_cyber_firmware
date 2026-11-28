@@ -86,13 +86,13 @@ jobs:
       matrix:
         include:
           - group: esp32s3-lilygo
-            boards: '[{"env":"lilygo-t-deck","board":"LilyGO T-Deck","mcu":"esp32s3","flash":"16MB"},{"env":"lilygo-t-deck-pro","board":"LilyGO T-Deck Plus","mcu":"esp32s3","flash":"16MB"},{"env":"lilygo-t-embed-cc1101","board":"LilyGO T-Embed CC1101","mcu":"esp32s3","flash":"16MB"},{"env":"lilygo-t-embed","board":"LilyGO T-Embed","mcu":"esp32s3","flash":"16MB"}]'
+            boards: '[{"env":"lilygo-t-deck","board":"LilyGO T-Deck","mcu":"esp32s3","flash":"16MB","flash_mb":16,"psram":"8MB PSRAM","edition":"full","partition":"partitions/custom_16Mb.csv"},{"env":"lilygo-t-deck-pro","board":"LilyGO T-Deck Plus","mcu":"esp32s3","flash":"16MB","flash_mb":16,"psram":"8MB PSRAM","edition":"full","partition":"partitions/custom_16Mb.csv"},{"env":"lilygo-t-embed-cc1101","board":"LilyGO T-Embed CC1101","mcu":"esp32s3","flash":"16MB","flash_mb":16,"psram":"8MB PSRAM","edition":"full","partition":"partitions/custom_16Mb.csv"},{"env":"lilygo-t-embed","board":"LilyGO T-Embed","mcu":"esp32s3","flash":"16MB","flash_mb":16,"psram":"8MB PSRAM","edition":"full","partition":"partitions/custom_16Mb.csv"}]'
           - group: esp32s3-m5stack
-            boards: '[{"env":"m5stack-cardputer","board":"M5Stack Cardputer","mcu":"esp32s3","flash":"8MB"},{"env":"m5stack-cores3","board":"M5Stack CoreS3","mcu":"esp32s3","flash":"16MB"}]'
+            boards: '[{"env":"m5stack-cardputer","board":"M5Stack Cardputer","mcu":"esp32s3","flash":"8MB","flash_mb":8,"psram":"None","edition":"standard","partition":"partitions/custom_8Mb.csv"},{"env":"m5stack-cores3","board":"M5Stack CoreS3","mcu":"esp32s3","flash":"16MB","flash_mb":16,"psram":"8MB PSRAM","edition":"full","partition":"partitions/custom_16Mb.csv"}]'
           - group: esp32-full
-            boards: '[{"env":"m5stack-core2","board":"M5Stack Core2","mcu":"esp32","flash":"16MB"},{"env":"m5stack-cplus2","board":"M5StickC Plus2","mcu":"esp32","flash":"8MB"},{"env":"m5stack-cplus1_1","board":"M5StickC Plus 1.1","mcu":"esp32","flash":"4MB"},{"env":"CYD-2432S028","board":"CYD-2432S028 (2.8\")","mcu":"esp32","flash":"4MB"}]'
+            boards: '[{"env":"m5stack-core2","board":"M5Stack Core2","mcu":"esp32","flash":"16MB","flash_mb":16,"psram":"8MB PSRAM","edition":"full","partition":"partitions/custom_16Mb.csv"},{"env":"m5stack-cplus2","board":"M5StickC Plus2","mcu":"esp32","flash":"8MB","flash_mb":8,"psram":"2MB PSRAM","edition":"standard","partition":"partitions/custom_8Mb.csv"},{"env":"m5stack-cplus1_1","board":"M5StickC Plus 1.1","mcu":"esp32","flash":"4MB","flash_mb":4,"psram":"None","edition":"compact","partition":"partitions/custom_4Mb_full.csv"},{"env":"CYD-2432S028","board":"CYD-2432S028 (2.8\")","mcu":"esp32","flash":"4MB","flash_mb":4,"psram":"None","edition":"compact","partition":"partitions/custom_4Mb_full.csv"}]'
           - group: esp32-launcher
-            boards: '[{"env":"LAUNCHER_m5stack-cplus1_1","board":"M5StickC Plus 1.1 (Launcher)","mcu":"esp32","flash":"4MB"},{"env":"LAUNCHER_CYD-2432S028","board":"CYD-2432S028 (Launcher)","mcu":"esp32","flash":"4MB"}]'
+            boards: '[{"env":"LAUNCHER_m5stack-cplus1_1","board":"M5StickC Plus 1.1 (Launcher)","mcu":"esp32","flash":"4MB","flash_mb":4,"psram":"None","edition":"lite","partition":"partitions/custom_4Mb.csv"},{"env":"LAUNCHER_CYD-2432S028","board":"CYD-2432S028 (Launcher)","mcu":"esp32","flash":"4MB","flash_mb":4,"psram":"None","edition":"lite","partition":"partitions/custom_4Mb.csv"}]'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -129,34 +129,87 @@ jobs:
       - name: Install PlatformIO
         run: pip install --disable-pip-version-check --no-warn-script-location "platformio>=6.1,<7"
 
-      - name: Build & package boards in ${{ matrix.group }}
+      - name: Build & package boards with memory telemetry in ${{ matrix.group }}
         env:
           BOARDS_JSON: ${{ matrix.boards }}
         run: |
           python3 - <<'PY'
+          import csv
           import json
           import os
+          import re
           import shutil
           import subprocess
           from pathlib import Path
+
+          def read_app_part_bytes(csv_path: Path) -> int:
+              if not csv_path.is_file():
+                  return 0
+              with csv_path.open(newline="", encoding="utf-8") as f:
+                  for row in csv.reader(f):
+                      if not row or row[0].strip().startswith("#") or len(row) < 5:
+                          continue
+                      if row[2].strip().lower() in ("factory", "ota_0"):
+                          s = row[4].strip().upper()
+                          if s.endswith("K"):
+                              return int(s[:-1], 0) * 1024
+                          if s.endswith("M"):
+                              return int(s[:-1], 0) * 1024 * 1024
+                          return int(s, 0)
+              return 0
 
           boards = json.loads(os.environ["BOARDS_JSON"])
           dist = Path("dist")
           dist.mkdir(exist_ok=True)
 
+          ram_re = re.compile(r"RAM:\s+\[[^\]]+\]\s+([0-9.]+)%\s+\(used\s+(\d+)\s+bytes\s+from\s+(\d+)\s+bytes\)")
+
           for item in boards:
               env_name = item["env"]
-              print(f"\n=== Building {item['board']} ({env_name}) ===", flush=True)
-              subprocess.run(["pio", "run", "-e", env_name], check=True)
+              flash_mb = int(item["flash_mb"])
+              flash_bytes = flash_mb * 1024 * 1024
+              part_path = Path(item["partition"])
+              app_part_bytes = read_app_part_bytes(part_path)
+
+              print(f"\n=== Building {item['board']} ({env_name} · {flash_mb}MB {item['edition']}) ===", flush=True)
+              proc = subprocess.run(
+                  ["pio", "run", "-e", env_name],
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.STDOUT,
+                  text=True,
+                  check=False,
+              )
+              print(proc.stdout, flush=True)
+              if proc.returncode != 0:
+                  raise SystemExit(proc.returncode)
+
+              ram_used = 0
+              ram_total = 0
+              ram_pct = None
+              m = ram_re.search(proc.stdout)
+              if m:
+                  ram_pct = float(m.group(1))
+                  ram_used = int(m.group(2))
+                  ram_total = int(m.group(3))
 
               factory_src = Path(f"NezhaCyber-{env_name}.bin")
               if not factory_src.is_file():
                   raise FileNotFoundError(f"Expected merged binary not found: {factory_src}")
+              factory_size = factory_src.stat().st_size
+              if factory_size > flash_bytes:
+                  raise RuntimeError(
+                      f"{env_name} merged binary ({factory_size:,} B) exceeds {flash_mb}MB flash limit ({flash_bytes:,} B)!"
+                  )
               shutil.copy2(factory_src, dist / factory_src.name)
 
               ota_src = Path(".pio") / "build" / env_name / "firmware.bin"
               ota_name = f"NezhaCyber-{env_name}-ota.bin"
               if ota_src.is_file():
+                  ota_size = ota_src.stat().st_size
+                  if app_part_bytes > 0 and ota_size > app_part_bytes:
+                      raise RuntimeError(
+                          f"{env_name} app binary ({ota_size:,} B) exceeds partition limit ({app_part_bytes:,} B)!"
+                      )
                   shutil.copy2(ota_src, dist / ota_name)
 
               meta = {
@@ -164,6 +217,15 @@ jobs:
                   "board": item["board"],
                   "mcu": item["mcu"],
                   "flash": item["flash"],
+                  "flash_mb": flash_mb,
+                  "flash_bytes": flash_bytes,
+                  "psram": item.get("psram", "None"),
+                  "edition": item["edition"],
+                  "partition": item["partition"],
+                  "app_partition_bytes": app_part_bytes,
+                  "ram_used_bytes": ram_used,
+                  "ram_total_bytes": ram_total,
+                  "ram_usage_pct": ram_pct,
                   "factory_bin": factory_src.name,
                   "ota_bin": ota_name,
               }
@@ -189,11 +251,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout release packaging scripts & sd_files
+      - name: Checkout release packaging scripts, partitions & sd_files
         uses: actions/checkout@v7
         with:
           sparse-checkout: |
             scripts/build
+            partitions
             sd_files
 
       - name: Download all built firmware artifacts
@@ -209,13 +272,17 @@ jobs:
             zip -r -q release-assets/NezhaCyber-sd-files.zip sd_files
           fi
 
-      - name: Generate SHA256SUMS.txt, manifest.json & Release Notes
+      - name: Generate SHA256SUMS.txt, manifest.json & Release Notes with memory table
         env:
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          RELEASE_CHANNEL: ${{ needs.verify.outputs.is_prerelease == 'true' && 'beta' || 'stable' }}
+          REPO_NAME: ${{ github.repository }}
         run: |
           python3 scripts/build/package_release.py \
             --assets-dir release-assets \
             --tag "$RELEASE_TAG" \
+            --channel "$RELEASE_CHANNEL" \
+            --repo "$REPO_NAME" \
             --notes-out RELEASE_NOTES.md
           test -s release-assets/manifest.json
           test -s release-assets/SHA256SUMS.txt
