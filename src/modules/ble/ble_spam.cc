@@ -1192,6 +1192,7 @@ static void bleSpamPickRandomSelection(BleSpamAttackType &attackType, int &devic
         {BLE_SPAM_ATTACK_APPLE_PAIRING,
                                   bleSpamGetDeviceCount(BLE_SPAM_ATTACK_APPLE_PAIRING) - 1                                   }, // -1 to exclude Random/All sentinel
         {BLE_SPAM_ATTACK_APPLE_ACTION,       bleSpamGetDeviceCount(BLE_SPAM_ATTACK_APPLE_ACTION) - 1},
+        {BLE_SPAM_ATTACK_APPLE_NOT_YOUR_DEVICE, bleSpamGetDeviceCount(BLE_SPAM_ATTACK_APPLE_NOT_YOUR_DEVICE) - 1},
 #endif
         {BLE_SPAM_ATTACK_ANDROID_ALERT,      2                                                      }, // only Pixel + Generic, not Random/All
         {BLE_SPAM_ATTACK_WINDOWS_SWIFT_PAIR,
@@ -1627,7 +1628,13 @@ bleSpamSendTick(BleSpamRunState &state, const BleSpamConfig &config, const BleSp
             bleSpamRestartAdvertiserForMac(state, config, nextMac);
         }
 
-        if (!pAdvertising) return;
+        // pAdvertising is guaranteed non-null here (outer condition). MAC rotation
+        // calls stop() first; always reschedule so a transient miss can't wedge
+        // BLE spam into a stopped, busy-spinning state. Next tick retries start().
+        if (!pAdvertising) {
+            state.next_send_ms = now + config.adv_ms + config.gap_ms;
+            return;
+        }
 
         // For beacon random spam, force a stop before setting new data so NimBLE
         // flushes the payload and picks up the new name every packet
@@ -1637,15 +1644,31 @@ bleSpamSendTick(BleSpamRunState &state, const BleSpamConfig &config, const BleSp
 
         const BLEAdvertisementData *advertisementData =
             bleSpamSelectAdvertisement(state, attackType, deviceIndex);
-        if (!advertisementData) return;
+        if (!advertisementData) {
+            // Could not build a valid (<=31 byte) payload this cycle: reschedule
+            // instead of returning with advertising stopped and no next_send_ms,
+            // which would spin without transmitting. Next tick retries.
+            state.next_send_ms = now + config.adv_ms + config.gap_ms;
+            return;
+        }
 
-        pAdvertising->setAdvertisementData(*advertisementData);
+        // Always reschedule the next slot first so no path can wedge the loop.
+        state.next_send_ms = now + config.adv_ms + config.gap_ms;
+
+        bool advSet = pAdvertising->setAdvertisementData(*advertisementData);
         pAdvertising->setScanResponseData(emptyScanResponse);
-        pAdvertising->start();
+
+        // Only start + count the packet if NimBLE accepted the payload AND the
+        // controller actually started advertising. Otherwise reschedule and
+        // retry next cycle instead of counting a phantom TX. Stale payload on a
+        // failed setAdvertisementData() is never started.
+        bool started = false;
+        if (advSet) started = pAdvertising->start();
+
+        if (!advSet || !started) return;
 
         state.adv_active = true;
         state.adv_stop_ms = now + config.adv_ms;
-        state.next_send_ms = now + config.adv_ms + config.gap_ms;
         state.packet_counter++;
         state.sent_count++;
         state.window_packets++;
