@@ -171,6 +171,10 @@ function PortalWorkspace() {
 
   const handleOpenConsoleAfterFlash = async () => {
     setActiveTab("console");
+    if (serial.isConnected) {
+      await serial.hardReset();
+      await new Promise((r) => setTimeout(r, 250));
+    }
     await serial.attachSerialMonitor();
   };
 
@@ -322,13 +326,27 @@ function PortalWorkspace() {
               <SerialMonitorPanel
                 isSupported={serial.isSupported}
                 monitorConnected={serial.monitorConnected}
+                monitorConnecting={serial.monitorConnecting}
                 isFlashingBusy={serial.isBusy || usbFiles.transfer.active}
+                selectedPort={serial.selectedPort}
+                knownPorts={serial.knownPorts}
+                monitorBaudRate={serial.monitorBaudRate}
+                onChangeMonitorBaudRate={serial.setMonitorBaudRate}
+                lineEnding={serial.lineEnding}
+                onChangeLineEnding={serial.setLineEnding}
+                localEcho={serial.localEcho}
+                onChangeLocalEcho={serial.setLocalEcho}
+                monitorError={serial.monitorError}
                 lines={serial.terminalLines}
+                pendingLine={serial.pendingLine}
+                rxBytes={serial.rxBytes}
+                txBytes={serial.txBytes}
                 onAttach={serial.attachSerialMonitor}
                 onDetach={serial.detachSerialMonitor}
                 onHardReset={serial.hardReset}
                 onClear={serial.clearTerminal}
                 onSendCommand={serial.sendSerialCommand}
+                onSendCtrlC={serial.sendSerialCtrlC}
               />
             </motion.div>
           )}

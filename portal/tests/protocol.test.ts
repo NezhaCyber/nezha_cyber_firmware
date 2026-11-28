@@ -3,6 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import {
+  encodeCommandLine,
+  getInitialMonitorSignals,
+  SerialLineBuffer,
+  stripAnsiSequences,
+} from "../src/lib/serialTerminal.js";
+import {
   buildSohPacket,
   buildYmodemHeaderPayload,
   crc16Ccitt,
@@ -19,6 +25,7 @@ import {
   pickBestCompatibleBoard,
   type GitHubReleaseApiItem,
 } from "../src/services/githubReleases.js";
+import { SerialMonitorSession } from "../src/services/serialMonitor.js";
 import type { DetectedChipInfo, FirmwareManifest } from "../src/types/firmware.js";
 
 test("crc16Ccitt matches firmware CCITT-0x0000 polynomial 0x1021", () => {
@@ -205,4 +212,145 @@ test("mergeGitHubReleasesIntoManifest merges Stable, Beta, and Archive versions 
   assert.equal(merged.releases[0].builds[0].binarySizeBytes, 5120000);
   assert.equal(merged.releases[0].builds[1].binarySizeBytes, 3800000);
   assert.equal(merged.releases[1].channel, "stable");
+});
+
+test("SerialLineBuffer strips ANSI/OSC, handles UTF-8, and exposes live '# ' prompt", () => {
+  const buf = new SerialLineBuffer();
+
+  assert.equal(stripAnsiSequences("\x1b[32mOK\x1b[0m \x1b]0;title\x07哪吒"), "OK 哪吒");
+  assert.equal(encodeCommandLine("info\r\n", "lf"), "info\n");
+  assert.equal(encodeCommandLine("info", "crlf"), "info\r\n");
+  assert.equal(encodeCommandLine("info", "none"), "info");
+
+  const r1 = buf.feed("\x1b[36mNezha Cyber v2.1\x1b[0m\r\nDevice: 哪吒\r\n# ");
+  assert.deepEqual(r1.completedLines, ["Nezha Cyber v2.1", "Device: 哪吒"]);
+  assert.equal(r1.pendingLine, "# ");
+
+  const r2 = buf.feed("info\n");
+  assert.deepEqual(r2.completedLines, ["# info"]);
+  assert.equal(r2.pendingLine, "");
+
+  // Standalone CR progress overwrite
+  const r3 = buf.feed("10%\r50%\r100%\n");
+  assert.deepEqual(r3.completedLines, ["100%"]);
+});
+
+test("getInitialMonitorSignals enables DTR for ESP32-S3 USB-CDC and clears RTS for UART bridges", () => {
+  assert.deepEqual(getInitialMonitorSignals(0x303a), {
+    dataTerminalReady: true,
+    requestToSend: false,
+  });
+  assert.deepEqual(getInitialMonitorSignals(0x1a86), {
+    dataTerminalReady: false,
+    requestToSend: false,
+  });
+  assert.deepEqual(getInitialMonitorSignals(0x0403), {
+    dataTerminalReady: false,
+    requestToSend: false,
+  });
+});
+
+test("SerialMonitorSession reopens at target baud, asserts DTR, streams RX, and serializes concurrent TX", async () => {
+  const signalsLog: Array<{ dataTerminalReady?: boolean; requestToSend?: boolean }> = [];
+  const openBauds: number[] = [];
+  const txPayloads: Uint8Array[] = [];
+  let rxController: ReadableStreamDefaultController<Uint8Array> | null = null;
+  let isOpen = true; // Simulate port left open at 921600 by esptool flasher
+  let closeCount = 0;
+
+  const makeStreams = () => ({
+    readable: new ReadableStream<Uint8Array>({
+      start(ctrl) {
+        rxController = ctrl;
+      },
+    }),
+    writable: new WritableStream<Uint8Array>({
+      write(chunk) {
+        txPayloads.push(new Uint8Array(chunk));
+      },
+    }),
+  });
+
+  let streams = makeStreams();
+  const mockPort = {
+    get readable() {
+      return isOpen ? streams.readable : null;
+    },
+    get writable() {
+      return isOpen ? streams.writable : null;
+    },
+    getInfo() {
+      return { usbVendorId: 0x303a, usbProductId: 0x1001 };
+    },
+    async open(opts: { baudRate: number }) {
+      openBauds.push(opts.baudRate);
+      isOpen = true;
+      streams = makeStreams();
+    },
+    async close() {
+      closeCount++;
+      isOpen = false;
+      rxController = null;
+    },
+    async setSignals(sig: { dataTerminalReady?: boolean; requestToSend?: boolean }) {
+      signalsLog.push(sig);
+    },
+  } as unknown as SerialPort;
+
+  const session = new SerialMonitorSession();
+  const rxChunks: string[] = [];
+  let totalRxBytes = 0;
+  let totalTxBytes = 0;
+  const statuses: boolean[] = [];
+  const errors: string[] = [];
+
+  await session.open(mockPort, 115200, {
+    onChunk: (txt, n) => {
+      rxChunks.push(txt);
+      totalRxBytes += n;
+    },
+    onTxBytes: (n) => {
+      totalTxBytes += n;
+    },
+    onStatus: (ok) => statuses.push(ok),
+    onError: (e) => errors.push(e),
+  });
+
+  // Must have closed stale open port and reopened at 115200, with ESP32-S3 DTR=true, RTS=false
+  assert.equal(closeCount, 1);
+  assert.deepEqual(openBauds, [115200]);
+  assert.deepEqual(signalsLog[0], { dataTerminalReady: true, requestToSend: false });
+  assert.deepEqual(statuses, [true]);
+
+  // Simulate device sending live output + prompt
+  const enc = new TextEncoder();
+  rxController!.enqueue(enc.encode("Nezha Cyber v2.1\r\n# "));
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(rxChunks.join(""), "Nezha Cyber v2.1\r\n# ");
+  assert.equal(totalRxBytes, enc.encode("Nezha Cyber v2.1\r\n# ").byteLength);
+
+  // Concurrent writes MUST serialize cleanly without throwing "WritableStream is locked"
+  await Promise.all([
+    session.sendCommand("info", "lf"),
+    session.sendCommand("sysmon", "lf"),
+    session.sendCtrlC(),
+  ]);
+  const dec = new TextDecoder();
+  assert.deepEqual(
+    txPayloads.map((b) => dec.decode(b)),
+    ["info\n", "sysmon\n", "\x03"],
+  );
+  assert.equal(totalTxBytes, 5 + 7 + 1);
+
+  // Pulse reset restores ESP32-S3 DTR=true, RTS=false after RTS toggle
+  await session.pulseReset();
+  assert.deepEqual(signalsLog.slice(-2), [
+    { dataTerminalReady: false, requestToSend: true },
+    { dataTerminalReady: true, requestToSend: false },
+  ]);
+
+  // Clean close releases reader lock and closes port without errors
+  await session.close();
+  assert.equal(session.isOpen, false);
+  assert.equal(errors.length, 0);
 });

@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  SerialLineBuffer,
+  type LineEndingMode,
+} from "@/lib/serialTerminal";
 import { describeSerialPort, ESP_SERIAL_FILTERS } from "@/lib/usbDevices";
 import { formatTimeStamp, resolveAssetUrl } from "@/lib/utils";
 import {
@@ -14,7 +18,7 @@ import type {
   UsbPortInfoSummary,
 } from "@/types/firmware";
 
-const MAX_TERMINAL_LINES = 800;
+const MAX_TERMINAL_LINES = 1000;
 
 const INITIAL_PROGRESS: FlashProgressState = {
   phase: "idle",
@@ -42,16 +46,24 @@ export function useWebSerial(options?: UseWebSerialOptions) {
   const [knownPorts, setKnownPorts] = useState<UsbPortInfoSummary[]>([]);
   const [selectedPort, setSelectedPort] = useState<UsbPortInfoSummary | null>(null);
   const [baudRate, setBaudRate] = useState<number>(921600);
+  const [monitorBaudRate, setMonitorBaudRate] = useState<number>(115200);
+  const [lineEnding, setLineEnding] = useState<LineEndingMode>("lf");
+  const [localEcho, setLocalEcho] = useState<boolean>(true);
   const [chipInfo, setChipInfo] = useState<DetectedChipInfo | null>(null);
   const [progress, setProgress] = useState<FlashProgressState>(INITIAL_PROGRESS);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [monitorError, setMonitorError] = useState<string | null>(null);
   const [monitorConnected, setMonitorConnected] = useState<boolean>(false);
+  const [monitorConnecting, setMonitorConnecting] = useState<boolean>(false);
   const [terminalLines, setTerminalLines] = useState<TerminalLine[]>([]);
+  const [pendingLine, setPendingLine] = useState<string>("");
+  const [rxBytes, setRxBytes] = useState<number>(0);
+  const [txBytes, setTxBytes] = useState<number>(0);
 
   const flasherRef = useRef<EspFlasherSession>(new EspFlasherSession());
   const monitorRef = useRef<SerialMonitorSession>(new SerialMonitorSession());
+  const lineBufferRef = useRef<SerialLineBuffer>(new SerialLineBuffer());
   const lineIdRef = useRef<number>(1);
-  const rxBufferRef = useRef<string>("");
   const autoBoardCbRef = useRef(options?.onAutoDetectBoard);
   const beforeAcquireCbRef = useRef(options?.onBeforeAcquirePort);
   autoBoardCbRef.current = options?.onAutoDetectBoard;
@@ -80,17 +92,20 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     [],
   );
 
-  const appendRawChunk = useCallback((chunk: string) => {
-    rxBufferRef.current += chunk;
-    const parts = rxBufferRef.current.split(/\r?\n/);
-    rxBufferRef.current = parts.pop() ?? "";
-    if (parts.length > 0) {
+  const appendRawChunk = useCallback((chunk: string, byteCount: number) => {
+    if (byteCount > 0) {
+      setRxBytes((n) => n + byteCount);
+    }
+    const { completedLines, pendingLine: nextPending } = lineBufferRef.current.feed(chunk);
+    setPendingLine(nextPending);
+
+    if (completedLines.length > 0) {
       const timestamp = formatTimeStamp();
       setTerminalLines((prev) => {
-        const additions: TerminalLine[] = parts.map((line) => ({
+        const additions: TerminalLine[] = completedLines.map((line) => ({
           id: lineIdRef.current++,
           timestamp,
-          text: line.replace(/\x1b\[[0-9;]*m/g, ""),
+          text: line,
           source: "device",
         }));
         const merged = [...prev, ...additions];
@@ -154,6 +169,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
       if (monitorRef.current.isOpen) {
         await monitorRef.current.close();
         setMonitorConnected(false);
+        setPendingLine("");
       }
       void refreshAuthorizedPorts();
     };
@@ -177,6 +193,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     if (monitorRef.current.isOpen) {
       await monitorRef.current.close();
       setMonitorConnected(false);
+      setPendingLine("");
     }
     if (flasherRef.current.isConnected) {
       await flasherRef.current.disconnect();
@@ -184,6 +201,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     setChipInfo(null);
     setProgress(INITIAL_PROGRESS);
     setErrorMessage(null);
+    setMonitorError(null);
   }, []);
 
   const connectPort = useCallback(
@@ -193,6 +211,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
       if (monitorRef.current.isOpen) {
         await monitorRef.current.close();
         setMonitorConnected(false);
+        setPendingLine("");
       }
 
       setProgress({ ...INITIAL_PROGRESS, phase: "connecting" });
@@ -340,6 +359,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
 
   const hardReset = useCallback(async () => {
     setErrorMessage(null);
+    setMonitorError(null);
     if (flasherRef.current.isConnected) {
       setProgress((prev) => ({ ...prev, phase: "resetting" }));
       try {
@@ -361,74 +381,152 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     }
   }, [appendLog]);
 
-  const attachSerialMonitor = useCallback(async () => {
-    if (!isSupported) return;
-    setErrorMessage(null);
-    await beforeAcquireCbRef.current?.();
+  const attachSerialMonitor = useCallback(
+    async (options?: {
+      forceSelectPort?: boolean;
+      unfiltered?: boolean;
+      customBaud?: number;
+      portOverride?: UsbPortInfoSummary;
+    }) => {
+      if (!isSupported) return;
+      setMonitorError(null);
+      setMonitorConnecting(true);
 
-    let targetPort = selectedPort?.port ?? null;
-    if (!targetPort) {
       try {
-        const requested = await navigator.serial.requestPort({ filters: ESP_SERIAL_FILTERS });
-        const summary = describeSerialPort(requested, knownPorts.length);
-        setSelectedPort(summary);
-        targetPort = requested;
-        await refreshAuthorizedPorts();
+        await beforeAcquireCbRef.current?.();
+
+        let targetSummary: UsbPortInfoSummary | null =
+          options?.portOverride ?? (options?.forceSelectPort ? null : selectedPort);
+
+        if (!targetSummary) {
+          try {
+            const requested = await navigator.serial.requestPort(
+              options?.unfiltered ? {} : { filters: ESP_SERIAL_FILTERS },
+            );
+            targetSummary = describeSerialPort(requested, knownPorts.length);
+            setSelectedPort(targetSummary);
+            await refreshAuthorizedPorts();
+          } catch (err) {
+            if (err instanceof DOMException && err.name === "NotFoundError") {
+              return;
+            }
+            const msg = err instanceof Error ? err.message : String(err);
+            setMonitorError(msg);
+            appendLog(`[monitor] ${msg}`, "error");
+            return;
+          }
+        }
+
+        // Cleanly release flasher & let browser finish closing the OS serial handle before reopening
+        if (flasherRef.current.isConnected) {
+          await flasherRef.current.disconnect();
+          setChipInfo(null);
+          await new Promise((r) => setTimeout(r, 150));
+        }
+
+        const effectiveBaud = options?.customBaud ?? monitorBaudRate;
+        lineBufferRef.current.reset();
+        setPendingLine("");
+        setRxBytes(0);
+        setTxBytes(0);
+
+        await monitorRef.current.open(targetSummary.port, effectiveBaud, {
+          onChunk: appendRawChunk,
+          onTxBytes: (bytes) => setTxBytes((n) => n + bytes),
+          onStatus: (open) => {
+            setMonitorConnected(open);
+            if (!open) {
+              const tail = lineBufferRef.current.flush();
+              if (tail) appendLog(tail, "device");
+              setPendingLine("");
+            }
+            appendLog(
+              open
+                ? `[monitor] Connected to ${targetSummary!.deviceLabel} (${targetSummary!.vendorHex}:${targetSummary!.productHex}) @ ${effectiveBaud} bps.`
+                : "[monitor] Disconnected.",
+              "system",
+            );
+          },
+          onError: (msg) => {
+            setMonitorError(msg);
+            appendLog(`[monitor] ${msg}`, "error");
+          },
+        });
       } catch (err) {
-        if (err instanceof DOMException && err.name === "NotFoundError") return;
         const msg = err instanceof Error ? err.message : String(err);
-        appendLog(`[monitor] ${msg}`, "error");
-        return;
+        setMonitorConnected(false);
+        setMonitorError(msg);
+        appendLog(`[monitor] Failed to open port: ${msg}`, "error");
+      } finally {
+        setMonitorConnecting(false);
       }
-    }
+    },
+    [
+      isSupported,
+      selectedPort,
+      knownPorts.length,
+      monitorBaudRate,
+      refreshAuthorizedPorts,
+      appendLog,
+      appendRawChunk,
+    ],
+  );
 
-    if (flasherRef.current.isConnected) {
-      await flasherRef.current.disconnect();
-      setChipInfo(null);
-    }
-
-    try {
-      await monitorRef.current.open(targetPort, 115200, {
-        onChunk: appendRawChunk,
-        onStatus: (open) => {
-          setMonitorConnected(open);
-          appendLog(
-            open ? "[monitor] Attached at 115200 bps." : "[monitor] Disconnected.",
-            "system",
-          );
-        },
-        onError: (msg) => appendLog(`[monitor] ${msg}`, "error"),
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
-      appendLog(`[monitor] ${msg}`, "error");
-    }
-  }, [isSupported, selectedPort, knownPorts.length, refreshAuthorizedPorts, appendLog, appendRawChunk]);
+  const changeMonitorBaudRate = useCallback(
+    async (nextBaud: number) => {
+      setMonitorBaudRate(nextBaud);
+      if (monitorRef.current.isOpen && selectedPort) {
+        await attachSerialMonitor({ customBaud: nextBaud, portOverride: selectedPort });
+      }
+    },
+    [selectedPort, attachSerialMonitor],
+  );
 
   const detachSerialMonitor = useCallback(async () => {
+    setMonitorError(null);
     await monitorRef.current.close();
+    const tail = lineBufferRef.current.flush();
+    if (tail) appendLog(tail, "device");
+    setPendingLine("");
     setMonitorConnected(false);
     appendLog("[monitor] Detached.", "system");
   }, [appendLog]);
 
   const sendSerialCommand = useCallback(
     async (cmd: string) => {
-      const trimmed = cmd.trim();
-      if (!trimmed) return;
+      setMonitorError(null);
       try {
-        appendLog(`> ${trimmed}`, "tx");
-        await monitorRef.current.sendCommand(trimmed);
+        if (localEcho) {
+          appendLog(cmd.length > 0 ? `> ${cmd}` : "> ↵", "tx");
+        }
+        await monitorRef.current.sendCommand(cmd, lineEnding);
       } catch (err) {
-        appendLog(`[monitor] ${err instanceof Error ? err.message : String(err)}`, "error");
+        const msg = err instanceof Error ? err.message : String(err);
+        setMonitorError(msg);
+        appendLog(`[monitor] ${msg}`, "error");
       }
     },
-    [appendLog],
+    [appendLog, lineEnding, localEcho],
   );
 
+  const sendSerialCtrlC = useCallback(async () => {
+    setMonitorError(null);
+    try {
+      if (localEcho) appendLog("^C", "tx");
+      await monitorRef.current.sendCtrlC();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMonitorError(msg);
+      appendLog(`[monitor] ${msg}`, "error");
+    }
+  }, [appendLog, localEcho]);
+
   const clearTerminal = useCallback(() => {
-    rxBufferRef.current = "";
+    lineBufferRef.current.reset();
+    setPendingLine("");
     setTerminalLines([]);
+    setRxBytes(0);
+    setTxBytes(0);
   }, []);
 
   const isBusy =
@@ -446,13 +544,24 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     setSelectedPort,
     baudRate,
     setBaudRate,
+    monitorBaudRate,
+    setMonitorBaudRate: changeMonitorBaudRate,
+    lineEnding,
+    setLineEnding,
+    localEcho,
+    setLocalEcho,
     chipInfo,
     progress,
     errorMessage,
+    monitorError,
     isConnected: chipInfo !== null,
     isBusy,
     monitorConnected,
+    monitorConnecting,
     terminalLines,
+    pendingLine,
+    rxBytes,
+    txBytes,
     refreshAuthorizedPorts,
     requestAndConnectPort,
     connectPort,
@@ -463,6 +572,7 @@ export function useWebSerial(options?: UseWebSerialOptions) {
     attachSerialMonitor,
     detachSerialMonitor,
     sendSerialCommand,
+    sendSerialCtrlC,
     clearTerminal,
     appendLog,
   };

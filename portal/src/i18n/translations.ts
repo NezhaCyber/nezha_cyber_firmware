@@ -174,6 +174,12 @@ const en = {
   monitorSendBtn: "Send",
   monitorEmptyHint: "Connect the console to view real-time boot logs or run Nezha CLI commands.",
   monitorQuickCmds: "Quick",
+  monitorEcho: "Echo",
+  monitorKnownPorts: "Detected ports",
+  monitorBusyHint:
+    "Make sure no other app (PlatformIO, Arduino IDE, screen, or another browser tab) is holding the serial port, or click 'Choose another port'.",
+  monitorNoRxHint:
+    "Connected (0 bytes received yet). Ensure the device is booted normally (not in Download Mode), then click 'info' or 'Restart Device'.",
 
   footerAuthor: "Nezha Cyber · 钟智强 (ctkqiang) · GNU AGPL-3.0",
   footerNotice: "For authorized security research, education & personal hardware labs.",
@@ -350,6 +356,12 @@ const zh: Record<TranslationKey, string> = {
   monitorSendBtn: "发送",
   monitorEmptyHint: "连接串口终端后，可实时查看设备启动日志或执行哪吒命令行指令。",
   monitorQuickCmds: "快捷指令",
+  monitorEcho: "回显",
+  monitorKnownPorts: "已识别端口",
+  monitorBusyHint:
+    "请确认没有其他程序（PlatformIO、Arduino IDE、串口助手或其他标签页）占用该串口，或点击「更换端口」重新选择。",
+  monitorNoRxHint:
+    "已连接（暂未收到数据）。请确认设备处于正常开机状态（而非下载模式），然后点「info」或「重启设备」测试通信。",
 
   footerAuthor: "哪吒赛博固件 · 钟智强 (ctkqiang) · GNU AGPL-3.0 开源协议",
   footerNotice: "仅限授权安全研究、教学实验与个人硬件实验室调试使用。",
