@@ -8,16 +8,16 @@
 #include "rf_protocol.h"
 #include <FS.h>
 
-// ===========================================================================
-// REMOVABLE legacy-compatibility module.
-//
-// Everything related to the OLD `.sub` format (Protocol: RcSwitch + numeric
-// Preset) lives here and only here, guarded by RF_SUB_LEGACY_MIGRATION.
-// To drop legacy support in a future release: delete this file + its .cc,
-// remove the single call site in readSubFile(), and set the macro to 0.
-//
-// Do NOT spread RcSwitch / legacy handling into the registry files.
-// ===========================================================================
+/*
+ * REMOVABLE legacy-compatibility module.
+ *
+ * Everything related to the OLD `.sub` format (Protocol: RcSwitch + numeric
+ * Preset) lives here and only here, guarded by RF_SUB_LEGACY_MIGRATION.
+ * To drop legacy support in a future release: delete this file + its .cc,
+ * remove the single call site in readSubFile(), and set the macro to 0.
+ *
+ * Do NOT spread RcSwitch / legacy handling into the registry files.
+ */
 
 // Map an old legacy protocol number to a registry protocol definition.
 // Returns nullptr when the number has no known mapping.

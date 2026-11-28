@@ -10,34 +10,39 @@ public:
     static bool shouldStop;
     static int32_t status;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Constructor / destructor for the USB mass-storage gadget.
+     * Owns the USBMSC instance that exposes storage to a connected host.
+     */
     MassStorage();
     ~MassStorage();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Life Cycle
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Runtime lifecycle hooks for the mass-storage feature.
+     * setup() wires the USB callbacks; loop() drives the MSC state machine.
+     */
     void setup();
     void loop();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Runtime control surface for an active transfer.
+     * setShouldStop() signals the transfer loop to exit cleanly.
+     */
     static void setShouldStop(bool value) { shouldStop = value; }
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Display functions
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * User-facing status rendering.
+     * displayMessage() surfaces transfer state and prompts on the TFT.
+     */
     static void displayMessage(String message);
 
 private:
     USBMSC msc;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Setup
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Private USB bring-up helpers.
+     * beginUsb() starts the MSC stack; the setup* callbacks register read/write/start-stop handlers.
+     */
     void beginUsb(void);
     void setupUsbCallback(void);
     void setupUsbEvent(void);

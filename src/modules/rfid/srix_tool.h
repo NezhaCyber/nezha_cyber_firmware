@@ -48,7 +48,11 @@ public:
 
     void setup();
     void loop();
-    // ========== JS INTERPRETER SUPPORT ==========
+    /*
+     * Headless (no UI, no event loop) entry points exposed to the JS
+     * interpreter. Scripts can read/write SRIX tags and save/load dumps
+     * through these methods without ever entering the GUI menu.
+     */
     // Headless constructor (no UI, no loop)
     SRIXTool(bool headless_mode);
 

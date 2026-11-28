@@ -19,15 +19,17 @@
 #define FIXED RF_PF_FIXED_LEN
 
 static const RfProtocolDef rf_protocols[] = {
-    // ---- Named protocols (canonical identities) --------------------------
-    // Two structural families share this table (same {high,low}-factor model):
-    //   * high-first  (inv=false): pulse is HIGH for high*te then LOW for low*te;
-    //     the sync is a short HIGH followed by the long inter-frame LOW gap.
-    //   * space-coded (inv=true):  pulse is LOW  for high*te then HIGH for low*te;
-    //     the sync is the long LOW gap followed by a short HIGH preamble. For
-    //     these `sync` is stored as {gap_factor, preamble_factor}.
-    // `bits` + FIXED is the per-protocol payload length; the decoder rejects a
-    // frame whose decoded length differs, which disambiguates same-timing codes.
+    /*
+     * Named protocols (canonical identities).
+     * Two structural families share this table (same {high,low}-factor model):
+     *   * high-first  (inv=false): pulse is HIGH for high*te then LOW for low*te;
+     *     the sync is a short HIGH followed by the long inter-frame LOW gap.
+     *   * space-coded (inv=true):  pulse is LOW  for high*te then HIGH for low*te;
+     *     the sync is the long LOW gap followed by a short HIGH preamble. For
+     *     these `sync` is stored as {gap_factor, preamble_factor}.
+     * `bits` + FIXED is the per-protocol payload length; the decoder rejects a
+     * frame whose decoded length differs, which disambiguates same-timing codes.
+     */
     // name           te    sync       zero      one       bits inv  flags
     {"Princeton",     350, {1, 31},   {1, 3},   {3, 1},   24, false, SYNC},           // legacy proto 1
     {"NICE_FLO",      700, {1, 36},   {2, 1},   {1, 2},   12, false, SYNC | FIXED},   // legacy proto 22
@@ -43,7 +45,10 @@ static const RfProtocolDef rf_protocols[] = {
     {"Holtek_HT12",   450, {23, 1},   {1, 2},   {2, 1},   12, true,  SYNC | FIXED},   // legacy proto 6 (HT6P20B)
     {"PhoenixV2",     427, {60, 6},   {1, 2},   {2, 1},   52, true,  SYNC | FIXED},
 
-    // ---- Generic numbered protocols (classic legacy proto 1..12) -------
+    /*
+     * Generic numbered protocols (classic legacy proto 1..12); these use an
+     * open-ended payload length (bits = 0, no FIXED flag).
+     */
     {"RcSwitch_1",    350, {1, 31},   {1, 3},   {3, 1},   0,  false, SYNC},
     {"RcSwitch_2",    650, {1, 10},   {1, 2},   {2, 1},   0,  false, SYNC},
     {"RcSwitch_3",    100, {30, 71},  {4, 11},  {9, 6},   0,  false, SYNC},

@@ -1,6 +1,7 @@
 #include "system_monitor.h"
 
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/radio_mem.h"
 #include "core/sd_functions.h"
@@ -69,28 +70,27 @@ String systemMonitorJson() {
     return String(buf);
 }
 
-static void drawMeterBar(int x, int y, int w, int h, uint32_t used, uint32_t total, uint16_t fillCol) {
-    tft.fillRect(x, y, w, h, uiSurfaceColor());
-    tft.drawRect(x, y, w, h, uiBorderDimColor());
-    if (total == 0) return;
-    uint32_t pct = (used >= total) ? 100 : (uint32_t)(((uint64_t)used * 100ULL) / total);
-    int fillW = (int)(((int32_t)(w - 2) * (int32_t)pct) / 100);
-    if (fillW > 0) tft.fillRect(x + 1, y + 1, fillW, h - 2, fillCol);
-}
-
 static void drawSysMonPage(uint8_t page) {
     const int x = BORDER_PAD_X;
     const int w = tftWidth - 2 * BORDER_PAD_X;
-    int y = BORDER_PAD_Y + LH + 4;
-    const int bodyH = tftHeight - BORDER_PAD_X - LH - 4 - y;
+    const int topY = uiContentTop();
+    const int botY = uiContentBottom(true);
+    const int cardH = max(48, botY - topY);
+    const bool compact = (tftHeight < 160);
+    const uint16_t surf = uiSurfaceColor();
+    const int ix = x + 8;
+    const int iw = w - 16;
+    const int rowStep = (FP == 1 && bruce_i18n::isChinese()) ? 14 : (LH + 4);
 
-    tft.fillRect(x, y, w, max(0, bodyH), bruceConfig.bgColor);
+    uiDrawCard(x, topY, w, cardH, true);
+    int y = topY + (compact ? 6 : 9);
     tft.setTextSize(FP);
 
     if (page == 0) {
         const uint32_t heapFree = ESP.getFreeHeap();
         const uint32_t heapTotal = ESP.getHeapSize();
         const uint32_t heapUsed = (heapTotal > heapFree) ? (heapTotal - heapFree) : 0;
+        const int heapPct = (heapTotal > 0) ? (int)(((uint64_t)heapUsed * 100ULL) / heapTotal) : 0;
         const uint32_t dmaFree = (uint32_t)radioFreeDmaBytes();
         const uint32_t dmaLargest = (uint32_t)radioLargestDmaBlock();
 
@@ -99,107 +99,98 @@ static void drawSysMonPage(uint8_t page) {
         const bool wifiReady = dmaLargest >= RADIO_WIFI_MIN_DMA_BLOCK;
         const bool bleReady = radioIsBleInitialized() || radioDmaAtLeast(minBleBlk, minBleFree);
 
-        char line[64];
-        // Internal DRAM
-        tft.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
-        snprintf(line, sizeof(line), "DRAM %lu/%luK free", (unsigned long)(heapFree / 1024), (unsigned long)(heapTotal / 1024));
-        tft.drawString(line, x, y);
-        y += LH + 1;
-        drawMeterBar(x, y, w, 6, heapUsed, heapTotal, (heapFree < 32768) ? TFT_RED : bruceConfig.priColor);
+        char val[48];
+        snprintf(val, sizeof(val), "%lu/%lu KB", (unsigned long)(heapFree / 1024), (unsigned long)(heapTotal / 1024));
+        uiDrawKeyValueRow(ix, y, iw, "DRAM Free", val, uiTextBrightColor(), surf);
+        y += rowStep - 1;
+        uiDrawProgressBar(ix, y, iw, 6, heapPct, (heapFree < 32768) ? TFT_RED : bruceConfig.priColor, false);
         y += 9;
 
-        // Contiguous DMA Block
-        tft.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
-        snprintf(line, sizeof(line), "DMA Max:%luK Free:%luK", (unsigned long)(dmaLargest / 1024), (unsigned long)(dmaFree / 1024));
-        tft.drawString(line, x, y);
-        y += LH + 2;
+        snprintf(val, sizeof(val), "%luK / %luK", (unsigned long)(dmaLargest / 1024), (unsigned long)(dmaFree / 1024));
+        uiDrawKeyValueRow(ix, y, iw, "DMA Max/Free", val, uiTextBrightColor(), surf);
+        y += rowStep;
 
-        // Radio readiness pills
-        tft.setTextColor(wifiReady ? TFT_GREEN : TFT_RED, bruceConfig.bgColor);
-        tft.drawString(wifiReady ? "[WIFI OK]" : "[WIFI LOW]", x, y);
-        tft.setTextColor(bleReady ? TFT_GREEN : TFT_RED, bruceConfig.bgColor);
-        tft.drawRightString(bleReady ? "[BLE OK]" : "[BLE LOW]", x + w, y, 1);
-        y += LH + 4;
+        int16_t wW = uiDrawBadge(ix, y, wifiReady ? "WiFi OK" : "WiFi LOW", wifiReady ? TFT_DARKGREEN : TFT_RED, 15);
+        uiDrawBadge(ix + wW + 6, y, bleReady ? "BLE OK" : "BLE LOW", bleReady ? TFT_DARKGREEN : TFT_RED, 15);
+        y += 18;
 
-        // PSRAM
-        tft.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
-        if (psramFound() && ESP.getPsramSize() > 0) {
-            uint32_t pf = ESP.getFreePsram();
-            uint32_t pt = ESP.getPsramSize();
-            uint32_t pu = (pt > pf) ? (pt - pf) : 0;
-            snprintf(line, sizeof(line), "PSRAM %lu/%luK free", (unsigned long)(pf / 1024), (unsigned long)(pt / 1024));
-            tft.drawString(line, x, y);
-            y += LH + 1;
-            drawMeterBar(x, y, w, 6, pu, pt, bruceConfig.secColor);
-            y += 9;
-        } else {
-            tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-            tft.drawString("PSRAM: N/A (Internal DRAM)", x, y);
-            y += LH + 4;
+        if (y + rowStep <= topY + cardH - 4) {
+            if (psramFound() && ESP.getPsramSize() > 0) {
+                uint32_t pf = ESP.getFreePsram();
+                uint32_t pt = ESP.getPsramSize();
+                uint32_t pu = (pt > pf) ? (pt - pf) : 0;
+                int psPct = (int)(((uint64_t)pu * 100ULL) / pt);
+                snprintf(val, sizeof(val), "%lu/%lu KB", (unsigned long)(pf / 1024), (unsigned long)(pt / 1024));
+                uiDrawKeyValueRow(ix, y, iw, "PSRAM Free", val, uiTextBrightColor(), surf);
+                y += rowStep - 1;
+                if (y + 7 <= topY + cardH - 4) {
+                    uiDrawProgressBar(ix, y, iw, 6, psPct, bruceConfig.secColor, false);
+                    y += 9;
+                }
+            } else {
+                uiDrawKeyValueRow(ix, y, iw, "PSRAM", "N/A", uiTextMutedColor(), surf);
+                y += rowStep;
+            }
         }
 
-        // Battery + CPU + Uptime
-        int bat = (getBattery != nullptr) ? getBattery() : -1;
-        tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-        snprintf(
-            line,
-            sizeof(line),
-            "Bat:%d%%  %luMHz  Up:%lus",
-            bat,
-            (unsigned long)ESP.getCpuFreqMHz(),
-            (unsigned long)(millis() / 1000UL)
-        );
-        tft.drawString(line, x, y);
+        if (y + rowStep <= topY + cardH - 2) {
+            int bat = (getBattery != nullptr) ? getBattery() : -1;
+            snprintf(
+                val,
+                sizeof(val),
+                "%d%%  %luMHz  %lus",
+                bat,
+                (unsigned long)ESP.getCpuFreqMHz(),
+                (unsigned long)(millis() / 1000UL)
+            );
+            uiDrawKeyValueRow(ix, y, iw, "System", val, uiTextMutedColor(), surf);
+        }
     } else {
-        // Page 2: Tasks, Flash, Storage, Radios
-        char line[64];
-        tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-        tft.drawString("System & Tasks", x, y);
-        y += LH + 4;
-
-        tft.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
-        snprintf(
-            line, sizeof(line), "Min Heap Ever: %lu KB", (unsigned long)(esp_get_minimum_free_heap_size() / 1024)
-        );
-        tft.drawString(line, x, y);
-        y += LH + 3;
+        char val[48];
+        snprintf(val, sizeof(val), "%lu KB", (unsigned long)(esp_get_minimum_free_heap_size() / 1024));
+        uiDrawKeyValueRow(ix, y, iw, "Min Heap", val, uiTextBrightColor(), surf);
+        y += rowStep;
 
         snprintf(
-            line,
-            sizeof(line),
-            "Tasks: %lu  StackFree: %lu B",
+            val,
+            sizeof(val),
+            "%lu (%lu B)",
             (unsigned long)uxTaskGetNumberOfTasks(),
             (unsigned long)(uxTaskGetStackHighWaterMark(nullptr) * sizeof(StackType_t))
         );
-        tft.drawString(line, x, y);
-        y += LH + 3;
+        uiDrawKeyValueRow(ix, y, iw, "Tasks / Stack", val, uiTextBrightColor(), surf);
+        y += rowStep;
 
-        snprintf(line, sizeof(line), "Flash: %lu MB  SD: %s", (unsigned long)(ESP.getFlashChipSize() / (1024 * 1024)), sdcardMounted ? "ON" : "OFF");
-        tft.drawString(line, x, y);
-        y += LH + 3;
+        snprintf(
+            val,
+            sizeof(val),
+            "%lu MB / %s",
+            (unsigned long)(ESP.getFlashChipSize() / (1024 * 1024)),
+            sdcardMounted ? bruce_i18n::tr("ON") : bruce_i18n::tr("OFF")
+        );
+        uiDrawKeyValueRow(ix, y, iw, "Flash / SD", val, uiTextBrightColor(), surf);
+        y += rowStep;
 
         size_t lfsUsed = LittleFS.usedBytes();
         size_t lfsTotal = LittleFS.totalBytes();
-        snprintf(line, sizeof(line), "LittleFS: %lu / %lu KB", (unsigned long)(lfsUsed / 1024), (unsigned long)(lfsTotal / 1024));
-        tft.drawString(line, x, y);
-        y += LH + 3;
+        snprintf(val, sizeof(val), "%lu / %lu KB", (unsigned long)(lfsUsed / 1024), (unsigned long)(lfsTotal / 1024));
+        uiDrawKeyValueRow(ix, y, iw, "LittleFS", val, uiTextBrightColor(), surf);
+        y += rowStep;
 
-        snprintf(
-            line,
-            sizeof(line),
-            "WiFi:%d BLE:%s WebUI:%s",
-            (int)WiFi.getMode(),
-            radioIsBleInitialized() ? "ON" : "OFF",
-            isWebUIActive ? "ON" : "OFF"
-        );
-        tft.drawString(line, x, y);
+        if (y + rowStep <= topY + cardH - 2) {
+            snprintf(
+                val,
+                sizeof(val),
+                "W:%d B:%s Web:%s",
+                (int)WiFi.getMode(),
+                radioIsBleInitialized() ? "1" : "0",
+                isWebUIActive ? "1" : "0"
+            );
+            uiDrawKeyValueRow(ix, y, iw, "Radios", val, bruceConfig.priColor, surf);
+        }
     }
 
-    // Footer bar
-    const int footY = tftHeight - BORDER_PAD_X - LH;
-    tft.fillRect(x, footY, w, LH, bruceConfig.bgColor);
-    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-    tft.drawString(page == 0 ? "OK:Reclaim  <>:P2  ESC" : "OK:Reclaim  <>:P1  ESC", x, footY);
+    printCenterFootnote(page == 0 ? "OK=Reclaim  LR=Page 2  ESC=Back" : "OK=Reclaim  LR=Page 1  ESC=Back");
 }
 
 void showSystemMonitor() {

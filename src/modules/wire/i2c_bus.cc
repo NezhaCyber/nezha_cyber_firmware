@@ -15,9 +15,11 @@
 #define I2C_SCAN_FIRST 0x08
 #define I2C_SCAN_LAST 0x77
 
-/*********************************************************************
-**  Helpers
-**********************************************************************/
+/*
+ * Bus helpers: an explicit SDA/SCL pair takes a pin lease, otherwise the
+ * requested system or extension bus is leased as configured. Register helpers
+ * operate on the lease handed in so a whole dump shares one bus session.
+ */
 // Explicit pins win; otherwise the requested bus as configured.
 static I2CLease i2c_open(I2CBusId bus, int8_t sda, int8_t scl) {
     if (sda >= 0 && scl >= 0) return i2cLeasePins(sda, scl);
@@ -51,9 +53,11 @@ static int parseHex(String value) {
     return (int)strtol(value.c_str(), nullptr, 16);
 }
 
-/*********************************************************************
-**  Serial-command primitives (wire i2c ...), see wire_tools.h
-**********************************************************************/
+/*
+ * Serial-command primitives for `wire i2c ...` (see wire_tools.h). Pins or bus id
+ * come from the caller; a lease that cannot be taken is reported as an error
+ * string instead of touching a bus owned by another driver.
+ */
 int wire_i2c_scan(std::vector<WireI2cDevice> &found, int8_t sda, int8_t scl) {
     found.clear();
     if (sda >= 0 && scl >= 0) {
@@ -202,10 +206,10 @@ static void i2c_dump_eeprom_menu(WireI2cDevice dev) {
     else displayError(res, true);
 }
 
-/*********************************************************************
-**  Function: i2c_pick_register
-**  HEX prompt with cancellation handling ("\x1B")
-**********************************************************************/
+/*
+ * HEX prompt for a register address; a cancelled keyboard returns the ESC
+ * sentinel, which maps to -1 so callers abort without driving the bus.
+ */
 static int i2c_pick_register(const char *msg) {
     String value = hex_keyboard("", 4, msg);
     if (value == "\x1B") return -1;
@@ -227,10 +231,12 @@ static bool i2c_confirm_sys_write() {
     return choice == 1;
 }
 
-/*********************************************************************
-**  Function: i2c_device_menu
-**  Per-device register read/write/dump on the picked address
-**********************************************************************/
+/*
+ * Per-device menu for the selected address: register read, register write, a
+ * 256-byte hex dump and the 24Cxx EEPROM dump. Writes on the system bus
+ * (PMIC / IMU / RTC / touch) need one explicit confirmation per menu, because a
+ * stray value there can cut power or leave a setting inconsistent.
+ */
 static void i2c_device_menu(WireI2cDevice dev) {
     bool sysWriteAllowed = false;
     while (!returnToMenu) {
@@ -297,10 +303,11 @@ static void i2c_device_menu(WireI2cDevice dev) {
     returnToMenu = false;
 }
 
-/*********************************************************************
-**  Function: i2c_scan_menu
-**  Probe sys_i2c and i2c_bus and list responding addresses per bus
-**********************************************************************/
+/*
+ * Probe every configured bus (sys_i2c, then the extension bus when it is
+ * distinct) and list each responding address with its bus tag; the picked entry
+ * opens the per-device register menu.
+ */
 static void i2c_scan_menu() {
     std::vector<WireI2cDevice> found;
     displayRedStripe("Scanning..");
@@ -326,10 +333,10 @@ static void i2c_scan_menu() {
     loopOptions(localOpts, MENU_TYPE_SUBMENU, "I2C Devices");
 }
 
-/*********************************************************************
-**  Function: i2c_bus_setup
-**  Configuration menu: pins and scan
-**********************************************************************/
+/*
+ * I2C configuration menu: the configured pin pair, the bus scan, and the exit
+ * back to the main menu.
+ */
 void i2c_bus_setup() {
     returnToMenu = false;
     while (!returnToMenu) {

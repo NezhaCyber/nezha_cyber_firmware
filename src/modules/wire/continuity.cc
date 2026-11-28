@@ -10,14 +10,13 @@
 #include <Arduino.h>
 #include "modules/others/audio.h"
 
-/*********************************************************************
-**  Multimeter: continuity tests only.
-**
-**  Two-pin mode: pin A is driven LOW while pin B is pulled up internally;
-**  a LOW on B means A-B are electrically connected (the current loop runs
-**  through the probe points). GND mode checks one pin against the board
-**  GND through its internal pull-up.
-**********************************************************************/
+/*
+ * Multimeter: continuity tests only.
+ *
+ * Two-pin mode drives pin A LOW while pin B is pulled up internally, so a LOW
+ * on B means A and B are electrically connected through the probe points. GND
+ * mode checks one pin against board GND through its internal pull-up.
+ */
 
 static int8_t mmPinA = -1, mmPinB = -1;
 
@@ -66,10 +65,11 @@ static uint8_t cont_classify(bool toGnd, int8_t pinA, int8_t pinB) {
     return CONT_OPEN;
 }
 
-/*********************************************************************
-**  Function: cont_live_screen
-**  Shared live view for both modes; `toGnd` selects the wiring scheme.
-**********************************************************************/
+/*
+ * Shared live view for both wiring schemes; `toGnd` selects the pin-to-GND probe
+ * instead of the pin-to-pin loop. The contact counter and the running contact
+ * duration drive the debounced SHORT / HELD / OPEN readout and the beeper.
+ */
 static void cont_live_screen(bool toGnd) {
     int8_t pinA = mmPinA, pinB = mmPinB;
     if (pinA < 0) {
@@ -187,9 +187,10 @@ static void cont_live_screen(bool toGnd) {
     check(EscPress);
 }
 
-/*********************************************************************
-**  GPIO picker (same interaction as JTAG pin assignment)
-**********************************************************************/
+/*
+ * GPIO picker with the same interaction as the JTAG pin assignment menu; -1 is
+ * offered first so a probe point can be unassigned again.
+ */
 static int8_t cont_pick_pin(const char *title, int8_t current) {
     std::vector<Option> localOpts;
     localOpts.reserve(GPIO_NUM_MAX + 2);
@@ -202,9 +203,11 @@ static int8_t cont_pick_pin(const char *title, int8_t current) {
     return picked;
 }
 
-/*********************************************************************
-**  Function: continuity_tester_setup
-**********************************************************************/
+/*
+ * Multimeter menu entry: pin A / pin B assignment plus one live screen per
+ * wiring scheme. The menu is rebuilt on every pass so the pin labels track the
+ * values changed by the pickers.
+ */
 void continuity_tester_setup() {
     returnToMenu = false;
     while (!returnToMenu) {
@@ -219,9 +222,11 @@ void continuity_tester_setup() {
     }
 }
 
-/*********************************************************************
-**  Serial-command primitive (wire cont test), see wire_tools.h
-**********************************************************************/
+/*
+ * Serial-command primitive for `wire cont test` (see wire_tools.h): one
+ * classification pass, both pins restored to INPUT, and a single status line
+ * reporting SHORT, HELD or OPEN.
+ */
 String wire_cont_test(int8_t pinA, int8_t pinB) {
     if (pinA < 0) return "ERR: assign pin_a";
     if (pinB >= 0 && pinA == pinB) return "ERR: pins must be distinct";

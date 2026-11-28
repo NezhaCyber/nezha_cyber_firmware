@@ -266,11 +266,11 @@ keyStroke _getKeyPress() {
     return key;
 } // Returns a keyStroke that the keyboards won't recognize by default
 
-/*********************************************************************
-** Function: checkShortcutPress
-** location: mykeyboard.cc
-** runs a function called by the shortcut action
-**********************************************************************/
+/*
+ * Function: checkShortcutPress
+ * location: mykeyboard.cc
+ * runs a function called by the shortcut action
+ */
 bool checkShortcutPress() {
     static JsonDocument shortcutsJson; // parsed only once
     bool executed = false;
@@ -320,11 +320,11 @@ bool checkShortcutPress() {
     return executed;
 }
 
-/*********************************************************************
-** Function: checkNumberShortcutPress
-** location: mykeyboard.cc
-** return the pressed number
-**********************************************************************/
+/*
+ * Function: checkNumberShortcutPress
+ * location: mykeyboard.cc
+ * return the pressed number
+ */
 int checkNumberShortcutPress() {
     // shortctus to quickly select options
     keyStroke key = _getKeyPress();
@@ -337,11 +337,11 @@ int checkNumberShortcutPress() {
     return -1;
 }
 
-/*********************************************************************
-** Function: checkLetterShortcutPress
-** location: mykeyboard.cc
-** return the pressed letter
-**********************************************************************/
+/*
+ * Function: checkLetterShortcutPress
+ * location: mykeyboard.cc
+ * return the pressed letter
+ */
 char checkLetterShortcutPress() {
     // shortctus to quickly select options
     keyStroke key = _getKeyPress();
@@ -356,9 +356,9 @@ char checkLetterShortcutPress() {
     return -1;
 }
 
-/*********************************************************************
-** Shared keyboard helper functions
-**********************************************************************/
+/*
+ * Shared keyboard helper functions
+ */
 
 /// Handles character deletion from the text string and screen
 bool handleDelete(String &current_text, int &cursor_x, int &cursor_y) {
@@ -516,7 +516,12 @@ String generalKeyboard(
     int old_x = 0;
     int old_y = 0;
 
-    /*====================Initial Setup====================*/
+    /*
+     * Initial setup for the on-screen keyboard render: initializes the pixel
+     * cursor, the selected-key navigation coordinates (with y = -1 reserving
+     * the top action-button row), and the sweep direction flags used to walk
+     * the key grid.
+     */
 
     bool direction = true;
     bool last_dir = true;

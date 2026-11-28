@@ -15,14 +15,16 @@
 
 class StartupApp {
 public:
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Builds the startup-application registry.
+     * Maps app names to the launchers invoked when a startup app is configured.
+     */
     StartupApp();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Startup-app dispatch.
+     * startApp() runs the registered launcher by name; getAppNames() lists the available entries.
+     */
     bool startApp(const String &appName) const;
     std::vector<String> getAppNames() const;
 

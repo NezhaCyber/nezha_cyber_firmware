@@ -25,7 +25,9 @@
 #include "modules/wifi/dual_band_analyzer.h"
 #endif
 #include "modules/wifi/csi_radar.h"
+#include "modules/wifi/dnstools.h"
 #include "modules/wifi/jam_detect.h"
+#include "modules/wifi/netdiscovery.h"
 #include "modules/wifi/wifi_adv_tools.h"
 #include "modules/wifi/wifi_recover.h"
 #endif
@@ -108,6 +110,8 @@ void WifiMenu::optionsMenu() {
     options.push_back({"WiFite", wifite_menu});
 #endif
 #if !defined(BRUCE_COMPACT_CJK_FONT)
+    options.push_back({"Network Discovery", netdiscovery_run});
+    options.push_back({"DNS Toolkit", dnstools_run});
     options.push_back({"WiFi Adv Tools", wifi_adv_tools_menu});
 #endif
     options.push_back({"WiFi Pass Recovery", wifi_recover_menu});

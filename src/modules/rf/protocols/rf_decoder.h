@@ -14,24 +14,24 @@
 #include <freertos/queue.h>
 #include <vector>
 
-// ===========================================================================
-// Native RMT RX engine + generic OOK decoder.
-//
-// Replaces the former interrupt-driven receiver on the decode side. The decode
-// logic is a faithful port of the classic OOK capture/decode state
-// machine (separation-gap detection + per-protocol pulse matching), driven
-// from durations captured with the framework's native RMT RX peripheral.
-// Protocol definitions come from the central registry (rf_registry).
-//
-// References / credits — the SubGhz protocol set and decode behavior mirror
-// the Flipper Zero ecosystem; timings and protocol identities were validated
-// against these sources:
-//   - Flipper Zero firmware (SubGhz):
-//       https://github.com/flipperdevices/flipperzero-firmware
-//       (lib/subghz/protocols/*)
-//   - Momentum firmware (Flipper fork with an extended protocol set):
-//       https://github.com/Next-Flip/Momentum-Firmware
-// ===========================================================================
+/*
+ * Native RMT RX engine + generic OOK decoder.
+ *
+ * Replaces the former interrupt-driven receiver on the decode side. The decode
+ * logic is a faithful port of the classic OOK capture/decode state
+ * machine (separation-gap detection + per-protocol pulse matching), driven
+ * from durations captured with the framework's native RMT RX peripheral.
+ * Protocol definitions come from the central registry (rf_registry).
+ *
+ * References / credits — the SubGhz protocol set and decode behavior mirror
+ * the Flipper Zero ecosystem; timings and protocol identities were validated
+ * against these sources:
+ *   - Flipper Zero firmware (SubGhz):
+ *       https://github.com/flipperdevices/flipperzero-firmware
+ *       (each protocol under lib/subghz/protocols/)
+ *   - Momentum firmware (Flipper fork with an extended protocol set):
+ *       https://github.com/Next-Flip/Momentum-Firmware
+ */
 
 // One-shot RMT RX capture session. Wraps channel + queue lifecycle so callers
 // can poll for captured signals without touching the RMT driver directly.

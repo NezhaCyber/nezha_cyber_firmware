@@ -241,9 +241,14 @@ const RfStreamCodec kia_protocol_v3_v4 = {
 #endif
 };
 
-// ============================================================================
-// ENCODER IMPLEMENTATION
-// ============================================================================
+/*
+ * Encoder implementation.
+ * Allocation fails when the KIA_KEY1 keystore entry is missing, because the
+ * 32-bit payload is KeeLoq-encrypted with that manufacturer key. A burst is 12
+ * preamble pairs, a 1200 µs sync, 64 data bits, a 4-bit CRC and an 800 µs end
+ * marker; since the receiver does not know the CRC, successive bursts sweep all
+ * 16 CRC candidates and the default repeat count equals that sweep.
+ */
 #if RF_STREAM_WITH_ENCODER
 
 void* kia_protocol_encoder_v3_v4_alloc(RfStreamEnvironment* environment) {
@@ -626,9 +631,14 @@ uint8_t kia_protocol_encoder_v3_v4_get_button(void* context) {
 
 #endif
 
-// ============================================================================
-// DECODER IMPLEMENTATION
-// ============================================================================
+/*
+ * Decoder implementation.
+ * 400 µs short / 800 µs long elements with a ±150 µs window. feed() counts the
+ * preamble pairs, then shifts the raw bits into a fixed 32-byte buffer; once
+ * 68 bits (64 data + 4 CRC) are present the payload is bit-reversed, KeeLoq-
+ * decrypted with the KIA manufacturer key, and accepted only when the decrypted
+ * button and serial LSB match the plaintext copies carried in the frame.
+ */
 
 void* kia_protocol_decoder_v3_v4_alloc(RfStreamEnvironment* environment) {
     RfStreamProtocolDecoderKiaV3V4* instance = malloc(sizeof(RfStreamProtocolDecoderKiaV3V4));

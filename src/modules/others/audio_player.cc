@@ -9,7 +9,12 @@
 #include "modules/others/audio.h"
 #include <Arduino.h>
 
-// ===== ENUMS & STRUCTS =====
+/*
+ * Types and layout data for the audio player UI.
+ * IconType enumerates the drawn control glyphs, PlayerState tracks
+ * playback and filename scroll state, and UILayout derives screen
+ * geometry from the tftWidth/tftHeight globals.
+ */
 
 enum IconType { ICON_PREV, ICON_PLAY, ICON_PAUSE, ICON_NEXT, ICON_VOL, ICON_LOOP_ON, ICON_LOOP_OFF };
 
@@ -49,7 +54,11 @@ struct UILayout {
     }
 };
 
-// ===== HELPER FUNCTIONS =====
+/*
+ * Small UI helpers shared by the player.
+ * formatTime renders milliseconds as MM:SS, and extractFilename strips
+ * the directory path and extension to produce the on-screen track title.
+ */
 
 String formatTime(unsigned long ms) {
     unsigned long totalSeconds = ms / 1000;
@@ -70,7 +79,11 @@ String extractFilename(const String &filepath) {
     return name;
 }
 
-// ===== GRAPHICS ENGINE =====
+/*
+ * TFT drawing routines for the player chrome.
+ * Renders the vector control icons, the seek/volume progress bars, and
+ * the now-playing card into the geometry produced by UILayout::calculate.
+ */
 
 // Draw vector icons with better visibility
 void drawVectorIcon(int x, int y, int size, IconType icon, uint16_t color) {
@@ -265,7 +278,12 @@ bool showVolumeControl(uint8_t &currentVolume) {
         }
     }
 }
-// ===== MAIN PLAYER UI =====
+/*
+ * Main player loop for a single track.
+ * Draws the card and control bar, handles button selection and volume,
+ * and polls getAudioPlaybackInfo to refresh position; commits any volume
+ * change and returns when Esc is pressed.
+ */
 
 void musicPlayerUI(FS *fs, const String &filepath) {
     if (!fs || filepath.isEmpty() || !fs->exists(filepath)) {

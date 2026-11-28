@@ -122,9 +122,10 @@ public:
         {"Rickroll",   "https://youtu.be/dQw4w9WgXcQ"                       }
     };
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Default constructor for the persisted config object.
+     * Members carry their in-class defaults until fromFile() overrides them from /bruce.conf.
+     */
     BruceConfig() {};
     // ~BruceConfig();
 
@@ -133,9 +134,11 @@ private:
 
 public:
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Config persistence and validation.
+     * saveFile()/fromFile() serialize to and from JSON; factoryReset() restores
+     * defaults and validateConfig() enforces ranges.
+     */
     void saveFile();
     void fromFile(bool checkFS = true);
     void factoryReset();

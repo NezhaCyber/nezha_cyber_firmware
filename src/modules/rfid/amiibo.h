@@ -27,15 +27,19 @@ public:
         CHANGE_UID_MODE,
     };
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Constructs and tears down the Amiibolink front-end; the constructor
+     * calls setup() to connect to the device, so instantiation only happens
+     * on non-LITE builds where the amiibolink library is linked in.
+     */
     Amiibo();
     ~Amiibo();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Life Cycle
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Lifecycle and device link: connect() searches for and pairs with the
+     * Amiibolink over its transport; setup() connects and then opens the mode
+     * menu (amiibo upload or UID change) rather than running a polling loop.
+     */
     void setup();
     bool connect();
 

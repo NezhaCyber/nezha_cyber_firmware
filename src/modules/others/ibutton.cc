@@ -5,16 +5,20 @@
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
+/*
+ * Module-scope iButton state.
+ * The OneWire bus master, the 8-byte key buffer (UID + CRC), and the
+ * keyLoaded flag shared by read, write, save, and load operations.
+ */
 static OneWire *oneWire = nullptr;
 static byte keyBuffer[8];
 static bool keyLoaded = false;
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+/*
+ * Small shared helpers for the iButton tool.
+ * bufferToHexStr formats the key UID, bufferCrcValid checks the Dallas
+ * CRC-8, and displayStatus paints the idle/ready card on screen.
+ */
 
 static String bufferToHexStr(const byte *buf, int len, const char *sep = ":") {
     String s;
@@ -60,9 +64,11 @@ static void displayStatus() {
     printCenterFootnote("NEXT: Options  ESC: Back");
 }
 
-// ---------------------------------------------------------------------------
-// OneWire RW1990 low-level
-// ---------------------------------------------------------------------------
+/*
+ * Bit-banged write timing for RW1990 (DS1990A) keys.
+ * Writes one byte with the 1-Wire write-zero/write-one slot timings needed
+ * to program the key's 1-Wire ROM during the clone sequence.
+ */
 
 static void writeByte_RW1990(byte data) {
     uint8_t pin = bruceConfigPins.iButton;
@@ -84,9 +90,11 @@ static void writeByte_RW1990(byte data) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Core operations
-// ---------------------------------------------------------------------------
+/*
+ * Core 1-Wire key operations.
+ * readKey issues the Read ROM command (0x33) and retries until the CRC
+ * passes; writeKey drives the RW1990 sequence to clone the buffer onto a key.
+ */
 
 static bool readKey(int maxRetries = 20) {
     for (int attempt = 0; attempt < maxRetries; attempt++) {
@@ -156,9 +164,11 @@ static void writeKey() {
     oneWire->reset();
 }
 
-// ---------------------------------------------------------------------------
-// File I/O
-// ---------------------------------------------------------------------------
+/*
+ * Persistence of keys to SD/LittleFS under /BruceIButton.
+ * saveKey writes a .ibtn text file named by UID; loadKey parses the UID
+ * line back into the buffer and validates the Dallas CRC.
+ */
 
 static const char *IBUTTON_DIR = "/BruceIButton";
 
@@ -240,9 +250,11 @@ static IButtonResult loadKey() {
     return bufferCrcValid() ? IBUTTON_SUCCESS : IBUTTON_CRC_ERROR;
 }
 
-// ---------------------------------------------------------------------------
-// Menu actions
-// ---------------------------------------------------------------------------
+/*
+ * Options-menu actions for the current buffer contents.
+ * Defines the write/save/load/reset/pin-setup actions and the per-action
+ * handlers invoked when the user picks an option from the menu.
+ */
 
 enum MenuAction {
     ACTION_WRITE,
@@ -350,9 +362,11 @@ static void selectMenuOption() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Public entry point
-// ---------------------------------------------------------------------------
+/*
+ * Main iButton app loop.
+ * Creates the OneWire master on the configured pin, auto-reads a key when
+ * it touches the probe, opens the options menu on NEXT, and cleans up on exit.
+ */
 
 void setup_ibutton() {
     returnFromMenu = false;
@@ -423,9 +437,11 @@ Restart:
     oneWire = nullptr;
 }
 
-// ---------------------------------------------------------------------------
-// Pin selection menu
-// ---------------------------------------------------------------------------
+/*
+ * GPIO selection for the 1-Wire data pin.
+ * Lists every GPIO, lets the user pick one, and stores it via
+ * bruceConfigPins so the app can restart with the new pin mapping.
+ */
 
 void setiButtonPinMenu() {
     options = {};

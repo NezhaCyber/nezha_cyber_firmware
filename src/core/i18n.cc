@@ -111,6 +111,30 @@ String tr(const String &en) {
         }
     }
 
+    // Handle parenthesized suffix pattern: "Head (Sub)" -> "中文 (中文/Sub)"
+    int openParen = en.indexOf(" (");
+    if (openParen > 0 && en.endsWith(")")) {
+        String head = en.substring(0, openParen);
+        String inner = en.substring(openParen + 2, en.length() - 1);
+        const char *trHead = lookupExactZh(head.c_str());
+        const char *trInner = lookupExactZh(inner.c_str());
+        if (trHead || trInner) {
+            return String(trHead ? trHead : head.c_str()) + " (" + String(trInner ? trInner : inner.c_str()) + ")";
+        }
+    }
+
+    // Handle "A / B" composite labels when both sides have translations
+    int slash = en.indexOf(" / ");
+    if (slash > 0) {
+        String left = en.substring(0, slash);
+        String right = en.substring(slash + 3);
+        const char *trL = lookupExactZh(left.c_str());
+        const char *trR = lookupExactZh(right.c_str());
+        if (trL && trR) {
+            return String(trL) + " / " + String(trR);
+        }
+    }
+
     return en;
 }
 

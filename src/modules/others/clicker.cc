@@ -10,7 +10,11 @@
 #ifdef USB_as_HID
 #include <USBHIDMouse.h>
 
-// ===== STATIC GLOBALS =====
+/*
+ * File-scope state shared by every clicker phase.
+ * The layout, config, and USBHIDMouse are static because USB bring-up can
+ * clobber the stack; the CPS counters measure clicks per second at runtime.
+ */
 // These variables persist across function calls and are safe from stack corruption
 // during USB initialization (which can corrupt local stack variables)
 
@@ -23,7 +27,11 @@ static unsigned long prevMillisec = 0; // Last second timestamp
 static unsigned long currMillisec = 0; // Current timestamp
 static int cpsClickCount = 0;          // Clicks performed in current second
 
-// ===== CONSTANTS =====
+/*
+ * Read-only tables used by the menu and the clicking engine.
+ * BUTTON_NAMES maps a button index to its label; PRESET_CLICKS lists the
+ * quick-select click counts in order, with 0 meaning infinite.
+ */
 
 // Mouse button display names
 static const char *BUTTON_NAMES[] = {"LEFT", "RIGHT", "MID"};
@@ -33,7 +41,11 @@ static const int PRESET_CLICKS[] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,   10,
                                     30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500};
 static const int NUM_PRESETS = sizeof(PRESET_CLICKS) / sizeof(PRESET_CLICKS[0]);
 
-// ===== LAYOUT CONSTRUCTOR =====
+/*
+ * Runtime screen geometry for the clicker UI.
+ * LayoutConfig::LayoutConfig() derives margins, item heights, and font
+ * sizes from tftHeight so the menu fits compact and large displays alike.
+ */
 
 /**
  * @brief Initializes layout dimensions based on screen resolution
@@ -53,7 +65,11 @@ LayoutConfig::LayoutConfig() {
     item_spacing = compact ? 4 : 8;
 }
 
-// ===== USB LIFECYCLE MANAGEMENT =====
+/*
+ * USB HID bring-up and teardown for the mouse endpoint.
+ * initClickerUSB lazily creates USBHIDMouse and starts the stack;
+ * cleanupClickerUSB ends it, destroys the USB object, and re-enables DFU.
+ */
 
 /**
  * @brief Initializes USB HID Mouse functionality
@@ -87,7 +103,11 @@ void cleanupClickerUSB() {
     delay(100);
     // Serial.println("[USB] Cleanup complete");
 }
-// ===== UI DRAWING FUNCTIONS =====
+/*
+ * TFT rendering for the clicker screens.
+ * Covers menu items, the config screen, the USB init countdown, the live
+ * clicking view, and the post-run summary, all using LayoutConfig metrics.
+ */
 
 /**
  * @brief Draws a single menu item with proper styling and values
@@ -369,7 +389,11 @@ void drawUSBInitScreen(const LayoutConfig &layout) {
     // Serial.println("[USB] Initialization delay completed");
 }
 
-// ===== INPUT HANDLING FUNCTIONS =====
+/*
+ * Input dispatch for the configuration menu.
+ * handleMenuNavigation moves the selection and signals start/exit;
+ * handleValueEditing adjusts delay, button, and click count per item.
+ */
 
 /**
  * @brief Handles navigation through menu items
@@ -511,7 +535,11 @@ bool handleValueEditing(
 
     return value_changed;
 }
-// ===== CLICKING ENGINE =====
+/*
+ * The actual HID clicking loop with live feedback.
+ * performClicking emits mouse clicks at the configured interval, updates
+ * the per-second CPS readout, honors the click limit, and exits on SEL/ESC.
+ */
 
 /**
  * @brief Performs the actual clicking loop with real-time feedback
@@ -585,7 +613,11 @@ unsigned long performClicking(const char *btnNameStr) {
 
     return totalClicks;
 }
-// ===== MAIN APPLICATION ENTRY POINT =====
+/*
+ * Top-level state machine for the clicker app.
+ * Runs the configuration menu, snapshots config before USB init (which can
+ * corrupt the stack), executes the click loop, shows a summary, and cleans up.
+ */
 
 /**
  * @brief Main clicker application loop
@@ -615,7 +647,10 @@ void clicker_setup() {
         drawMenuItem(layout, (MenuItem)i, (i == selected_item), false, config, custom_mode);
     }
 
-    // ===== CONFIGURATION PHASE =====
+    /*
+     * Configuration loop: poll input, update selection/edit state, and
+     * redraw only the changed menu items. Auto-returns after 2 min idle.
+     */
     bool exit_menu = false;
     while (!exit_menu) {
         InputHandler();
@@ -684,7 +719,10 @@ void clicker_setup() {
         }
     }
 
-    // ===== EXECUTION PHASE =====
+    /*
+     * Execution phase: snapshot the config into const locals, initialize
+     * USB HID, draw the run screen, and drive performClicking.
+     */
 
     // CRITICAL: Snapshot config values BEFORE USB init
     // USB initialization can corrupt stack variables, so we save
@@ -715,7 +753,10 @@ void clicker_setup() {
 
     // Serial.printf("[CLICKER] Finished: %lu clicks performed\n", totalClicks);
 
-    // ===== SUMMARY PHASE =====
+    /*
+     * Summary phase: report whether the click target was reached, show the
+     * result screen, and wait for a restart-or-exit decision from the user.
+     */
 
     // Determine completion status
     bool completed = (final_max_clicks > 0 && totalClicks >= (unsigned long)final_max_clicks);
@@ -757,7 +798,10 @@ void clicker_setup() {
         delay(50);
     }
 
-    // ===== CLEANUP PHASE =====
+    /*
+     * Cleanup phase: always tear down USB HID, then either recursively
+     * restart the app or return to the main menu based on the user's choice.
+     */
 
     // Always cleanup USB before exiting or restarting
     cleanupClickerUSB();

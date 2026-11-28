@@ -4,12 +4,20 @@
 
 #pragma once
 
-// ===== PUBLIC API =====
+/*
+ * Public entry points for the HID mouse automation tool.
+ * clicker_setup() is the main entry; usbClickerSetup() aliases USB mode
+ * while bleClickerSetup() is the reserved BLE entry point.
+ */
 void clicker_setup();   // Main entry point for USB clicker
 void usbClickerSetup(); // Alias for USB mode
 void bleClickerSetup(); // BLE mode (not yet implemented)
 
-// ===== CONFIGURATION STRUCTURES =====
+/*
+ * Configuration types shared by the clicker UI and engine.
+ * ClickerConfig holds runtime behavior (delay, button, click limit) and
+ * LayoutConfig derives screen geometry from the tftWidth/tftHeight globals.
+ */
 
 /**
  * @brief Stores all user-configurable click parameters

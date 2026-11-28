@@ -17,6 +17,7 @@
 #include "util_commands.h"
 #include "wifi_commands.h"
 #include "wire_commands.h"
+#include "wordlist_commands.h"
 #include <globals.h>
 
 void cliErrorCallback(cmd_error *e) {
@@ -48,6 +49,10 @@ void SerialCli::setup() {
     createStorageCommands(&_cli);
     createUtilCommands(&_cli);
     createWifiCommands(&_cli);
+
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
+    createWordlistCommands(&_cli);
+#endif
 
 #ifndef LITE_VERSION
     createWireCommands(&_cli);

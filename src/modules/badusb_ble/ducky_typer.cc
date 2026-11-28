@@ -27,9 +27,12 @@ HIDInterface *hid_ble = nullptr;
 // Track active BLE instances to know when to deinit
 int activeBLEInstances = 0;
 
-// ============================================================================
-// PER-FUNCTION MAC ADDRESSES - Logitech OUIs (look like real keyboards!)
-// ============================================================================
+/*
+ * Per-function BLE MAC addresses (FUNC_MACS). Four fixed addresses, each using
+ * the Logitech OUI, select a device identity per functionId (Keyboard / Media /
+ * BadUSB / Presenter) so each mode advertises as a distinct, realistic
+ * peripheral.
+ */
 
 // All using Logitech OUI 88:3B:5F
 // The suffixes are fixed but look random
@@ -40,9 +43,11 @@ static const uint8_t FUNC_MACS[4][6] = {
     {0x88, 0x3B, 0x5F, 0x6C, 0x92, 0x4D}  // Presenter - Logitech
 };
 
-// ============================================================================
-// MAC ADDRESS SETTING - Works across ESP32 variants
-// ============================================================================
+/*
+ * Sets the BLE controller MAC. Prefers the per-interface esp_iface_mac_addr_set
+ * call with ESP_MAC_BT where available, falling back to esp_base_mac_addr_set on
+ * older IDF variants so it works across ESP32 targets.
+ */
 
 void setBleMac(const uint8_t *mac) {
 #ifdef ESP_MAC_BT
@@ -54,9 +59,13 @@ void setBleMac(const uint8_t *mac) {
 #endif
 }
 
-// ============================================================================
-// CLEANUP - Cleans a specific HID instance
-// ============================================================================
+/*
+ * Tears down one BLE HID instance. Releases all keys, stops advertising, clears
+ * the hid_ble pointer if it was active, and decrements activeBLEInstances;
+ * BleKeyboard::end() (which deinits the BLE stack) and NimBLEDevice::deinit()
+ * run only when the instance count reaches zero, so concurrent keyboard/media
+ * instances don't tear the stack out from under each other.
+ */
 
 void cleanupDuckyBLE(HIDInterface *&hid) {
     if (hid) {
@@ -113,9 +122,11 @@ void cleanupDuckyBLE(HIDInterface *&hid) {
     BLEConnected = false;
 }
 
-// ============================================================================
-// SAFE CLEANUP - Double cleanup with cooling delay
-// ============================================================================
+/*
+ * Robust cleanup wrapper. Runs cleanupDuckyBLE twice with 200 ms cooling delays
+ * to catch lingering state, then force-deinitializes NimBLE if it is still up —
+ * used before starting a fresh BLE instance to guarantee a clean controller.
+ */
 
 void safeCleanupDuckyBLE(HIDInterface *&hid) {
     Serial.println("[safeCleanupDuckyBLE] First cleanup pass...");
@@ -139,9 +150,13 @@ void safeCleanupDuckyBLE(HIDInterface *&hid) {
     Serial.println("[safeCleanupDuckyBLE] Cleanup complete");
 }
 
-// ============================================================================
-// DUCKY COMMAND STRUCTURES - Stored in PROGMEM
-// ============================================================================
+/*
+ * DuckyScript command tables stored in PROGMEM to save DRAM. DuckyCommandType
+ * classifies each token (print/delay/comment/repeat/combination/alt-char/etc.);
+ * duckyCmds maps keyword → HID keycode/type, duckyComb maps combo keywords to
+ * multiple keycodes, and keyboardLayouts indexes the active layout by
+ * bruceConfig.badUSBBLEKeyboardLayout.
+ */
 
 enum DuckyCommandType {
     DuckyCommandType_Cmd,
@@ -295,9 +310,12 @@ const uint8_t *keyboardLayouts[] PROGMEM = {
     KeyboardLayout_tr_TR  // 13
 };
 
-// ============================================================================
-// MENU KEY STRUCTURES - Stored in PROGMEM
-// ============================================================================
+/*
+ * Interactive-keyboard menu key tables stored in PROGMEM. KeyboardMenuKey pairs
+ * a display label with its HID keycode; the modifier/navigation/special/
+ * function/numpad arrays populate ducky_keyboard's submenus, and QueuedHIDKey
+ * holds a chord being recorded before it is sent.
+ */
 
 struct KeyboardMenuKey {
     const char *label;
@@ -394,9 +412,12 @@ static const KeyboardMenuKey numpadMenuKeys[] PROGMEM = {
     {"KP .",     KEY_KP_DOT     },
 };
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
+/*
+ * Helpers for the interactive keyboard and queued-chord logic. Classify modifier
+ * keys, bound a recorded chord to six non-modifier keys, render queued labels,
+ * send a single key or record it into a queue, copy PROGMEM menu keys into RAM,
+ * and drive the per-section option loop.
+ */
 
 static bool isModifierKeyForQueue(uint8_t key) {
     switch (key) {
@@ -534,9 +555,11 @@ sendQueuedKeys(HIDInterface *hid, bool &queueRecording, const std::vector<Queued
     displaySuccess("Sent: " + queueToString(queuedKeys));
 }
 
-// ============================================================================
-// FIND FUNCTIONS - Optimized with caching
-// ============================================================================
+/*
+ * PROGMEM command lookups optimized with a static one-entry cache. Repeated
+ * identical lookups (common inside REPEAT loops) skip the memcpy_P scan; the
+ * cached command key is capped at 24 chars plus NUL.
+ */
 
 DuckyCommandLookup *findDuckyCommand(const char *cmd) {
     static DuckyCommandLookup cached;
@@ -576,9 +599,11 @@ DuckyCombination *findDuckyCombination(const char *cmd) {
     return nullptr;
 }
 
-// ============================================================================
-// DUCKYSCRIPT 3.0 DEFINE - Constant substitution
-// ============================================================================
+/*
+ * DuckyScript 3.0 DEFINE support. parseDuckyDefine records "DEFINE name value"
+ * pairs into a map and applyDuckyDefines substitutes them in script lines before
+ * parsing, enabling user-defined constants.
+ */
 
 // '#' is a token char because DEFINE names are conventionally '#'-prefixed.
 static bool isDuckyDefineTokenChar(char c) { return isAlphaNumeric(c) || c == '_' || c == '#'; }
@@ -619,9 +644,13 @@ static void applyDuckyDefines(String &line, const std::map<String, String> &defi
     }
 }
 
-// ============================================================================
-// START KEYBOARD - Creates fresh BLE instance with new stack
-// ============================================================================
+/*
+ * Creates (or reuses) the HID transport for a ducky function. For BLE it gates
+ * on radioHasMemForBle / radioSafeBleInit, sets the function-specific Logitech
+ * MAC, builds a BleKeyboard with the active PROGMEM layout, bumps
+ * activeBLEInstances, and waits for service registration; for USB it creates a
+ * USBHIDKeyboard (or CH9329 serial keyboard) and waits for host mount.
+ */
 
 void ducky_startKb(HIDInterface *&hid, bool ble, int functionId) {
     Serial.printf("\nducky_startKb: BLE=%d, hid=%p, func=%d\n", ble, hid, functionId);
@@ -754,9 +783,12 @@ void ducky_startKb(HIDInterface *&hid, bool ble, int functionId) {
     }
 }
 
-// ============================================================================
-// DUCKY SETUP - Main entry for BadUSB/BLE script runner
-// ============================================================================
+/*
+ * Main entry for the BadUSB/BLE script runner. Lets the user pick SD or
+ * LittleFS, select a payload via loopSD, then double-cleans BLE, starts a BadUSB
+ * HID instance (functionId 2), waits for a BLE victim or USB host, and runs
+ * key_input on button press — looping to re-run the script until ESC.
+ */
 
 void ducky_setup(HIDInterface *&hid, bool ble) {
     Serial.println("Ducky typer begin");
@@ -854,9 +886,12 @@ EXIT:
     returnToMenu = true;
 }
 
-// ============================================================================
-// KEY_INPUT - Main Ducky script parser
-// ============================================================================
+/*
+ * Core DuckyScript parser. Opens the payload file from the given FS, reads it
+ * line by line, applies DEFINE substitutions, and dispatches each token to the
+ * matching command (STRING, DELAY, REPEAT, combos, ALTCHAR, WAIT_FOR_BUTTON_PRESS,
+ * etc.) through the HID interface, tracking default and per-string delays.
+ */
 
 void key_input(FS fs, const String &bad_script, HIDInterface *_hid) {
     if (!fs.exists(bad_script) || bad_script == "") return;
@@ -1030,9 +1065,11 @@ EXIT:
     _hid->releaseAll();
 }
 
-// ============================================================================
-// KEY_INPUT_FROM_STRING - Simple text input via USB
-// ============================================================================
+/*
+ * One-shot text injection over USB. Starts a USB HID keyboard instance, prints
+ * the given string, then deletes the instance and tears down the serial/USB
+ * transport.
+ */
 
 void key_input_from_string(const String &text) {
     ducky_startKb(hid_usb, false, 0);
@@ -1048,9 +1085,12 @@ void key_input_from_string(const String &text) {
 #define KB_HID_EXIT_MSG "Exit"
 #endif
 
-// ============================================================================
-// DUCKY_KEYBOARD - Interactive keyboard mode (USB or BLE)
-// ============================================================================
+/*
+ * Interactive keyboard mode (USB or BLE, functionId 0 = Keyboard). Cleans up any
+ * prior BLE instance, starts the keyboard HID, and lets the user type free text
+ * or navigate modifier/navigation/special/function/numpad submenus, optionally
+ * recording a chord queue before sending.
+ */
 
 void ducky_keyboard(HIDInterface *&hid, bool ble) {
     String _mymsg = "";
@@ -1239,9 +1279,12 @@ EXIT:
     }
 }
 
-// ============================================================================
-// MEDIA COMMANDS - BLE Media Controller
-// ============================================================================
+/*
+ * BLE media controller (functionId 1 = Media). Cleans up, starts a BLE media
+ * HID, waits for pairing, then offers an options menu of media keys (screenshot,
+ * play/pause, stop, track skip, volume up/down + hold, mute) that press the
+ * corresponding HID codes.
+ */
 
 void MediaCommands(HIDInterface *hid, bool ble) {
     // Double cleanup before starting
@@ -1284,9 +1327,11 @@ void MediaCommands(HIDInterface *hid, bool ble) {
     returnToMenu = true;
 }
 
-// ============================================================================
-// ALT CHARACTER FUNCTIONS
-// ============================================================================
+/*
+ * Windows Alt-code entry. sendAltChar holds LEFT_ALT and types the zero-padded
+ * 3-digit character code on the keypad (pressing and releasing each digit)
+ * before releasing Alt; sendAltString applies it to every byte of a string.
+ */
 
 void sendAltChar(HIDInterface *hid, uint8_t charCode) {
     hid->press(KEY_LEFT_ALT);
@@ -1333,9 +1378,12 @@ void sendAltString(HIDInterface *hid, const String &text) {
     }
 }
 
-// ============================================================================
-// DISPLAY FUNCTIONS
-// ============================================================================
+/*
+ * BadUSB/BLE on-screen rendering helpers. Draw the header/script/status lines,
+ * print status text at a fixed grid position, format elapsed time, and stream
+ * script output to the bottom half of the screen (clamped to the screen width)
+ * when bruceConfig.badUSBBLEShowOutput is enabled.
+ */
 
 void printTextAtPosition(uint16_t xOffset, uint16_t yOffset, const String &text) {
     uint16_t currentTextCursorX = tft.getCursorX();
@@ -1416,9 +1464,11 @@ void printTFTBadUSBBLE(const String &text, uint16_t color, bool newline) {
     }
 }
 
-// ============================================================================
-// BUTTON HANDLING FUNCTIONS
-// ============================================================================
+/*
+ * Button-flow helpers for the script runner. waitForButtonPress blocks until SEL
+ * (continue) or ESC (cancel) is pressed; handlePauseResume pauses execution,
+ * shows the paused status, and resumes or cancels on the next press.
+ */
 
 bool waitForButtonPress() {
     bool exitPressed = false;
@@ -1442,9 +1492,11 @@ bool handlePauseResume() {
     return true;
 }
 
-// ============================================================================
-// PRESENTER MODE - BLE Presentation Remote
-// ============================================================================
+/*
+ * BLE presentation remote (functionId 3 = Presenter). Cleans up, starts a BLE
+ * HID, waits for pairing, then sends presentation-control keystrokes over BLE
+ * (slideshow navigation) until the user exits with ESC.
+ */
 
 void PresenterMode(HIDInterface *&hid, bool ble) {
     // Double cleanup before starting

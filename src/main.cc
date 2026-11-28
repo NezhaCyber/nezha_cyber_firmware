@@ -194,10 +194,10 @@ volatile int tftHeight = TFT_WIDTH;
 #include "modules/rf/rf_utils.h"                 // for initCC1101once
 #include <Wire.h>
 
-/*********************************************************************
- **  Function: begin_storage
- **  Config LittleFS and SD storage
- *********************************************************************/
+/*
+ *  Function: begin_storage
+ *  Config LittleFS and SD storage
+ */
 void begin_storage() {
     if (!setupLittleFS()) {
         LittleFS.format();
@@ -222,40 +222,40 @@ void begin_storage() {
     NZLOGMEM("BOOT");
 }
 
-/*********************************************************************
- **  Function: _setup_gpio()
- **  Sets up a weak (empty) function to be replaced by /ports/* /interface.h
- *********************************************************************/
+/*
+ *  Function: _setup_gpio()
+ *  Sets up a weak (empty) function to be replaced by /ports/* /interface.h
+ */
 void _setup_gpio() __attribute__((weak));
 void _setup_gpio() {}
 
-/*********************************************************************
- **  Function: _post_setup_gpio()
- **  Sets up a weak (empty) function to be replaced by /ports/* /interface.h
- *********************************************************************/
+/*
+ *  Function: _post_setup_gpio()
+ *  Sets up a weak (empty) function to be replaced by /ports/* /interface.h
+ */
 void _post_setup_gpio() __attribute__((weak));
 void _post_setup_gpio() {}
 
-/*********************************************************************
- **  Function: _pre_storage_gpio()
- **  Sets up a weak (empty) function for board fixes that must run
- **  after the first TFT access and before storage is mounted.
- *********************************************************************/
+/*
+ *  Function: _pre_storage_gpio()
+ *  Sets up a weak (empty) function for board fixes that must run
+ *  after the first TFT access and before storage is mounted.
+ */
 void _pre_storage_gpio() __attribute__((weak));
 void _pre_storage_gpio() {}
 
-/*********************************************************************
- **  Function: _late_setup_gpio()
- **  Sets up a weak (empty) function for board fixes that must run
- **  Runs right before animation
- *********************************************************************/
+/*
+ *  Function: _late_setup_gpio()
+ *  Sets up a weak (empty) function for board fixes that must run
+ *  Runs right before animation
+ */
 void _late_setup_gpio() __attribute__((weak));
 void _late_setup_gpio() {}
 
-/*********************************************************************
- **  Function: setup_gpio
- **  Setup GPIO pins
- *********************************************************************/
+/*
+ *  Function: setup_gpio
+ *  Setup GPIO pins
+ */
 void setup_gpio() {
 
     // init setup from /ports/*/interface.h
@@ -280,10 +280,10 @@ void setup_gpio() {
     // initCC1101once(NULL) lets the driver fall back to managing the default SPI object itself.
 }
 
-/*********************************************************************
- **  Function: begin_tft
- **  Config tft
- *********************************************************************/
+/*
+ *  Function: begin_tft
+ *  Config tft
+ */
 void begin_tft() {
     tft.setRotation(bruceConfigPins.rotation); // sometimes it misses the first command
     tft.invertDisplay(bruceConfig.colorInverted);
@@ -298,10 +298,10 @@ void begin_tft() {
     setBrightness(bruceConfig.bright, false);
 }
 
-/*********************************************************************
- **  Function: boot_screen
- **  Draw boot screen
- *********************************************************************/
+/*
+ *  Function: boot_screen
+ *  Draw boot screen
+ */
 static int bootSplashBarY() {
     return (tftHeight < 180) ? (tftHeight - 16) : (tftHeight - 24);
 }
@@ -375,10 +375,10 @@ void boot_screen() {
     }
 }
 
-/*********************************************************************
- **  Function: boot_screen_anim
- **  Draw boot screen
- *********************************************************************/
+/*
+ *  Function: boot_screen_anim
+ *  Draw boot screen
+ */
 void boot_screen_anim() {
     boot_screen();
     int i = millis();
@@ -427,10 +427,10 @@ void boot_screen_anim() {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     } else {
-        // ====================================================================
-        // 5-Second Animated 哪吒魔童 (Nezha Demon Child) Cyber Boot Sequence
-        // Instantly skippable on any key / trackball / touch press!
-        // ====================================================================
+        /*
+         * 5-Second Animated 哪吒魔童 (Nezha Demon Child) Cyber Boot Sequence
+         * Instantly skippable on any key / trackball / touch press!
+         */
         const unsigned long splashDurMs = 5000;
         const bool compact = (tftHeight < 180);
         const int cx = tftWidth / 2;
@@ -615,10 +615,10 @@ void boot_screen_anim() {
     tft.fillScreen(bruceConfig.bgColor);
 }
 
-/*********************************************************************
- **  Function: init_clock
- **  Clock initialisation for propper display in menu
- *********************************************************************/
+/*
+ *  Function: init_clock
+ *  Clock initialisation for propper display in menu
+ */
 void init_clock() {
 #if defined(HAS_RTC)
     _rtc.begin();
@@ -655,20 +655,20 @@ void init_clock() {
 #endif
 }
 
-/*********************************************************************
- **  Function: init_led
- **  Led initialisation
- *********************************************************************/
+/*
+ *  Function: init_led
+ *  Led initialisation
+ */
 void init_led() {
 #ifdef HAS_RGB_LED
     beginLed();
 #endif
 }
 
-/*********************************************************************
- **  Function: startup_sound
- **  Play sound or tone depending on device hardware
- *********************************************************************/
+/*
+ *  Function: startup_sound
+ *  Play sound or tone depending on device hardware
+ */
 void startup_sound() {
     if (bruceConfig.soundEnabled == 0) return; // if sound is disabled, do not play sound
 #if !defined(LITE_VERSION)
@@ -692,10 +692,10 @@ void startup_sound() {
 #endif
 }
 
-/*********************************************************************
- **  Function: setup
- **  Where the devices are started and variables set
- *********************************************************************/
+/*
+ *  Function: setup
+ *  Where the devices are started and variables set
+ */
 void setup() {
     Serial.setRxBufferSize(
         SAFE_STACK_BUFFER_SIZE / 4
@@ -827,10 +827,10 @@ void setup() {
     NZLOGMEM("BOOT");
 }
 
-/**********************************************************************
- **  Function: loop
- **  Main loop
- **********************************************************************/
+/*
+ *  Function: loop
+ *  Main loop
+ */
 #if !defined(USE_DUMMY_TFT)
 void loop() {
 #if !defined(LITE_VERSION) && !defined(DISABLE_INTERPRETER)

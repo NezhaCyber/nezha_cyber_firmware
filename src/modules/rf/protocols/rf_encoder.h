@@ -12,16 +12,16 @@
 #include "../structs.h"
 #include "rf_protocol.h"
 
-// ---------------------------------------------------------------------------
-// Native RMT TX motor.
-//
-// Replaces the former library / bit-bang transmit paths. Every send goes
-// through rf_tx_durations(): a list of signed microsecond timings (sign = logic
-// level, + HIGH / - LOW) is packed into rmt_symbol_word_t[] and streamed out on
-// the configured RF TX pin (CC1101 GDO0/io0, or rfTx on single-pinned modules).
-// The radio (CC1101 modulation / PA / SetTx) is configured by the caller via
-// initRfModule()/sendRfCommand(); this module only generates the pulse train.
-// ---------------------------------------------------------------------------
+/*
+ * Native RMT TX motor.
+ *
+ * Replaces the former library / bit-bang transmit paths. Every send goes
+ * through rf_tx_durations(): a list of signed microsecond timings (sign = logic
+ * level, + HIGH / - LOW) is packed into rmt_symbol_word_t[] and streamed out on
+ * the configured RF TX pin (CC1101 GDO0/io0, or rfTx on single-pinned modules).
+ * The radio (CC1101 modulation / PA / SetTx) is configured by the caller via
+ * initRfModule()/sendRfCommand(); this module only generates the pulse train.
+ */
 
 // Transmit a sequence of signed µs durations once. Blocks until the RMT
 // hardware reports the whole frame done; leaves the line idle LOW.

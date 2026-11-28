@@ -39,10 +39,10 @@ String generateToken(int length = 24) {
     return token;
 }
 
-/**********************************************************************
-**  Function: stopWebUi
-**  Turn off the WebUI
-**********************************************************************/
+/*
+ * Function: stopWebUi
+ * Turn off the WebUI
+ */
 void stopWebUi() {
     tft.setLogging(false);
     isWebUIActive = false;
@@ -59,11 +59,11 @@ void stopWebUi() {
     NZLOGI("WEBUI", "stopped");
 }
 
-/**********************************************************************
-**  Function: cleanlyStopWebUiForWiFiFeature
-**  Cleanly stop WebUI and AP mode before starting a WiFi feature
-**  This prevents WiFi mode conflicts when features need exclusive control
-**********************************************************************/
+/*
+ * Function: cleanlyStopWebUiForWiFiFeature
+ * Cleanly stop WebUI and AP mode before starting a WiFi feature
+ * This prevents WiFi mode conflicts when features need exclusive control
+ */
 void cleanlyStopWebUiForWiFiFeature() {
     // Only proceed if WebUI is active
     if (!isWebUIActive && !server) { return; }
@@ -89,10 +89,10 @@ void cleanlyStopWebUiForWiFiFeature() {
 
     Serial.println("WebUI stopped, starting WiFi feature...");
 }
-/**********************************************************************
-**  Function: loopOptionsWebUi
-**  Display options to launch the WebUI
-**********************************************************************/
+/*
+ * Function: loopOptionsWebUi
+ * Display options to launch the WebUI
+ */
 void loopOptionsWebUi() {
     if (isWebUIActive) {
         bool opt = WiFi.getMode() - 1;
@@ -113,11 +113,11 @@ void loopOptionsWebUi() {
     // On fail installing will run the following line
 }
 
-/**********************************************************************
-**  Function: humanReadableSize
-** Make size of files human readable
-** source: https://github.com/CelliesProjects/minimalUploadAuthESP32
-**********************************************************************/
+/*
+ * Function: humanReadableSize
+ * Make size of files human readable
+ * source: https://github.com/CelliesProjects/minimalUploadAuthESP32
+ */
 String humanReadableSize(uint64_t bytes) {
     if (bytes < 1024) return String(bytes) + " B";
     else if (bytes < (1024 * 1024)) return String(bytes / 1024.0) + " kB";
@@ -125,10 +125,10 @@ String humanReadableSize(uint64_t bytes) {
     else return String(bytes / 1024.0 / 1024.0 / 1024.0) + " GB";
 }
 
-/**********************************************************************
-**  Function: listFiles
-**  list all of the files, if ishtml=true, return html rather than simple text
-**********************************************************************/
+/*
+ * Function: listFiles
+ * list all of the files, if ishtml=true, return html rather than simple text
+ */
 String listFiles(FS &fs, const String &folder) {
     // log_i("Listfiles Start");
     String returnText = "pa:" + folder + ":0\n";
@@ -168,11 +168,11 @@ String listFiles(FS &fs, const String &folder) {
     return returnText;
 }
 
-/**********************************************************************
-**  Function: checkUserWebAuth
-** used by server->on functions to discern whether a user has the correct
-** httpapitoken OR is authenticated by username and password
-**********************************************************************/
+/*
+ * Function: checkUserWebAuth
+ * used by server->on functions to discern whether a user has the correct
+ * httpapitoken OR is authenticated by username and password
+ */
 bool checkUserWebAuth(AsyncWebServerRequest *request, bool onFailureReturnLoginPage = false) {
     if (request->hasHeader("Cookie")) {
         const AsyncWebHeader *cookie = request->getHeader("Cookie");
@@ -194,10 +194,10 @@ bool checkUserWebAuth(AsyncWebServerRequest *request, bool onFailureReturnLoginP
     return false;
 }
 
-/**********************************************************************
-**  Function: createDirRecursive
-** Create folders recursivelly
-**********************************************************************/
+/*
+ * Function: createDirRecursive
+ * Create folders recursivelly
+ */
 void createDirRecursive(const String &path, FS fs) {
     String currentPath = "";
     int startIndex = 0;
@@ -221,10 +221,10 @@ void createDirRecursive(const String &path, FS fs) {
         startIndex = endIndex + 1;
     }
 }
-/**********************************************************************
-**  Function: handleUpload
-** handles uploads to the filserver
-**********************************************************************/
+/*
+ * Function: handleUpload
+ * handles uploads to the filserver
+ */
 void handleUpload(
     AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final
 ) {
@@ -286,10 +286,10 @@ void handleUpload(
 
 void notFound(AsyncWebServerRequest *request) { request->send(404, "text/plain", "404 - Nezha Cyber"); }
 
-/**********************************************************************
-**  Function: drawWebUiScreen
-**  Draw information on screen of WebUI.
-**********************************************************************/
+/*
+ * Function: drawWebUiScreen
+ * Draw information on screen of WebUI.
+ */
 void drawWebUiScreen(bool mode_ap) {
     drawMainBorderWithTitle("WebUI", true);
 
@@ -346,10 +346,10 @@ void drawWebUiScreen(bool mode_ap) {
 #endif
 }
 
-/**********************************************************************
-**  Function: color565ToWebHex
-**  convert 565 color to web hex format for theme purposes
-**********************************************************************/
+/*
+ * Function: color565ToWebHex
+ * convert 565 color to web hex format for theme purposes
+ */
 String color565ToWebHex(uint16_t color565) {
     // Extract RGB components from 565
     uint8_t r = (color565 >> 11) & 0x1F;
@@ -366,10 +366,10 @@ String color565ToWebHex(uint16_t color565) {
     return String(hex);
 }
 
-/**********************************************************************
-**  Function: serveWebUIFile
-**  serves files for WebUI and checks for custom WebUI files
-**********************************************************************/
+/*
+ * Function: serveWebUIFile
+ * serves files for WebUI and checks for custom WebUI files
+ */
 void serveWebUIFile(AsyncWebServerRequest *request, const String &filename, const char *contentType) {
     serveWebUIFile(request, filename, contentType, false, nullptr, 0);
 }
@@ -403,10 +403,10 @@ void serveWebUIFile(
     request->send(response);
 }
 
-/**********************************************************************
-**  Function: startMdnsResponder
-**  Try to start mDNS only if there is enough internal heap available
-**********************************************************************/
+/*
+ * Function: startMdnsResponder
+ * Try to start mDNS only if there is enough internal heap available
+ */
 static bool startMdnsResponder() {
     RAM_LOG("before MDNS");
 
@@ -420,10 +420,10 @@ static bool startMdnsResponder() {
     return true;
 }
 
-/**********************************************************************
-**  Function: configureWebServer
-**  configure web server
-**********************************************************************/
+/*
+ * Function: configureWebServer
+ * configure web server
+ */
 void configureWebServer() {
     mdnsRunning = startMdnsResponder();
     DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
@@ -850,10 +850,10 @@ void configureWebServer() {
     Serial.println("Webserver started");
 }
 
-/**********************************************************************
-**  Function: startWebUi
-**  Start the WebUI
-**********************************************************************/
+/*
+ * Function: startWebUi
+ * Start the WebUI
+ */
 void startWebUi(bool mode_ap) {
     bool keepWifiConnected = false;
     if (!WiFi.isConnected()) {
