@@ -4,7 +4,7 @@ on:
   release:
     types: [published]
   push:
-    branches: [main, development]
+    branches: [main]
     paths:
       - "tools/web_companion/**"
       - "tools/gen_web_manifests.py"
@@ -23,52 +23,56 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-web-companion
+  group: pages
   cancel-in-progress: false
 
 jobs:
   build-pages:
     name: Stage WebSerial Companion & Manifests
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Checkout web companion & manifest generator
+        uses: actions/checkout@v7
         with:
-          python-version: "3.11"
+          sparse-checkout: tools
 
       - name: Resolve release tag
         id: meta
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.release_tag }}
         run: |
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            TAG="${{ github.event.release.tag_name }}"
-          elif [ -n "${{ inputs.release_tag }}" ]; then
-            TAG="${{ inputs.release_tag }}"
+          if [ -n "$RELEASE_TAG" ]; then
+            TAG="$RELEASE_TAG"
+          elif [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
           else
             TAG="latest"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Stage static site and generate esp-web-tools manifests
+        env:
+          REPO_NAME: ${{ github.repository }}
+          MANIFEST_TAG: ${{ steps.meta.outputs.tag }}
         run: |
           mkdir -p _site/manifests
           if [ -d tools/web_companion ]; then
             cp -r tools/web_companion/* _site/
           else
-            cat > _site/index.html <<'HTML'
-            <!doctype html><html><body><h1>Nezha Cyber WebSerial Portal</h1><p>Merge feat/platform-ecosystem to enable the full companion UI.</p></body></html>
-          HTML
+            printf '%s\n' '<!doctype html><html><body><h1>Nezha Cyber WebSerial Portal</h1></body></html>' > _site/index.html
           fi
           python3 tools/gen_web_manifests.py \
             --out-dir _site/manifests \
-            --repo "${{ github.repository }}" \
-            --tag "${{ steps.meta.outputs.tag }}"
+            --repo "$REPO_NAME" \
+            --tag "$MANIFEST_TAG"
+          python3 -c 'import json; json.load(open("_site/manifests/boards.json", encoding="utf-8"))'
           touch _site/.nojekyll
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -76,10 +80,11 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build-pages
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

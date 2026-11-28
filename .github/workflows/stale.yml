@@ -5,18 +5,25 @@ on:
     - cron: "0 2 * * 1"
   workflow_dispatch:
 
+concurrency:
+  group: stale-hygiene
+  cancel-in-progress: true
+
 permissions:
   issues: write
   pull-requests: write
 
 jobs:
   stale:
+    name: Mark & Close Stale Issues/PRs
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/stale@v9
+      - uses: actions/stale@v11
         with:
           days-before-stale: 60
           days-before-close: 14
+          operations-per-run: 30
           stale-issue-label: "stale"
           stale-pr-label: "stale"
           exempt-issue-labels: "pinned,security,bug,roadmap"
