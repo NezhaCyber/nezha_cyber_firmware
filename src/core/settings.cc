@@ -30,10 +30,10 @@ int currentScreenBrightness = -1;
 // This function comes from interface.h
 void _setBrightness(uint8_t brightval) {}
 
-/*********************************************************************
-**  Function: setBrightness
-**  set brightness value
-**********************************************************************/
+/*
+ *  Function: setBrightness
+ *  set brightness value
+ */
 void setBrightness(uint8_t brightval, bool save) {
     if (bruceConfig.bright > 100) bruceConfig.setBright(100);
     _setBrightness(brightval);
@@ -43,10 +43,10 @@ void setBrightness(uint8_t brightval, bool save) {
     if (save) { bruceConfig.setBright(brightval); }
 }
 
-/*********************************************************************
-**  Function: getBrightness
-**  get brightness value
-**********************************************************************/
+/*
+ *  Function: getBrightness
+ *  get brightness value
+ */
 void getBrightness() {
     if (bruceConfig.bright > 100) {
         bruceConfig.setBright(100);
@@ -61,10 +61,10 @@ void getBrightness() {
     currentScreenBrightness = bruceConfig.bright;
 }
 
-/*********************************************************************
-**  Function: gsetRotation
-**  get/set rotation value
-**********************************************************************/
+/*
+ *  Function: gsetRotation
+ *  get/set rotation value
+ */
 int gsetRotation(bool set) {
     int getRot = bruceConfigPins.rotation;
     int result = ROTATION;
@@ -113,11 +113,11 @@ int gsetRotation(bool set) {
     return result;
 }
 
-/*********************************************************************
-**  Function: setBrightnessMenu
-**  Handles Menu to set brightness (live-preview slider; drag on touch
-**  boards, Next/Prev to step by 5%, Sel to apply, Esc to cancel)
-**********************************************************************/
+/*
+ *  Function: setBrightnessMenu
+ *  Handles Menu to set brightness (live-preview slider; drag on touch
+ *  boards, Next/Prev to step by 5%, Sel to apply, Esc to cancel)
+ */
 void setBrightnessMenu() {
     returnToMenu = false;
     bool prevTouchZone = touchZoneOutsideFooterEnabled;
@@ -255,10 +255,10 @@ void setBrightnessMenu() {
     tft.fillScreen(bruceConfig.bgColor);
 }
 
-/*********************************************************************
-**  Function: setSleepMode
-**  Turn screen off and reduces cpu clock
-**********************************************************************/
+/*
+ *  Function: setSleepMode
+ *  Turn screen off and reduces cpu clock
+ */
 void setSleepMode() {
     sleepModeOn();
     while (1) {
@@ -271,10 +271,10 @@ void setSleepMode() {
     }
 }
 
-/*********************************************************************
-**  Function: setDimmerTimeMenu
-**  Handles Menu to set dimmer time
-**********************************************************************/
+/*
+ *  Function: setDimmerTimeMenu
+ *  Handles Menu to set dimmer time
+ */
 void setDimmerTimeMenu() {
     int idx = 0;
     if (bruceConfig.dimmerSet == 10) idx = 0;
@@ -292,10 +292,10 @@ void setDimmerTimeMenu() {
     loopOptions(options, idx);
 }
 
-/*********************************************************************
-**  Function: setUIColor
-**  Set and store main UI color
-**********************************************************************/
+/*
+ *  Function: setUIColor
+ *  Set and store main UI color
+ */
 void setUIColor() {
 
     while (1) {
@@ -363,10 +363,10 @@ void setUIColor() {
     }
 }
 
-/*********************************************************************
-**  Function: setNezhaCrestMenu
-**  Choose the 哪吒1 / 哪吒2 UI motif / crest style across HUD & Launcher
-**********************************************************************/
+/*
+ *  Function: setNezhaCrestMenu
+ *  Choose the 哪吒1 / 哪吒2 UI motif / crest style across HUD & Launcher
+ */
 void setNezhaCrestMenu() {
     std::vector<Option> crestOptions = {
         {"Nezha 1: Flame",       []() { bruceConfig.setNezhaThemeStyle(1); invalidateStatusBarCache(); }, bruceConfig.nezhaThemeStyle == 1},
@@ -386,10 +386,10 @@ void setNezhaCrestMenu() {
     loopOptions(crestOptions, MENU_TYPE_SUBMENU, "Theme Crest", initialIdx);
 }
 
-/*********************************************************************
-**  Function: setNezhaThemeGallery
-**  Live interactive 24-pack 哪吒1 (魔童降世) & 哪吒2 (魔童闹海) Theme Studio
-**********************************************************************/
+/*
+ *  Function: setNezhaThemeGallery
+ *  Live interactive 24-pack 哪吒1 (魔童降世) & 哪吒2 (魔童闹海) Theme Studio
+ */
 void setNezhaThemeGallery() {
     int idx = 0;
     for (int i = 0; i < NEZHA_THEME_COUNT; i++) {
@@ -759,10 +759,10 @@ void setNezhaThemeGallery() {
 #endif // defined(BRUCE_COMPACT_CJK_FONT)
 }
 
-/*********************************************************************
-**  Function: setMainMenuStyleMenu
-**  Choose how the main menu presents the modules
-**********************************************************************/
+/*
+ *  Function: setMainMenuStyleMenu
+ *  Choose how the main menu presents the modules
+ */
 void setMainMenuStyleMenu() {
     std::vector<Option> styleOptions = {
         {"Carousel",
@@ -794,10 +794,10 @@ void setMainMenuStyleMenu() {
     loopOptions(styleOptions, MENU_TYPE_SUBMENU, "Menu Layout", initialIdx);
 }
 
-/*********************************************************************
-**  Function: setLanguageMenu
-**  Choose firmware UI language (English default, Simplified Chinese)
-**********************************************************************/
+/*
+ *  Function: setLanguageMenu
+ *  Choose firmware UI language (English default, Simplified Chinese)
+ */
 void setLanguageMenu() {
     std::vector<Option> langOptions = {
         {"简体中文", []() { bruceConfig.setLanguage("zh-CN"); }, bruceConfig.language == "zh-CN"},
@@ -970,11 +970,11 @@ void setCustomUIColorSettingMenu(
     }
 }
 
-/*********************************************************************
-**  Function: setSoundConfig - 01/2026 - Refactored "ConfigMenu" (this function manteined for
-* retrocompatibility)
-**  Enable or disable sound
-**********************************************************************/
+/*
+ *  Function: setSoundConfig - 01/2026 - Refactored "ConfigMenu" (this function manteined for
+ * retrocompatibility)
+ *  Enable or disable sound
+ */
 void setSoundConfig() {
     options = {
         {"Sound off", [=]() { bruceConfig.setSoundEnabled(0); }, bruceConfig.soundEnabled == 0},
@@ -983,10 +983,10 @@ void setSoundConfig() {
     loopOptions(options, bruceConfig.soundEnabled);
 }
 
-/*********************************************************************
-**  Function: setSoundVolume
-**  Set sound volume
-**********************************************************************/
+/*
+ *  Function: setSoundVolume
+ *  Set sound volume
+ */
 void setSoundVolume() {
     options = {
         {"10%",  [=]() { bruceConfig.setSoundVolume(10); },  bruceConfig.soundVolume == 10 },
@@ -1004,11 +1004,11 @@ void setSoundVolume() {
 }
 
 #ifdef HAS_RGB_LED
-/*********************************************************************
-**  Function: setLedBlinkConfig - 01/2026 - Refactored "ConfigMenu" (this function manteined for
-* retrocompatibility)
-**  Enable or disable led blink
-**********************************************************************/
+/*
+ *  Function: setLedBlinkConfig - 01/2026 - Refactored "ConfigMenu" (this function manteined for
+ * retrocompatibility)
+ *  Enable or disable led blink
+ */
 void setLedBlinkConfig() {
     options = {
         {"Led Blink off", [=]() { bruceConfig.setLedBlinkEnabled(0); }, bruceConfig.ledBlinkEnabled == 0},
@@ -1018,10 +1018,10 @@ void setLedBlinkConfig() {
 }
 #endif
 
-/*********************************************************************
-**  Function: setWifiStartupConfig
-**  Enable or disable wifi connection at startup
-**********************************************************************/
+/*
+ *  Function: setWifiStartupConfig
+ *  Enable or disable wifi connection at startup
+ */
 void setWifiStartupConfig() {
     options = {
         {"Disable", [=]() { bruceConfig.setWifiAtStartup(0); }, bruceConfig.wifiAtStartup == 0},
@@ -1030,19 +1030,19 @@ void setWifiStartupConfig() {
     loopOptions(options, bruceConfig.wifiAtStartup);
 }
 
-/*********************************************************************
-**  Function: addEvilWifiMenu
-**  Handles Menu to add evil wifi names into config list
-**********************************************************************/
+/*
+ *  Function: addEvilWifiMenu
+ *  Handles Menu to add evil wifi names into config list
+ */
 void addEvilWifiMenu() {
     String apName = keyboard("", 30, "Evil Portal SSID");
     if (apName != "\x1B") bruceConfig.addEvilWifiName(apName);
 }
 
-/*********************************************************************
-**  Function: removeEvilWifiMenu
-**  Handles Menu to remove evil wifi names from config list
-**********************************************************************/
+/*
+ *  Function: removeEvilWifiMenu
+ *  Handles Menu to remove evil wifi names from config list
+ */
 void removeEvilWifiMenu() {
     options = {};
 
@@ -1055,28 +1055,28 @@ void removeEvilWifiMenu() {
     loopOptions(options);
 }
 
-/*********************************************************************
-**  Function: setEvilEndpointCreds
-**  Handles menu for changing the endpoint to access captured creds
-**********************************************************************/
+/*
+ *  Function: setEvilEndpointCreds
+ *  Handles menu for changing the endpoint to access captured creds
+ */
 void setEvilEndpointCreds() {
     String userInput = keyboard(bruceConfig.evilPortalEndpoints.getCredsEndpoint, 30, "Evil creds endpoint");
     if (userInput != "\x1B") bruceConfig.setEvilEndpointCreds(userInput);
 }
 
-/*********************************************************************
-**  Function: setEvilEndpointSsid
-**  Handles menu for changing the endpoint to change evilSsid
-**********************************************************************/
+/*
+ *  Function: setEvilEndpointSsid
+ *  Handles menu for changing the endpoint to change evilSsid
+ */
 void setEvilEndpointSsid() {
     String userInput = keyboard(bruceConfig.evilPortalEndpoints.setSsidEndpoint, 30, "Evil creds endpoint");
     if (userInput != "\x1B") bruceConfig.setEvilEndpointSsid(userInput);
 }
 
-/*********************************************************************
-**  Function: setEvilAllowGetCredentials
-**  Handles menu for toggling access to the credential list endpoint
-**********************************************************************/
+/*
+ *  Function: setEvilAllowGetCredentials
+ *  Handles menu for toggling access to the credential list endpoint
+ */
 
 void setEvilAllowGetCreds() {
     options = {
@@ -1090,10 +1090,10 @@ void setEvilAllowGetCreds() {
     loopOptions(options, bruceConfig.evilPortalEndpoints.allowGetCreds);
 }
 
-/*********************************************************************
-**  Function: setEvilAllowGetCredentials
-**  Handles menu for toggling access to the change SSID endpoint
-**********************************************************************/
+/*
+ *  Function: setEvilAllowGetCredentials
+ *  Handles menu for toggling access to the change SSID endpoint
+ */
 
 void setEvilAllowSetSsid() {
     options = {
@@ -1107,10 +1107,10 @@ void setEvilAllowSetSsid() {
     loopOptions(options, bruceConfig.evilPortalEndpoints.allowSetSsid);
 }
 
-/*********************************************************************
-**  Function: setEvilAllowEndpointDisplay
-**  Handles menu for toggling the display of the Evil Portal endpoints
-**********************************************************************/
+/*
+ *  Function: setEvilAllowEndpointDisplay
+ *  Handles menu for toggling the display of the Evil Portal endpoints
+ */
 
 void setEvilAllowEndpointDisplay() {
     options = {
@@ -1124,10 +1124,10 @@ void setEvilAllowEndpointDisplay() {
     loopOptions(options, bruceConfig.evilPortalEndpoints.showEndpoints);
 }
 
-/*********************************************************************
-** Function: setEvilPasswordMode
-** Handles menu for setting the evil portal password mode
-***********************************************************************/
+/*
+ * Function: setEvilPasswordMode
+ * Handles menu for setting the evil portal password mode
+ */
 void setEvilPasswordMode() {
     options = {
         {"Save 'password'",
@@ -1146,10 +1146,10 @@ void setEvilPasswordMode() {
     loopOptions(options, bruceConfig.evilPortalPasswordMode);
 }
 
-/*********************************************************************
-** Function: setEvilGatewayIp
-** Handles menu for setting the Evil Portal gateway IP
-***********************************************************************/
+/*
+ * Function: setEvilGatewayIp
+ * Handles menu for setting the Evil Portal gateway IP
+ */
 void setEvilGatewayIp() {
     options = {
         {"172.0.0.1",
@@ -1166,10 +1166,10 @@ void setEvilGatewayIp() {
     loopOptions(options, bruceConfig.evilPortalGatewayIp == "192.168.4.1" ? 1 : 0);
 }
 
-/*********************************************************************
-**  Function: setRFModuleMenu
-**  Handles Menu to set the RF module in use
-**********************************************************************/
+/*
+ *  Function: setRFModuleMenu
+ *  Handles Menu to set the RF module in use
+ */
 void setRFModuleMenu() {
     int result = 0;
     int idx = 0;
@@ -1219,10 +1219,10 @@ void setRFModuleMenu() {
     bruceConfigPins.setRfModule(M5_RF_MODULE);
 }
 
-/*********************************************************************
-**  Function: setRFFreqMenu
-**  Handles Menu to set the default frequency for the RF module
-**********************************************************************/
+/*
+ *  Function: setRFFreqMenu
+ *  Handles Menu to set the default frequency for the RF module
+ */
 void setRFFreqMenu() {
     float result = 433.92;
     String freq_str = num_keyboard(String(bruceConfigPins.rfFreq), 10, "Default frequency:");
@@ -1240,10 +1240,10 @@ void setRFFreqMenu() {
     delay(1000);
 }
 
-/*********************************************************************
-**  Function: setRFIDModuleMenu
-**  Handles Menu to set the RFID module in use
-**********************************************************************/
+/*
+ *  Function: setRFIDModuleMenu
+ *  Handles Menu to set the RFID module in use
+ */
 void setRFIDModuleMenu() {
     options = {
         {"M5 RFID2",
@@ -1296,19 +1296,19 @@ void setRFIDModuleMenu() {
     loopOptions(options, bruceConfigPins.rfidModule);
 }
 
-/*********************************************************************
-**  Function: addMifareKeyMenu
-**  Handles Menu to add MIFARE keys into config list
-**********************************************************************/
+/*
+ *  Function: addMifareKeyMenu
+ *  Handles Menu to add MIFARE keys into config list
+ */
 void addMifareKeyMenu() {
     String key = keyboard("", 12, "MIFARE key");
     if (key != "\x1B") bruceConfig.addMifareKey(key);
 }
 
-/*********************************************************************
-**  Function: setClock
-**  Handles Menu to set timezone to NTP
-**********************************************************************/
+/*
+ *  Function: setClock
+ *  Handles Menu to set timezone to NTP
+ */
 const char *ntpServer = "pool.ntp.org";
 
 WiFiUDP ntpUDP;
@@ -1601,10 +1601,10 @@ void runClockLoop(bool showMenuHint) {
     }
 }
 
-/*********************************************************************
-**  Function: gsetIrTxPin
-**  get or set IR Tx Pin
-**********************************************************************/
+/*
+ *  Function: gsetIrTxPin
+ *  get or set IR Tx Pin
+ */
 int gsetIrTxPin(bool set) {
     int result = bruceConfigPins.irTx;
 
@@ -1662,10 +1662,10 @@ void setIrTxRepeats() {
 
     bruceConfigPins.setIrTxRepeats(chRpts);
 }
-/*********************************************************************
-**  Function: gsetIrRxPin
-**  get or set IR Rx Pin
-**********************************************************************/
+/*
+ *  Function: gsetIrRxPin
+ *  get or set IR Rx Pin
+ */
 int gsetIrRxPin(bool set) {
     int result = bruceConfigPins.irRx;
 
@@ -1699,10 +1699,10 @@ int gsetIrRxPin(bool set) {
     return bruceConfigPins.irRx;
 }
 
-/*********************************************************************
-**  Function: gsetRfTxPin
-**  get or set RF Tx Pin
-**********************************************************************/
+/*
+ *  Function: gsetRfTxPin
+ *  get or set RF Tx Pin
+ */
 int gsetRfTxPin(bool set) {
     int result = bruceConfigPins.rfTx;
 
@@ -1737,10 +1737,10 @@ int gsetRfTxPin(bool set) {
     return bruceConfigPins.rfTx;
 }
 
-/*********************************************************************
-**  Function: gsetRfRxPin
-**  get or set FR Rx Pin
-**********************************************************************/
+/*
+ *  Function: gsetRfRxPin
+ *  get or set FR Rx Pin
+ */
 int gsetRfRxPin(bool set) {
     int result = bruceConfigPins.rfRx;
 
@@ -1775,10 +1775,10 @@ int gsetRfRxPin(bool set) {
     return bruceConfigPins.rfRx;
 }
 
-/*********************************************************************
-**  Function: setStartupApp
-**  Handles Menu to set startup app
-**********************************************************************/
+/*
+ *  Function: setStartupApp
+ *  Handles Menu to set startup app
+ */
 void setStartupApp() {
     int idx = 0;
     if (bruceConfig.startupApp == "") idx = 0;
@@ -1807,10 +1807,10 @@ void setStartupApp() {
     options.clear();
 }
 
-/*********************************************************************
-**  Function: setGpsBaudrateMenu
-**  Handles Menu to set the baudrate for the GPS module
-**********************************************************************/
+/*
+ *  Function: setGpsBaudrateMenu
+ *  Handles Menu to set the baudrate for the GPS module
+ */
 void setGpsBaudrateMenu() {
     options = {
         {"9600 bps",   [=]() { bruceConfigPins.setGpsBaudrate(9600); },  bruceConfigPins.gpsBaudrate == 9600 },
@@ -1825,10 +1825,10 @@ void setGpsBaudrateMenu() {
     loopOptions(options, bruceConfigPins.gpsBaudrate);
 }
 
-/*********************************************************************
-**  Function: setWifiApSsidMenu
-**  Handles Menu to set the WiFi AP SSID
-**********************************************************************/
+/*
+ *  Function: setWifiApSsidMenu
+ *  Handles Menu to set the WiFi AP SSID
+ */
 void setWifiApSsidMenu() {
     const bool isDefault = bruceConfig.wifiAp.ssid == "NezhaNet";
 
@@ -1850,10 +1850,10 @@ void setWifiApSsidMenu() {
     loopOptions(options, isDefault ? 0 : 1);
 }
 
-/*********************************************************************
-**  Function: setWifiApPasswordMenu
-**  Handles Menu to set the WiFi AP Password
-**********************************************************************/
+/*
+ *  Function: setWifiApPasswordMenu
+ *  Handles Menu to set the WiFi AP Password
+ */
 void setWifiApPasswordMenu() {
     const bool isDefault = bruceConfig.wifiAp.pwd == "nezhanet";
 
@@ -1875,10 +1875,10 @@ void setWifiApPasswordMenu() {
     loopOptions(options, isDefault ? 0 : 1);
 }
 
-/*********************************************************************
-**  Function: setWifiApCredsMenu
-**  Handles Menu to configure WiFi AP Credentials
-**********************************************************************/
+/*
+ *  Function: setWifiApCredsMenu
+ *  Handles Menu to configure WiFi AP Credentials
+ */
 void setWifiApCredsMenu() {
     options = {
         {"SSID",     setWifiApSsidMenu    },
@@ -1889,10 +1889,10 @@ void setWifiApCredsMenu() {
     loopOptions(options);
 }
 
-/*********************************************************************
-**  Function: setNetworkCredsMenu
-**  Main Menu for setting Network credentials (BLE & WiFi)
-**********************************************************************/
+/*
+ *  Function: setNetworkCredsMenu
+ *  Main Menu for setting Network credentials (BLE & WiFi)
+ */
 void setNetworkCredsMenu() {
     options = {
         {"WiFi AP Creds", setWifiApCredsMenu}
@@ -1902,10 +1902,10 @@ void setNetworkCredsMenu() {
     loopOptions(options);
 }
 
-/*********************************************************************
-**  Function: setBadUSBBLEMenu
-**  Main Menu for setting Bad USB/BLE options
-**********************************************************************/
+/*
+ *  Function: setBadUSBBLEMenu
+ *  Main Menu for setting Bad USB/BLE options
+ */
 void setBadUSBBLEMenu() {
     options = {
         {"Keyboard Layout", setBadUSBBLEKeyboardLayoutMenu},
@@ -1917,10 +1917,10 @@ void setBadUSBBLEMenu() {
     loopOptions(options);
 }
 
-/*********************************************************************
-**  Function: setBadUSBBLEKeyboardLayoutMenu
-**  Main Menu for setting Bad USB/BLE Keyboard Layout
-**********************************************************************/
+/*
+ *  Function: setBadUSBBLEKeyboardLayoutMenu
+ *  Main Menu for setting Bad USB/BLE Keyboard Layout
+ */
 void setBadUSBBLEKeyboardLayoutMenu() {
     uint8_t opt = bruceConfig.badUSBBLEKeyboardLayout;
 
@@ -1948,10 +1948,10 @@ void setBadUSBBLEKeyboardLayoutMenu() {
     if (opt != bruceConfig.badUSBBLEKeyboardLayout) { bruceConfig.setBadUSBBLEKeyboardLayout(opt); }
 }
 
-/*********************************************************************
-**  Function: setBadUSBBLEKeyDelayMenu
-**  Main Menu for setting Bad USB/BLE Keyboard Key Delay
-**********************************************************************/
+/*
+ *  Function: setBadUSBBLEKeyDelayMenu
+ *  Main Menu for setting Bad USB/BLE Keyboard Key Delay
+ */
 void setBadUSBBLEKeyDelayMenu() {
     String delayStr = num_keyboard(String(bruceConfig.badUSBBLEKeyDelay), 3, "Key Delay (ms):");
     if (delayStr != "\x1B") {
@@ -1964,10 +1964,10 @@ void setBadUSBBLEKeyDelayMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: setBadUSBBLEShowOutputMenu
-**  Main Menu for setting Bad USB/BLE Show Output
-**********************************************************************/
+/*
+ *  Function: setBadUSBBLEShowOutputMenu
+ *  Main Menu for setting Bad USB/BLE Show Output
+ */
 void setBadUSBBLEShowOutputMenu() {
     options.clear();
     options = {
@@ -1979,10 +1979,10 @@ void setBadUSBBLEShowOutputMenu() {
     loopOptions(options, bruceConfig.badUSBBLEShowOutput ? 0 : 1);
 }
 
-/*********************************************************************
-**  Function: setMacAddressMenu - @IncursioHack
-**  Handles Menu to configure WiFi MAC Address
-**********************************************************************/
+/*
+ *  Function: setMacAddressMenu - @IncursioHack
+ *  Handles Menu to configure WiFi MAC Address
+ */
 void setMacAddressMenu() {
     String currentMAC = bruceConfig.wifiMAC;
     if (currentMAC == "") currentMAC = WiFi.macAddress();
@@ -2025,10 +2025,10 @@ void setMacAddressMenu() {
     loopOptions(options, MENU_TYPE_REGULAR, ("Current: " + currentMAC).c_str());
 }
 
-/*********************************************************************
-**  Function: setSPIPins
-**  Main Menu to manually set SPI Pins
-**********************************************************************/
+/*
+ *  Function: setSPIPins
+ *  Main Menu to manually set SPI Pins
+ */
 void setSPIPinsMenu(BruceConfigPins::SPIPins &value) {
     uint8_t opt = 0;
     bool changed = false;
@@ -2080,10 +2080,10 @@ RELOAD:
     }
 }
 
-/*********************************************************************
-**  Function: setUARTPins
-**  Main Menu to manually set SPI Pins
-**********************************************************************/
+/*
+ *  Function: setUARTPins
+ *  Main Menu to manually set SPI Pins
+ */
 void setUARTPinsMenu(BruceConfigPins::UARTPins &value) {
     uint8_t opt = 0;
     bool changed = false;
@@ -2123,10 +2123,10 @@ RELOAD:
     }
 }
 
-/*********************************************************************
-**  Function: setI2CPins
-**  Main Menu to manually set SPI Pins
-**********************************************************************/
+/*
+ *  Function: setI2CPins
+ *  Main Menu to manually set SPI Pins
+ */
 void setI2CPinsMenu(BruceConfigPins::I2CPins &value) {
 #if defined(SOC_HP_I2C_NUM) && SOC_HP_I2C_NUM < 2
     // On SoCs with a single HP I2C peripheral, Grove I2C shares hardware with the system I2C bus
@@ -2175,10 +2175,10 @@ RELOAD:
     }
 }
 
-/*********************************************************************
-**  Function: setSpeakerPinsMenu
-**  Menu to manually set the I2S speaker pins (was the BCLK/WCLK/DOUT/MCLK -D macros)
-**********************************************************************/
+/*
+ *  Function: setSpeakerPinsMenu
+ *  Menu to manually set the I2S speaker pins (was the BCLK/WCLK/DOUT/MCLK -D macros)
+ */
 void setSpeakerPinsMenu(BruceConfigPins::SpeakerPins &value) {
     uint8_t opt = 0;
     bool changed = false;
@@ -2224,10 +2224,10 @@ RELOAD:
     }
 }
 
-/*********************************************************************
-**  Function: setMicPinsMenu
-**  Menu to manually set the microphone wiring (was PIN_CLK/PIN_DATA/PIN_BCLK/PIN_WS)
-**********************************************************************/
+/*
+ *  Function: setMicPinsMenu
+ *  Menu to manually set the microphone wiring (was PIN_CLK/PIN_DATA/PIN_BCLK/PIN_WS)
+ */
 void setMicPinsMenu(BruceConfigPins::MicPins &value) {
     uint8_t opt = 0;
     bool changed = false;
@@ -2286,11 +2286,11 @@ RELOAD:
     }
 }
 
-/*********************************************************************
-**  Function: setBuzzerPinMenu
-**  Menu to manually set the buzzer pin (was the BUZZ_PIN -D macro).
-**  -1 disables the buzzer.
-**********************************************************************/
+/*
+ *  Function: setBuzzerPinMenu
+ *  Menu to manually set the buzzer pin (was the BUZZ_PIN -D macro).
+ *  -1 disables the buzzer.
+ */
 void setBuzzerPinMenu() {
     options = {};
     int sel = bruceConfigPins.buzzer;
@@ -2303,10 +2303,10 @@ void setBuzzerPinMenu() {
     bruceConfigPins.setBuzzerPin(sel);
 }
 
-/*********************************************************************
-**  Function: setTheme
-**  Menu to change Theme
-**********************************************************************/
+/*
+ *  Function: setTheme
+ *  Menu to change Theme
+ */
 void setTheme() {
     FS *fs = nullptr;
     options = {

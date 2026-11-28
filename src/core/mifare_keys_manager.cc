@@ -109,7 +109,11 @@ void MifareKeysManager::validateKeys(std::set<String> &keys) {
     }
 }
 
-// ========== PRIVATE METHODS ==========
+/*
+ * Private methods.
+ * File-backed MIFARE key persistence: load from SD or LittleFS, mirror between
+ * the two filesystems, and append or rewrite the key set.
+ */
 
 void MifareKeysManager::loadFromFile(std::set<String> &keys) {
     FS *sourceFS = nullptr;

@@ -5,24 +5,24 @@
 #include <Preferences.h>
 #include <globals.h>
 
-/*********************************************************************
-**  Function: backToMenu
-**  sets the global var to be be used in the options second parameter
-**  and returnToMenu will be user do handle the breaks of all loops
-
-when using loopfunctions with an option to "Back to Menu", use:
-
-add this option:
-    options.push_back({"Main Menu", [=]() { backToMenu(); }});
-
-while(1) {
-    if(returnToMenu) break; // stop this loop and return to the previous loop
-
-    ...
-    loopOptions(options);
-    ...
-}
-*/
+/*
+ *  Function: backToMenu
+ *  sets the global var to be be used in the options second parameter
+ *  and returnToMenu will be user do handle the breaks of all loops
+ *
+ * when using loopfunctions with an option to "Back to Menu", use:
+ *
+ * add this option:
+ *     options.push_back({"Main Menu", [=]() { backToMenu(); }});
+ *
+ * while(1) {
+ *     if(returnToMenu) break; // stop this loop and return to the previous loop
+ *
+ *     ...
+ *     loopOptions(options);
+ *     ...
+ * }
+ */
 
 void backToMenu() { returnToMenu = true; }
 
@@ -31,10 +31,10 @@ void addOptionToMainMenu() {
     options.push_back({"Main Menu", backToMenu});
 }
 
-/***************************************************************************************
-** Function name: getBattery()
-** Description:   Returns the battery value from 1-100
-***************************************************************************************/
+/*
+ * Function name: getBattery()
+ * Description:   Returns the battery value from 1-100
+ */
 int getBattery() {
     // Fuel gauge IC (GAUGE_*) or analog divider (ANALOG_BAT_PIN), see hal/power/gauge.*
     int percent = hal_gauge_get_percent();
@@ -69,11 +69,13 @@ void updateClockTimezone() {
 }
 
 #if !defined(HAS_RTC)
-// --- Persistent software clock (boards without an RTC chip) ---
-// Boards without an RTC lose a set time on a full power-off. Periodically save
-// the current epoch to NVS and restore it on boot, so the clock comes back
-// close to correct (it re-syncs exactly via NTP/GPS when available). NVS (not
-// the user filesystem) so it survives FS reformats and custom partition layouts.
+/*
+ * Persistent software clock (boards without an RTC chip)
+ * Boards without an RTC lose a set time on a full power-off. Periodically save
+ * the current epoch to NVS and restore it on boot, so the clock comes back
+ * close to correct (it re-syncs exactly via NTP/GPS when available). NVS (not
+ * the user filesystem) so it survives FS reformats and custom partition layouts.
+ */
 #define CLOCK_PERSIST_NS "clock"
 #define CLOCK_PERSIST_KEY "epoch"
 #define CLOCK_PERSIST_INTERVAL_MS 300000 // 5 min: bounds NVS wear, <=5 min drift after power loss
@@ -238,10 +240,10 @@ void showDeviceInfo() {
 }
 
 #if defined(HAS_TOUCH)
-/*********************************************************************
-** Function: touchHeatMap
-** Touchscreen Mapping, include this function after reading the touchPoint
-**********************************************************************/
+/*
+ * Function: touchHeatMap
+ * Touchscreen Mapping, include this function after reading the touchPoint
+ */
 void touchHeatMap(struct BruceTouchPoint t) {
     int third_x = tftWidth / 3;
     int third_y = tftHeight / 3;
@@ -300,15 +302,15 @@ String getOptionsJSON() {
     return response;
 }
 
-/*********************************************************************
-** Function: i2c_bulk_write
-** Sends múltiple registers via I2C using a compact table.
-   bulk_data example..
-   const uint8_t bulk_data[] = {
-      2, 0x00, 0x00,       // <- datalen = 2, reg = 0x00, data = 0x00
-      3, 0x01, 0x00, 0x02, // <- datalen = 3, reg = 0x01, data = 0x00, 0x02
-      0 };                 // <- datalen 0 is end of data.
-**********************************************************************/
+/*
+ * Function: i2c_bulk_write
+ * Sends múltiple registers via I2C using a compact table.
+ *    bulk_data example..
+ *    const uint8_t bulk_data[] = {
+ *       2, 0x00, 0x00,       // <- datalen = 2, reg = 0x00, data = 0x00
+ *       3, 0x01, 0x00, 0x02, // <- datalen = 3, reg = 0x01, data = 0x00, 0x02
+ *       0 };                 // <- datalen 0 is end of data.
+ */
 void i2c_bulk_write(TwoWire *wire, uint8_t addr, const uint8_t *bulk_data) {
     const uint8_t *p = bulk_data;
     while (true) {

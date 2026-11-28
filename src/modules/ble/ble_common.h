@@ -11,9 +11,13 @@
 #include "core/display.h"
 #include <globals.h>
 
-//=============================================================================
-// BLE Constants
-//=============================================================================
+/*
+ * BLE scan timing and display-limit constants shared across BLE modules.
+ * SCANTIME/SCAN_INT/SCAN_WINDOW configure the NimBLE active scan window and
+ * duty cycle; MAX_DISPLAY_DEVICES caps the rendered device list to avoid heap
+ * exhaustion on no-PSRAM 4 MB boards; SCAN_TIME_REDUCED shortens scans when
+ * the radio-memory guard reports low contiguous DMA headroom.
+ */
 
 #define SCANTIME 5
 #define SCANTYPE ACTIVE

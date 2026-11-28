@@ -175,9 +175,15 @@ static std::vector<ScannedBleDev> quickBleScan(uint32_t ms = 3000) {
     return out;
 }
 
-// ============================================================================
-// BLE FILE TRANSFER SERVER CALLBACKS (Receive & Phone-Pull Send)
-// ============================================================================
+/*
+ * BLE File Transfer (Nordic UART Service) server-side session state and
+ * NimBLE callbacks. BleRxSession tracks an in-progress receive under s_rxMutex;
+ * the RxLock RAII guard guarantees every callback path unlocks. The BFT1:
+ * framed header parses filename/size, sanitizes the name (no ".."/separators,
+ * bounded to 64 chars), writes to /ble_received with a running CRC32, and
+ * clamps writes to the declared size to avoid receivedBytes underflow; a "GET"
+ * write signals phone-pull server-send mode.
+ */
 struct BleRxSession {
     FS *fs = nullptr;
     File file;
@@ -381,9 +387,13 @@ static void collectTransferFiles(FS &fs, const String &dirPath, std::vector<File
 
 } // namespace
 
-// ============================================================================
-// 1. INTERACTIVE BLE GATT EXPLORER (Read / Write / Notify / Dump)
-// ============================================================================
+/*
+ * Interactive GATT explorer. Scans connectable devices, connects with a 6 s
+ * timeout, walks services/characteristics, and lets the user read values,
+ * write hex/ASCII, subscribe to notifications, or dump output through a
+ * ScrollableTextArea. The NimBLEClient is always disconnected and deleted on
+ * every exit path.
+ */
 void ble_gatt_explorer() {
     std::vector<ScannedBleDev> devs = quickBleScan(3200);
     if (devs.empty()) {
@@ -578,9 +588,14 @@ void ble_gatt_explorer() {
     NimBLEDevice::deleteClient(client);
 }
 
-// ============================================================================
-// 2. BLE TRACKER STALKER-GUARD (AirTag / SmartTag / Tile Persistence Guard)
-// ============================================================================
+/*
+ * Tracker persistence guard. Re-scans every 3 s and classifies advertisers by
+ * manufacturer data (Apple 0x4C00 → AirTag / iBeacon) or service UUIDs
+ * (fd5a→SmartTag, feed→Tile, feaa→Eddystone), tracking dwell time, hit count,
+ * and max RSSI per address (capped at 24 tags). A risk score from dwell + hits
+ * + RSSI drives the row color and an audible alert; SEL exports the table to
+ * /trackers.csv with optional GPS coordinates.
+ */
 void ble_stalker_guard() {
     if (!initBleReady()) return;
 
@@ -600,16 +615,12 @@ void ble_stalker_guard() {
 
     auto drawHeader = [&]() {
         drawMainBorderWithTitle("Tracker Guard");
-        tft.setTextSize(FP);
-        tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-        tft.drawCentreString(
-            bruce_i18n::tr("SEL=Export CSV  ESC=Back"), tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1
-        );
+        printCenterFootnote("SEL=Export CSV  ESC=Back");
     };
     drawHeader();
 
-    const int top = BORDER_PAD_Y + FM * LH + 4;
-    const int bot = tftHeight - BORDER_PAD_X - LH - 4;
+    const int top = uiContentTop();
+    const int bot = uiContentBottom(true);
     const int left = BORDER_PAD_X + 4;
     const int w = tftWidth - 2 * BORDER_PAD_X - 8;
 
@@ -744,9 +755,12 @@ void ble_stalker_guard() {
     }
 }
 
-// ============================================================================
-// 3. BLE ADVERTISEMENT PACKET INSPECTOR & DIAGNOSTIC BEACON
-// ============================================================================
+/*
+ * Advertisement packet inspector. Runs a short active scan, lets the user pick
+ * a device, and renders the decoded advertising fields — name, address, RSSI,
+ * connectability, TX power, appearance, manufacturer CID + hex dump, and
+ * service UUIDs — in a ScrollableTextArea.
+ */
 void ble_adv_inspector() {
     std::vector<ScannedBleDev> devs = quickBleScan(2800);
     if (devs.empty()) {
@@ -791,19 +805,21 @@ void ble_adv_inspector() {
     area.show(true);
 }
 
-// ============================================================================
-// 4. BLE SKIMMER & ROGUE HARDWARE DETECTOR
-// ============================================================================
+/*
+ * Skimmer / rogue-hardware detector. Sweeps advertisers for known
+ * serial-over-BLE module name prefixes (HC-05/06/08, RNBT-, HM-10, etc.),
+ * Flipper/Pwn tool names, and FFE0/3080-3082 service UUIDs, raises an audible
+ * alert on hits, and appends tagged findings with GPS coordinates to
+ * /skimmer_log.csv. SEL re-runs the sweep; ESC exits.
+ */
 void ble_skimmer_detector() {
     if (!initBleReady()) return;
 
     drawMainBorderWithTitle("Skimmer / Rogue Guard");
-    tft.setTextSize(FP);
-    tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-    tft.drawCentreString(bruce_i18n::tr("SEL=Rescan  ESC=Back"), tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1);
+    printCenterFootnote("SEL=Rescan  ESC=Back");
 
-    const int top = BORDER_PAD_Y + FM * LH + 4;
-    const int bot = tftHeight - BORDER_PAD_X - LH - 4;
+    const int top = uiContentTop();
+    const int bot = uiContentBottom(true);
     const int left = BORDER_PAD_X + 4;
     const int w = tftWidth - 2 * BORDER_PAD_X - 8;
 
@@ -911,9 +927,15 @@ void ble_skimmer_detector() {
     }
 }
 
-// ============================================================================
-// 5. BLE FILE TRANSFER (Send & Receive Pictures, Docs, or Any File via BLE!)
-// ============================================================================
+/*
+ * BLE file transfer over NUS. Receive mode advertises a "Nezha-FileShare" NUS
+ * server and streams incoming BFT1-framed (or raw) bytes to /ble_received with
+ * a live progress/CRC display. Send paths either push a picked file directly to
+ * another Nezha receiver (bleFileSendDirect, MTU-sized chunks with pacing to
+ * avoid controller TX-queue overflow) or serve it to a phone via NUS TX
+ * notifications on SEL / a "GET" write (bleFileShareToPhone). All paths stop
+ * advertising and detach the shared session under s_rxMutex on exit.
+ */
 static void bleFileReceiveMode() {
     FS *fs = pickBleFs();
     if (!fs) {
@@ -1275,8 +1297,7 @@ static void bleFileShareToPhone(FS &fs, const FilePickItem &item) {
     tft.drawString("1. Connect phone to Nezha-FileShare", x, top + LH + 6, 1);
     tft.drawString("2. Subscribe NUS TX (6E400003)", x, top + 2 * LH + 10, 1);
     tft.drawString("3. Press SEL or send 'GET' on RX", x, top + 3 * LH + 14, 1);
-    tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-    tft.drawCentreString("SEL=Push Now  ESC=Back", tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1);
+    printCenterFootnote("SEL=Push Now  ESC=Back");
 
     check(SelPress);
     check(EscPress);
@@ -1374,7 +1395,6 @@ void ble_file_transfer() {
 
 void ble_adv_tools_menu() {
     std::vector<Option> localOpts = {
-        {"BLE File Transfer",   ble_file_transfer   },
         {"BLE GATT Explorer",   ble_gatt_explorer   },
         {"Tracker Guard",       ble_stalker_guard   },
         {"BLE Adv Inspector",   ble_adv_inspector   },

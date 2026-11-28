@@ -7491,9 +7491,16 @@ const IrCode *const EUpowerCodes[] = {
 
 const uint8_t num_EUcodes = sizeof(EUpowerCodes) / sizeof(EUpowerCodes[0]);
 
-// ===== UNIVERSAL POWER CODES =====
+/*
+ * Universal power codes.
+ * One power command per vendor family (on / off / toggle), used when the exact
+ * device code is unknown.
+ */
 
-// ----- PARSED PROTOCOLS -----
+/*
+ * Parsed protocols: protocol-compressed entries (`IrCode`) that keep a timer
+ * value, a pair count and compressed bit codes instead of raw timestamps.
+ */
 
 // Samsung universal power code
 const uint16_t code_universal_samsungTimes[] = {
@@ -8034,7 +8041,11 @@ const struct IrCode code_universal_rca_altCode = {
     freq_to_timerval(34483), 24, 2, code_universal_rca_altTimes, code_universal_rca_altCodes
 };
 
-// ===== RAW CODES (32-bit) =====
+/*
+ * RAW codes (32-bit).
+ * Timing tables too wide for 16-bit storage, so the long inter-frame gaps and
+ * repeat markers survive intact; used where no compact representation exists.
+ */
 
 // MOST TV'S - raw universal power code
 const uint32_t code_universal_most_tvsTimes[] = {

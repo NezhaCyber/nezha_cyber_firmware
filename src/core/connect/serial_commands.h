@@ -6,23 +6,26 @@
 
 class EspSerialCmd : public EspConnection {
 public:
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * EspSerialCmd connection wrapper.
+     * Extends EspConnection for bidirectional command exchange with a peer.
+     */
     EspSerialCmd();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Command transport entry points.
+     * sendCommands()/receiveCommands() drive the send and receive phases over the link.
+     */
     void sendCommands();
     void receiveCommands();
 
 private:
     String recvCommand;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Helpers
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Rendering and message-construction helpers.
+     * Build the on-screen command console and serialize a command into a transport Message.
+     */
     void displayBanner();
 
     void displayRecvCommand(bool success);

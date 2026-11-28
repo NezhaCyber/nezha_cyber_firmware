@@ -706,9 +706,11 @@ static uint8_t rf_stream_protocol_star_line_check_remote_controller_selector(
                         keystore->kl_type = 1;
                         return 1;
                     }
-                    //###########################
-                    // Normal Learning
-                    // https://phreakerclub.com/forum/showpost.php?p=43557&postcount=37
+                    /*
+                     * Normal Learning: derive the manufacturer key from `fix`
+                     * instead of a captured seed.
+                     * https://phreakerclub.com/forum/showpost.php?p=43557&postcount=37
+                     */
                     man_normal_learning =
                         keeloq_normal_learning(fix, manufacture_code->key);
                     decrypt = keeloq_decrypt(hop, man_normal_learning);

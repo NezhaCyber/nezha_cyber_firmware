@@ -30,9 +30,12 @@ RfStreamProtocolStatus
 
 #define TAG "FordProtocolV0"
 
-// =============================================================================
-// PROTOCOL CONSTANTS
-// =============================================================================
+/*
+ * Protocol constants: 250 µs short / 500 µs long PWM elements with a ±100 µs
+ * tolerance. One frame is 4 preamble pairs, a 3500 µs gap, then the Manchester
+ * payload; a transmission carries 6 such bursts, which is what the upload slab
+ * is sized for.
+ */
 
 // Uncomment to enable bit-level debug logging (WARNING: 80 log calls per signal)
 // #define FORD_V0_DEBUG_BITS
@@ -52,10 +55,13 @@ _Static_assert(
     FORD_V0_UPLOAD_CAPACITY <= RF_SHARED_UPLOAD_CAPACITY,
     "FORD_V0_UPLOAD_CAPACITY exceeds shared upload slab");
 
-// =============================================================================
-// CRC MATRIX
-// Ford V0 uses matrix multiplication in GF(2) for CRC calculation
-// =============================================================================
+/*
+ * CRC matrix.
+ * Ford V0 uses matrix multiplication in GF(2) for CRC calculation: the 64 bytes
+ * are an 8x8 bit matrix, and each CRC output bit is the parity of one row ANDed
+ * with the payload bytes. That makes the CRC a linear transform instead of a
+ * reflected polynomial loop.
+ */
 
 static const uint8_t ford_v0_crc_matrix[64] = {
     0xDA, 0xB5, 0x55, 0x6A, 0xAA, 0xAA, 0xAA, 0xD5, 0xB6, 0x6C, 0xCC, 0xD9, 0x99, 0x99, 0x99, 0xB3,
@@ -64,9 +70,12 @@ static const uint8_t ford_v0_crc_matrix[64] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x7F, 0x23, 0x12, 0x94, 0x84, 0x35, 0xF4, 0x55, 0x84,
 };
 
-// =============================================================================
-// STRUCT DEFINITIONS
-// =============================================================================
+/*
+ * Struct definitions.
+ * The decoder Manchester-decodes into a 128-bit shift accumulator
+ * (data_low/data_high) and keeps the last checked CRC word plus the recovered
+ * serial/button/counter. The encoder holds only the fields it has to re-emit.
+ */
 
 typedef struct RfStreamProtocolDecoderFordV0 {
     RfStreamProtocolDecoderBase base;
@@ -109,9 +118,11 @@ typedef enum {
     FordV0DecoderStepData,
 } FordV0DecoderStep;
 
-// =============================================================================
-// FUNCTION PROTOTYPES
-// =============================================================================
+/*
+ * Function prototypes.
+ * The encoder-side prototypes are only declared when RF_STREAM_WITH_ENCODER is
+ * enabled, so transmit-only code is not even referenced on 4 MB builds.
+ */
 
 static void ford_v0_add_bit(RfStreamProtocolDecoderFordV0* instance, bool bit);
 static void decode_ford_v0(
@@ -131,9 +142,12 @@ static void encode_ford_v0(
 #endif
 static bool ford_v0_process_data(RfStreamProtocolDecoderFordV0* instance);
 
-// =============================================================================
-// PROTOCOL INTERFACE DEFINITIONS
-// =============================================================================
+/*
+ * Protocol interface definitions.
+ * These are the vtables (and the RfStreamCodec built from them) that the
+ * registry hands to the stream engine. A NULL member is how the
+ * RF_STREAM_WITH_DECODER / RF_STREAM_WITH_ENCODER switches remove a direction.
+ */
 
 const RfStreamProtocolDecoder rf_stream_protocol_ford_v0_decoder = {
     .alloc = rf_stream_protocol_decoder_ford_v0_alloc,
@@ -178,9 +192,12 @@ const RfStreamCodec ford_protocol_v0 = {
 #endif
 };
 
-// =============================================================================
-// CHECKSUM CALCULATION
-// =============================================================================
+/*
+ * Checksum calculation (encode side only).
+ * Additive mod-256 sum over the four counter bytes and the four serial bytes,
+ * plus the button shifted into bits 3..6. The result is the byte the CRC then
+ * has to cover.
+ */
 #if RF_STREAM_WITH_ENCODER
 static uint8_t ford_v0_calculate_checksum(uint32_t serial, uint32_t count, uint8_t button) {
     return (uint8_t)((((count >> 24) & 0xFF) + ((count >> 16) & 0xFF) + ((count >> 8) & 0xFF) +
@@ -189,9 +206,13 @@ static uint8_t ford_v0_calculate_checksum(uint32_t serial, uint32_t count, uint8
                      0xFF);
 }
 #endif
-// =============================================================================
-// CRC FUNCTIONS
-// =============================================================================
+/*
+ * CRC functions.
+ * ford_v0_calculate_crc() runs bytes 1..8 of the caller's buffer through the
+ * matrix. Verification compares only the low 7 bits, because the on-air word
+ * carries an inverted marker in bit 7; ford_v0_calculate_crc_for_tx() sets that
+ * same marker (`^ 0x80`) when building a frame to transmit.
+ */
 
 static uint8_t ford_v0_calculate_crc(uint8_t* buf) {
     uint8_t crc = 0;
@@ -238,9 +259,13 @@ static bool ford_v0_verify_crc(uint64_t key1, uint16_t key2) {
     return ((calculated_crc & 0x7F) == (received_crc & 0x7F));
 }
 
-// =============================================================================
-// DECODE FUNCTION
-// =============================================================================
+/*
+ * Decode function.
+ * Removes Ford V0's byte whitening to recover serial / button / counter. The
+ * parity of the CRC byte decides whether the 7th or 6th payload byte acts as the
+ * XOR key; then the 0xAA/0x55 nibble interleave is undone to rebuild the counter,
+ * and the serial is re-emitted big-endian.
+ */
 
 static void decode_ford_v0(
     uint64_t key1,
@@ -301,9 +326,13 @@ static void decode_ford_v0(
     *count = ((buf[5] & 0x07) << 16) | (buf[6] << 8) | buf[7];
 }
 
-// =============================================================================
-// ENCODE FUNCTION
-// =============================================================================
+/*
+ * Encode function.
+ * Inverse of decode_ford_v0(): lays out header, big-endian serial, button and
+ * counter bytes, applies the same 0xAA/0x55 interleave, then XOR-whitens
+ * bytes 1..6 (or 6..7, depending on the checksum parity) and packs the result
+ * into key1 MSB-first.
+ */
 #if RF_STREAM_WITH_ENCODER
 static void encode_ford_v0(
     uint8_t header_byte,
@@ -381,9 +410,12 @@ static void encode_ford_v0(
         (unsigned long)(*key1 & 0xFFFFFFFF));
 }
 
-// =============================================================================
-// ENCODER IMPLEMENTATION
-// =============================================================================
+/*
+ * Encoder implementation.
+ * Allocation, .sub deserialization and the upload builder. The air interface
+ * carries the bitwise inverse of the stored key1/key2, and the generated burst
+ * is bounded by FORD_V0_UPLOAD_CAPACITY entries of the shared upload slab.
+ */
 
 void* rf_stream_protocol_encoder_ford_v0_alloc(RfStreamEnvironment* environment) {
     UNUSED(environment);
@@ -612,9 +644,13 @@ RfStreamProtocolStatus
 }
 
 #endif
-// =============================================================================
-// DECODER IMPLEMENTATION
-// =============================================================================
+/*
+ * Decoder implementation.
+ * Every Manchester bit is shifted into the 128-bit accumulator. After 64 bits
+ * the payload is latched inverted as key1; after 80 bits the trailing 16 bits
+ * become the inverted key2, which is CRC-checked and decoded into
+ * serial / button / counter before the frame is reported as complete.
+ */
 
 static void ford_v0_add_bit(RfStreamProtocolDecoderFordV0* instance, bool bit) {
 #ifdef FORD_V0_DEBUG_BITS

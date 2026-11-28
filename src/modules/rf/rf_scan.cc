@@ -456,9 +456,13 @@ bool RFScan::is_m5_duplicate_capture(const RfCodes &data) {
     return false;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-// Capture list
-/////////////////////////////////////////////////////////////////////////////////////
+/*
+ * Capture list.
+ * Entries live in a bounded in-memory vector until the user deletes them or
+ * leaves the feature; de-duplication compares the decoded key/protocol/preset/
+ * length (or the decoded filename for RAW captures that have no key) and the
+ * whole list is refused once it exceeds 200 kB of retained payload.
+ */
 
 bool RFScan::is_duplicate_capture(const RfCodes &data) const {
     // Undecoded RAW captures have no key: timing jitter makes them impossible to
@@ -650,9 +654,12 @@ void RFScan::draw_capture_list() {
     );
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-// Menus
-/////////////////////////////////////////////////////////////////////////////////////
+/*
+ * Menus.
+ * Both menus run on the global `options` vector and only record the chosen
+ * action, which set_option() applies after the menu has closed — the receiver is
+ * already stopped at that point, so a plain restart re-arms it.
+ */
 
 void RFScan::open_signal_menu(int index) {
     if (index < 0 || index >= (int)captures.size()) return;

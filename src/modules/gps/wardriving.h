@@ -18,15 +18,18 @@
 
 class Wardriving {
 public:
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * The constructor stores the scan flags and immediately runs the session
+     * (setup() then loop()); the destructor releases the GPS UART and the 5 V
+     * boost when they were enabled.
+     */
     Wardriving(bool scanWiFi = false, bool scanBLE = false);
     ~Wardriving();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Life Cycle
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * setup() powers the GPS, loads the alert MAC list, starts Wi-Fi and the GPS
+     * UART, then blocks in loop() until ESC or returnToMenu.
+     */
     void setup();
     void loop();
 
@@ -53,24 +56,30 @@ private:
 
     bool rxPinReleased = false;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Setup
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * begin_wifi() drops Wi-Fi into a disconnected STA before scanning; the GPS
+     * side is UART2. releasePins()/restorePins() handle boards where the GPS RX
+     * line is shared with a radio or SD chip select, tracked by rxPinReleased.
+     */
     void begin_wifi(void);
     bool begin_gps(void);
     void end(void);
     void releasePins(void);
     void restorePins(void);
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Display functions
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Screen rendering: the banner carries the live counters, dump_gps_data()
+     * prints the last parsed fix when a location is not updated.
+     */
     void display_banner(void);
     void dump_gps_data(void);
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Scan session: scanWiFiBLE() drives both radios, loadAlertMACs() reads
+     * /BruceWardriving/alert.txt, enforceRegisteredMACLimit() clears the seen-MAC
+     * set before it can exhaust DRAM, and create_filename() builds the timestamped
+     * CSV name used for the logged results.
+     */
     void set_position(void);
     void scanWiFiBLE(void);
     int scanWiFiNetworks(void);

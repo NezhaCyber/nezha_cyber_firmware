@@ -32,7 +32,11 @@ static const uint32_t TONE_SAMPLE_RATE = 8000;
 static const int TONE_DMA_BUFFERS = 3;
 static const int TONE_DMA_FRAMES = 80;
 
-// ===== ASYNC PLAYBACK STATE =====
+/*
+ * Shared state for the async I2S playback task.
+ * Holds the generator/source/output pipeline, volatile stop/pause/volume
+ * flags polled by the task loop, timing counters, and the guarding mutex.
+ */
 struct AudioPlayerState {
     // Playback objects
     AudioGenerator *generator;
@@ -181,7 +185,11 @@ static bool validateAudioFile(FS *fs, const String &filepath) {
     return true;
 }
 
-// ===== ASYNC PLAYBACK TASK =====
+/*
+ * FreeRTOS playback task pinned to core 1.
+ * Pumps generator->loop(), honors stop/pause/volume requests, and fades
+ * gain on pause/resume to avoid I2S pops before deleting itself.
+ */
 static void audioPlaybackTask(void *parameter) {
     if (!g_audioPlayer) {
         vTaskDelete(NULL);
@@ -296,7 +304,11 @@ static void audioPlaybackTask(void *parameter) {
     // Delete task (must be last operation)
     vTaskDelete(NULL);
 }
-// ===== PUBLIC API IMPLEMENTATION =====
+/*
+ * Caller-facing playback controls: stop, pause/resume, volume, and info.
+ * Each entry lazily initializes the player and signals the async task
+ * through its flags, joining with a timeout before forcing a cleanup.
+ */
 
 bool stopAudioPlayback() {
     initAudioPlayer();
@@ -399,7 +411,11 @@ void setAudioPlaybackVolume(uint8_t volume) {
     }
 }
 
-// ===== HELPER: Start async playback task =====
+/*
+ * Starts the async playback task.
+ * Stashes the built generator/source/output pipeline in shared state under
+ * the mutex, spawns audioPlaybackTask on core 1, and tears down on failure.
+ */
 static bool startAsyncPlayback(
     AudioGenerator *generator, AudioFileSource *source, AudioOutputI2S *output, const String &filename
 ) {
@@ -460,7 +476,11 @@ static bool startAsyncPlayback(
     return true;
 }
 
-// ===== CORE PLAYBACK FUNCTIONS =====
+/*
+ * Top-level playback entry points (file, RTTTL string, TTS, tone).
+ * After validating, stopping any active playback, and setting up the codec
+ * pipeline, each dispatches to a blocking loop or to startAsyncPlayback.
+ */
 
 bool playAudioFile(FS *fs, String filepath, PlaybackMode mode) {
     if (!bruceConfig.soundEnabled) return false;
@@ -517,7 +537,11 @@ bool playAudioFile(FS *fs, String filepath, PlaybackMode mode) {
         return false;
     }
 
-    // === BLOCKING MODE ===
+    /*
+     * Blocking path: drives generator->loop() inline until the track ends
+     * or a key is pressed, then stops output, closes the source, and frees
+     * the pipeline and codec before returning to the caller.
+     */
     if (mode == PLAYBACK_BLOCKING) {
         Serial.println("Start audio (blocking)");
 
@@ -538,7 +562,10 @@ bool playAudioFile(FS *fs, String filepath, PlaybackMode mode) {
         return true;
     }
 
-    // === ASYNC MODE ===
+    /*
+     * Async path: hands the pipeline to startAsyncPlayback so playback runs
+     * on the audio task and this function returns to the caller immediately.
+     */
     Serial.println("Start audio (async)");
     return startAsyncPlayback(generator, source, audioout, filepath);
 }
@@ -586,7 +613,11 @@ bool playAudioRTTTLString(String song, PlaybackMode mode) {
         return false;
     }
 
-    // === BLOCKING MODE ===
+    /*
+     * Blocking path: drives generator->loop() inline until the RTTTL melody
+     * ends or a key is pressed, then stops output, closes the source, and
+     * frees the pipeline and codec before returning to the caller.
+     */
     if (mode == PLAYBACK_BLOCKING) {
         Serial.println("Start RTTTL (blocking)");
 
@@ -607,7 +638,10 @@ bool playAudioRTTTLString(String song, PlaybackMode mode) {
         return true;
     }
 
-    // === ASYNC MODE ===
+    /*
+     * Async path: hands the RTTTL pipeline to startAsyncPlayback so playback
+     * runs on the audio task and this function returns to the caller at once.
+     */
     Serial.println("Start RTTTL (async)");
     return startAsyncPlayback(generator, source, audioout, "RTTTL");
 }
@@ -762,9 +796,11 @@ void playTone(unsigned int frequency, unsigned long duration, short waveType, Pl
         return;
     }
 
-    // === ASYNC MODE ===
-    // The playback task does not watch the keys, so a key press during the tone
-    // stays for the caller instead of being consumed to cut the tone short.
+    /*
+     * Async tone dispatch: delegates the WAV generator to startAsyncPlayback.
+     * The playback task does not watch the keys, so a key press during the tone
+     * stays for the caller instead of being consumed to cut the tone short.
+     */
     if (mode == PLAYBACK_ASYNC) {
         startAsyncPlayback(wav, file, out, "tone");
         return;

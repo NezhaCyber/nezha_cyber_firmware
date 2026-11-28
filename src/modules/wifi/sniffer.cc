@@ -1,9 +1,7 @@
 /*
-  ===========================================
-       Copyright (c) 2017 Stefan Kremser
-              github.com/spacehuhn
-  ===========================================
-*/
+ * Copyright (c) 2017 Stefan Kremser
+ * github.com/spacehuhn
+ */
 #if !defined(LITE_VERSION)
 #include "sniffer.h"
 /* include all necessary libraries */
@@ -44,7 +42,10 @@
 #endif
 #include "modules/wifi/wifi_atks.h" // to use deauth frames and cmds
 
-//===== SETTINGS =====//
+/*
+ * Build-time settings: capture filename and save interval, channel-hopping
+ * dwell time, deauth burst cadence, and the EAPOL-only filter flag.
+ */
 #define FILENAME "raw_"
 #define SAVE_INTERVAL 10            // save new file every 30s
 #define CHANNEL_HOPPING true        // if true it will scan on all channels
@@ -52,7 +53,11 @@
 #define DEAUTH_INTERVAL (15 * 1000) // Send deauth packets every ms
 #define EAPOL_ONLY true
 
-//===== Run-Time variables =====//
+/*
+ * Run-time capture state: timing counters, current channel, packet and
+ * handshake counters, the active filesystem, pcap file handles, the writer
+ * task/queue, and the mutexes guarding file and handshake access.
+ */
 unsigned long lastTime = 0;
 unsigned long lastChannelChange = 0;
 uint32_t lastRedraw = 0;
@@ -95,8 +100,10 @@ portMUX_TYPE handshakeReadyMux = portMUX_INITIALIZER_UNLOCKED;
 std::set<uint64_t> handshakeBeaconLogged;
 std::map<uint64_t, HandshakeTracker> perApHandshakeTracker;
 
-// --- 4-way handshake frame buffer ---
-// Buffer M1, M2, and M3 in memory; flush all 4 frames when M4 arrives.
+/*
+ * 4-way handshake frame buffer: M1, M2, and M3 are held in memory per BSSID
+ * and all four frames are flushed together when M4 arrives.
+ */
 constexpr size_t EAPOL_BUF_SIZE = 256;
 struct EapolFrame {
     uint8_t data[EAPOL_BUF_SIZE] = {0};
@@ -111,12 +118,15 @@ struct Eapol4WayBuffer {
 };
 std::map<uint64_t, Eapol4WayBuffer> eapol4WayBuffer;
 
-// --- Raw beacon cache (per AP) ---
-// Keeps the last beacon frame seen for an AP so it can be written as the
-// FIRST record of a handshake pcap (before M1..M4). wifi_recover.cc's
-// parser stops reading once it has M2+M3, so a beacon appended only after
-// the handshake completes would never be seen; writing it up front fixes
-// that without needing a live beacon after the handshake.
+/*
+ * Raw beacon cache (per AP)
+ *
+ * Keeps the last beacon frame seen for an AP so it can be written as the
+ * FIRST record of a handshake pcap (before M1..M4). wifi_recover.cc's
+ * parser stops reading once it has M2+M3, so a beacon appended only after
+ * the handshake completes would never be seen; writing it up front fixes
+ * that without needing a live beacon after the handshake.
+ */
 constexpr size_t BEACON_BUF_SIZE = 512;
 // Cap on how many APs we keep raw beacons for at once. At ~570 B/entry this
 // bounds the cache to ~36 KB even in very dense environments (hundreds of
@@ -131,7 +141,11 @@ struct BeaconFrame {
 };
 std::map<uint64_t, BeaconFrame> beaconRawCache;
 
-// --- New globals for beacon last-seen tracking & cleanup ---
+/*
+ * Beacon last-seen tracking and cleanup: records the most recent millis()
+ * timestamp per BSSID so stale entries older than BEACON_TIMEOUT_MS can be
+ * pruned.
+ */
 std::map<uint64_t, uint32_t> beaconLastSeen; // key = macToKey(mac) -> last seen millis()
 const uint32_t BEACON_TIMEOUT_MS = 120000;   // 2 minutes
 unsigned long lastBeaconCleanup = 0;
@@ -196,7 +210,9 @@ static FrameInfo analyzeFrame(wifi_promiscuous_pkt_t *pkt);
 static String resolveSsidForFrame(FrameInfo &info, const wifi_promiscuous_pkt_t *packet);
 static void registerBeacon(const uint8_t *apAddr);
 
-// --- New helper prototypes ---
+/*
+ * Forward declarations for beacon-cache helpers defined later in this file.
+ */
 static void cleanupStaleBeacons();
 static size_t countActiveBeaconsOnChannel(uint8_t channel);
 static std::vector<String> recentSsidsOnChannel(uint8_t channel, size_t maxItems = 5);
@@ -213,7 +229,11 @@ const int DEAUTH_MSG_W = 75;
 const int DEAUTH_MSG_H = 8;
 const uint16_t DEAUTH_BG = TFT_BLACK; // background color used to clear the text
 
-//===== FUNCTIONS =====//
+/*
+ * Sniffer function implementations: handshake detection, the promiscuous RX
+ * callback, pcap writing, EAPOL assembly, channel hopping, and the writer
+ * task.
+ */
 
 // Thank you 7h30th3r0n3 for helping me solve this issue! and for sharing your EAPOL/Handshake sniffer
 // please, give stars to his project: https://github.com/7h30th3r0n3/Evil-M5Core2/
@@ -335,7 +355,10 @@ void saveHandshake(const wifi_promiscuous_pkt_t *packet, bool beacon, FS &Fs, co
         return;
     }
 
-    // --- EAPOL frame handling (require M1+M2+M3+M4) ---
+    /*
+     * EAPOL frame handling: requires a full M1+M2+M3+M4 exchange before a
+     * handshake pcap is written, with per-BSSID tracking and de-duplication.
+     */
     int eapolMsg = classifyEapolMessage(packet);
     if (eapolMsg < 1 || eapolMsg > 4) { return; }
 
@@ -1044,7 +1067,10 @@ void openFile(FS &Fs) {
     }
 }
 
-// --- New helper implementations ---
+/*
+ * Helper implementations: stale-beacon cleanup and related bookkeeping used
+ * by the main sniffer loop to bound the beacon cache.
+ */
 
 static void cleanupStaleBeacons() {
     unsigned long now = millis();
@@ -1134,7 +1160,10 @@ static void sendDeauthNow() {
     }
 }
 
-//===== SETUP =====//
+/*
+ * Sniffer setup and entry point: initializes the capture filesystem, queues,
+ * mutexes, and writer task, then starts promiscuous mode and the UI loop.
+ */
 void sniffer_setup() {
     // Stop WebUI before setting WiFi mode for sniffer
     cleanlyStopWebUiForWiFiFeature();

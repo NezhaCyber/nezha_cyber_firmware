@@ -997,15 +997,15 @@ int ST25R3916::write_ndef() {
     return result;
 }
 
-// ---------------------------------------------------------------------------
-// Emulação de tag NFC-A (modo passive target / listen)
-//
-// O wrapper RFAL de alto nível (rfalListenStart) é stub (ST_ERR_NOTSUPP) neste
-// fork. Porém o ST25R3916 faz a anti-colisão NFC-A em hardware no modo
-// "Passive Target" (MODE.targ + om_targ_nfca): basta carregar UID/ATQA/SAK na
-// PT Memory e o chip responde sozinho SENS_RES/anticolisão/SELECT. A sequência
-// de registradores abaixo segue o furi_hal_nfc do Flipper (mesmo CI).
-// ---------------------------------------------------------------------------
+/*
+ * Emulação de tag NFC-A (modo passive target / listen)
+ *
+ * O wrapper RFAL de alto nível (rfalListenStart) é stub (ST_ERR_NOTSUPP) neste
+ * fork. Porém o ST25R3916 faz a anti-colisão NFC-A em hardware no modo
+ * "Passive Target" (MODE.targ + om_targ_nfca): basta carregar UID/ATQA/SAK na
+ * PT Memory e o chip responde sozinho SENS_RES/anticolisão/SELECT. A sequência
+ * de registradores abaixo segue o furi_hal_nfc do Flipper (mesmo CI).
+ */
 
 // Converte strAllPages ("Page N: XX XX XX XX") em _emuPages. Retorna nº de páginas.
 int ST25R3916::_buildEmuPages() {
@@ -1799,9 +1799,12 @@ int ST25R3916::_readFeliCa(rfalNfcDevice *dev) {
     return SUCCESS;
 }
 
-// ============================================================================
-// ISO-DEP / Type 4 Tag (T4T): DESFire, NDEF T4T, EMV
-// ============================================================================
+/*
+ * ISO-DEP / Type 4 Tag (T4T) section.
+ *
+ * Exchanges APDUs over ISO-DEP for DESFire info reads, NDEF Type 4 Tag
+ * reading, and EMV probing, then serializes any captured data to a dump file.
+ */
 
 bool ST25R3916::_isoDepApdu(const uint8_t *tx, uint16_t txLen, uint8_t *rx, uint16_t rxCap, uint16_t *rxLen) {
     if (rxLen) *rxLen = 0;
@@ -2119,9 +2122,13 @@ int ST25R3916::save(const String &filename) {
     return SUCCESS;
 }
 
-// ===========================================================================
-// MIFARE Classic — leitura, escrita, clone (Crypto1) — Milestone 5
-// ===========================================================================
+/*
+ * MIFARE Classic — leitura, escrita, clone (Crypto1) — Milestone 5.
+ *
+ * SAK-based tag classification, Crypto1 authentication with key A/B, and
+ * per-block read/write for Classic 1K/4K tags, including magic-gen1/gen2 UID
+ * writes and a Flipper-compatible dump serializer.
+ */
 
 bool ST25R3916::isMifareClassicSak(uint8_t sak) const {
     return (sak == 0x08 || sak == 0x88 || sak == 0x18 || sak == 0x09 || sak == 0x28 || sak == 0x38);
@@ -2840,15 +2847,15 @@ int ST25R3916::_saveMifareClassicFlipper(const String &filename) {
     return SUCCESS;
 }
 
-// ---------------------------------------------------------------------------
-// MIFARE Classic emulation (listener-side Crypto1) — Milestone 5
-//
-// The ST25R3916 handles ATQA/anticollision/SELECT in hardware (PT memory), so a
-// reader always sees the right UID/SAK/ATQA/type. On top of that, this code
-// answers the Crypto1 authentication and serves encrypted READ/WRITE from the
-// loaded dump. Timing is tight at 106 kb/s — validated UID/type always; the
-// full crypto path needs on-hardware tuning.
-// ---------------------------------------------------------------------------
+/*
+ * MIFARE Classic emulation (listener-side Crypto1) — Milestone 5.
+ *
+ * The ST25R3916 handles ATQA/anticollision/SELECT in hardware (PT memory), so a
+ * reader always sees the right UID/SAK/ATQA/type. On top of that, this code
+ * answers the Crypto1 authentication and serves encrypted READ/WRITE from the
+ * loaded dump. Timing is tight at 106 kb/s — validated UID/type always; the
+ * full crypto path needs on-hardware tuning.
+ */
 
 bool ST25R3916::_buildEmuMfc() {
     memset(&mfcDump, 0, sizeof(mfcDump));
@@ -3088,9 +3095,13 @@ bool ST25R3916::_emuMfcHandle(uint8_t *fifo, uint16_t n) {
     return true;
 }
 
-// ===========================================================================
-// Type 4 Tag (NDEF) emulation over the NFC-A target — Milestone 6
-// ===========================================================================
+/*
+ * Type 4 Tag (NDEF) emulation over the NFC-A target — Milestone 6.
+ *
+ * Builds the Capability Container and NDEF file from the loaded dump, then
+ * answers the reader's ISO-DEP SELECT/READ APDUs to expose the record as a
+ * Type 4 Tag.
+ */
 
 void ST25R3916::_buildT4TFiles() {
     // Capability Container: NDEF file E1 04, max 256 bytes, read-only.
@@ -3241,9 +3252,12 @@ bool ST25R3916::_emuT4THandle(uint8_t *fifo, uint16_t n) {
     return false;
 }
 
-// ===========================================================================
-// FeliCa (NFC-F) emulation — Milestone 6
-// ===========================================================================
+/*
+ * FeliCa (NFC-F) emulation — Milestone 6.
+ *
+ * Configures the ST25R3916 in listen-NFCF mode and serves the loaded IDm/PMm
+ * and block data to a polling reader.
+ */
 
 bool ST25R3916::_setupListenModeF() {
     _deselectSharedSpiDevices();

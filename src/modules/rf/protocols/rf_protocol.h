@@ -12,13 +12,13 @@ constexpr uint64_t RF_MAX_CAPTURE_DURATION_US = 60000000ULL;
 struct RfCodes;
 struct RfStreamCodec;
 
-// ---------------------------------------------------------------------------
-// Callback signatures for protocol-specific decode / encode.
-// A decode callback receives raw pulse durations (µs, +HIGH/-LOW) and, on
-// success, fills `out` and returns true.
-// An encode callback receives the `RfCodes` payload and appends signed-µs
-// durations to the `out` vector; returns true on success.
-// ---------------------------------------------------------------------------
+/*
+ * Callback signatures for protocol-specific decode / encode.
+ * A decode callback receives raw pulse durations (µs, +HIGH/-LOW) and, on
+ * success, fills `out` and returns true.
+ * An encode callback receives the `RfCodes` payload and appends signed-µs
+ * durations to the `out` vector; returns true on success.
+ */
 typedef bool (*RfDecodeCallback)(const std::vector<int>& durations, RfCodes& out);
 typedef bool (*RfEncodeCallback)(const RfCodes& in, std::vector<int>& out);
 
@@ -26,11 +26,11 @@ typedef bool (*RfEncodeCallback)(const RfCodes& in, std::vector<int>& out);
 // presets used by the RF module. Consumers (send / scan / replay) read
 // from here; no protocol parameters should be redefined elsewhere.
 
-// ---------------------------------------------------------------------------
-// Radio preset: configures the transceiver (modulation, bandwidth, deviation,
-// data rate). Replaces the string if/else previously inlined in sendRfCommand.
-// A field left at 0 means "keep the module default" (do not override).
-// ---------------------------------------------------------------------------
+/*
+ * Radio preset: configures the transceiver (modulation, bandwidth, deviation,
+ * data rate). Replaces the string if/else previously inlined in sendRfCommand.
+ * A field left at 0 means "keep the module default" (do not override).
+ */
 struct RfPreset {
     const char *name;     // canonical preset name written/read in `.sub`
     uint8_t modulation;   // CC1101: 0=2-FSK, 1=GFSK, 2=ASK/OOK, 4=MSK
@@ -42,16 +42,16 @@ struct RfPreset {
                           //  irrelevant for FSK/MSK/GFSK presets)
 };
 
-// ---------------------------------------------------------------------------
-// Static OOK protocol definition. Timings follow the classic factor model:
-// every pulse is a multiple of `te` µs, expressed as {high, low} counts.
-// `name` is the protocol identity written to `Protocol:` in the `.sub` file
-// and used for replay dispatch — choose neutral, stable names.
-//
-// Extended protocols that do NOT fit the factor model provide decode/encode
-// callbacks instead. When a protocol has a decode callback the factor model
-// is bypassed entirely.
-// ---------------------------------------------------------------------------
+/*
+ * Static OOK protocol definition. Timings follow the classic factor model:
+ * every pulse is a multiple of `te` µs, expressed as {high, low} counts.
+ * `name` is the protocol identity written to `Protocol:` in the `.sub` file
+ * and used for replay dispatch — choose neutral, stable names.
+ *
+ * Extended protocols that do NOT fit the factor model provide decode/encode
+ * callbacks instead. When a protocol has a decode callback the factor model
+ * is bypassed entirely.
+ */
 struct RfProtocolDef {
     const char *name;
     uint16_t te;     // base pulse length in µs

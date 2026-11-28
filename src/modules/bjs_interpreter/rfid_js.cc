@@ -44,9 +44,11 @@ static void clearSRIXReader() {
     }
 }
 
-// ============================================================================
-// RFID FUNCTIONS
-// ============================================================================
+/*
+ * RFID bindings. TagOMatic is created lazily in headless mode and kept as a
+ * singleton, so consecutive script calls reuse one reader session; rfidClear()
+ * deletes it again and frees the driver.
+ */
 
 JSValue native_rfidRead(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
     // usage: rfidRead(timeout_in_seconds : number = 10);
@@ -235,9 +237,11 @@ JSValue native_rfid_AddMifareKey(JSContext *ctx, JSValue *this_val, int argc, JS
     return obj;
 }
 
-// ============================================================================
-// SRIX FUNCTIONS
-// ============================================================================
+/*
+ * SRIX bindings over a lazily created headless SRIXTool singleton, dropped again by
+ * srixClear(). Reads report the 8-byte UID and the 512-byte tag image as uppercase
+ * hex text; single-block writes take 4 bytes expressed as 8 hex characters.
+ */
 
 JSValue native_srixRead(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
     // usage: srixRead(timeout_in_seconds : number = 10);

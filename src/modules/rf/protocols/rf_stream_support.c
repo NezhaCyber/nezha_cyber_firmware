@@ -243,14 +243,19 @@ RfStreamKeystore *rf_stream_environment_get_keystore(RfStreamEnvironment *e) {
 }
 RfStreamKeyArray_t *rf_stream_keystore_get_data(RfStreamKeystore *k) { return k ? &k->data : NULL; }
 
-// ---------------------------------------------------------------------------
-// Engine keystore storage primitive.
-//
-// The single default keystore (rf_stream_default_keystore()) is filled on
-// demand by keeloq_engine_keystore_load() (rf_keeloq.cc), which reuses the one
-// KeeLoq /mfcodes reader. Star Line manufacturer ID, the KIA vehicle keys
-// (types 10..13) and the KeeLoq families therefore all share that one source.
-// ---------------------------------------------------------------------------
+/*
+ * Engine keystore storage primitive.
+ *
+ * The single default keystore (rf_stream_default_keystore()) is filled on
+ * demand by keeloq_engine_keystore_load() (rf_keeloq.cc), which reuses the one
+ * KeeLoq /mfcodes reader. Star Line manufacturer ID, the KIA vehicle keys
+ * (types 10..13) and the KeeLoq families therefore all share that one source.
+ *
+ * Keys are appended by growing the array with realloc(), which may relocate it:
+ * any RfStreamKey pointer obtained from rf_stream_keystore_get_data() must be
+ * re-fetched after a successful add. The key name is copied into its own
+ * RfStreamText, so it survives later relocations of the array itself.
+ */
 
 bool rf_stream_keystore_add_key(const char *name, uint64_t key, uint16_t type) {
     RfStreamKeystore *k = rf_stream_default_keystore();

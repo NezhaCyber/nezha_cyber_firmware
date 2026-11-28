@@ -27,9 +27,12 @@ RfStreamProtocolStatus
 
 #include <string.h>
 
-// =============================================================================
-// PROTOCOL CONSTANTS
-// =============================================================================
+/*
+ * Protocol constants: 250 µs short / 500 µs long Manchester elements with a
+ * ±100 µs detection window and a 64-bit minimum payload. A frame is 16
+ * preamble ones, the 0xD7 sync byte, the data bytes and the 0x5A tail byte;
+ * MAZDA_V0_GAP_US (52 ms) separates bursts.
+ */
 
 static const RfStreamBlockConst rf_stream_protocol_mazda_v0_const = {
     .te_short = 250,
@@ -47,9 +50,12 @@ _Static_assert(
 #define MAZDA_V0_TAIL_BYTE     0x5A
 #define MAZDA_V0_PREAMBLE_ONES 16
 
-// =============================================================================
-// STRUCT DEFINITIONS
-// =============================================================================
+/*
+ * Struct definitions.
+ * The decoder carries the Manchester phase plus the running count of preamble
+ * ones and the sliding preamble pattern it matched; the encoder only holds the
+ * serial / button / counter it will re-emit.
+ */
 
 typedef struct RfStreamProtocolDecoderMazdaV0 {
     RfStreamProtocolDecoderBase base;
@@ -83,9 +89,11 @@ typedef enum {
     MazdaV0DecoderStepData = 6,
 } MazdaV0DecoderStep;
 
-// =============================================================================
-// FUNCTION PROTOTYPES
-// =============================================================================
+/*
+ * Function prototypes.
+ * Everything encoder-related is declared inside RF_STREAM_WITH_ENCODER so that
+ * builds without the transmit path never reference it.
+ */
 
 static bool mazda_v0_get_event(uint32_t duration, bool level, RfManchesterEvent* event);
 static void mazda_v0_decode_key(RfStreamBlockGeneric* generic);
@@ -105,9 +113,11 @@ static RfStreamProtocolStatus mazda_v0_write_display(
     const char* protocol_name,
     uint8_t button);
 
-// =============================================================================
-// PROTOCOL INTERFACE DEFINITIONS
-// =============================================================================
+/*
+ * Protocol interface definitions: the decoder and encoder vtables plus the
+ * RfStreamCodec the registry publishes. Members gated by RF_STREAM_WITH_DECODER
+ * / RF_STREAM_WITH_ENCODER become NULL when that direction is compiled out.
+ */
 
 const RfStreamProtocolDecoder rf_stream_protocol_mazda_v0_decoder = {
     .alloc = rf_stream_protocol_decoder_mazda_v0_alloc,
@@ -152,9 +162,13 @@ const RfStreamCodec mazda_v0_protocol = {
 #endif
 };
 
-// =============================================================================
-// HELPERS
-// =============================================================================
+/*
+ * Helpers.
+ * The additive checksum covers the serial bytes, the counter bytes and the
+ * counter's high nibble packed with the button. mazda_v0_get_event() maps a
+ * pulse duration to a Manchester short/long event using te_delta plus 20 µs of
+ * slack.
+ */
 
 static uint8_t mazda_v0_calculate_checksum(uint32_t serial, uint8_t button, uint32_t counter) {
     counter &= 0xFFFFFU;
@@ -327,9 +341,13 @@ static RfStreamProtocolStatus mazda_v0_write_display(
     return rf_stream_write_display(flipper_format, protocol_name, mazda_v0_get_button_name(button));
 }
 
-// =============================================================================
-// ENCODER
-// =============================================================================
+/*
+ * Encoder.
+ * Builds the frame from serial / button / counter: mazda_v0_encode_key() whitens
+ * the eight payload bytes with the 0x55/0xAA interleave and the mask selected by
+ * the checksum parity, then the burst is assembled behind the preamble and sync
+ * byte into the shared upload slab.
+ */
 
 #if RF_STREAM_WITH_ENCODER
 void* rf_stream_protocol_encoder_mazda_v0_alloc(RfStreamEnvironment* environment) {
@@ -419,9 +437,14 @@ RfStreamProtocolStatus
 
 #endif
 
-// =============================================================================
-// DECODER
-// =============================================================================
+/*
+ * Decoder.
+ * Reset / feed / serialize. feed() is a three-state machine: wait for a te_short
+ * high, Manchester-decode the preamble until 16 ones are followed by the 0xD7
+ * sync byte, then shift payload bits into decode_data and hand the complete
+ * 64-bit key to mazda_v0_decode_key(), which de-whitens it into
+ * serial / button / counter.
+ */
 
 void* rf_stream_protocol_decoder_mazda_v0_alloc(RfStreamEnvironment* environment) {
     UNUSED(environment);

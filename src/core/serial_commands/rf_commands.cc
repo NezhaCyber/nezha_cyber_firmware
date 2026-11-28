@@ -211,9 +211,13 @@ uint32_t rfKeeloqTxCallback(cmd *c) {
     return true;
 }
 
-// --- /mfcodes management on LittleFS (single-line, robust) ------------------
-// Writes the KeeLoq manufacturer keystore to LittleFS so it survives without an
-// SD card. Each entry is one line: `mf_name;key_hex;type` (matches the parser).
+/*
+ * /mfcodes keystore management on LittleFS, so the KeeLoq manufacturer table
+ * also exists on boards without an SD card (rf_keeloq.cc loads /mfcodes from
+ * the active filesystem and falls back to LittleFS). Each entry is one line,
+ * `mf_name;key_hex;type` - the exact format the KeeLoq parser expects - and
+ * the callbacks below append, truncate and dump that file.
+ */
 uint32_t rfMfcodesAddCallback(cmd *c) {
     Command cmd(c);
     String entry = cmd.getArgument("entry").getValue();

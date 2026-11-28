@@ -5,7 +5,6 @@
 #include "core/location_state.h"
 #include "core/utils.h"
 #include "modules/others/radar.h"
-#include "modules/others/wireless_sentinel.h"
 
 void RadarMenu::optionsMenu() {
     bool isStartup = (bruceConfig.startupApp == "Radar");
@@ -13,7 +12,6 @@ void RadarMenu::optionsMenu() {
     std::vector<Option> localOpts = {
         {"Start Radar (W+B)",    []() { radar_setup(RADAR_INIT_BOTH, RADAR_VIEW_SCOPE); }     },
         {"EW Threat Console",    []() { radar_setup(RADAR_INIT_BOTH, RADAR_VIEW_THREAT); }    },
-        {"Wireless Sentinel",    []() { wireless_sentinel_menu(); }                           },
         {"Intel Table",          []() { radar_setup(RADAR_INIT_BOTH, RADAR_VIEW_TABLE); }     },
         {"Spectrum / Fox-Hunt",  []() { radar_setup(RADAR_INIT_BOTH, RADAR_VIEW_FOX_SPEC); }  },
         {"Trackers & Alerts",    []() { radar_setup(RADAR_INIT_ALERTS, RADAR_VIEW_TABLE); }   },

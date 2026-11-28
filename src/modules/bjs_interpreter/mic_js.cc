@@ -41,7 +41,10 @@
 JSValue native_micRecordWav(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
     (void)this_val;
 
-    // ===== PARSE PATH PARAMETER =====
+    /*
+     * Path argument: a string, or an object carrying fs/path. When omitted, the
+     * default storage is auto-detected later and "/BruceMIC/recording.wav" is used.
+     */
     FileParamsJS fileParams;
     if (argc < 1 || JS_IsUndefined(argv[0]) || JS_IsNull(argv[0])) {
         // No path provided - use defaults
@@ -54,7 +57,10 @@ JSValue native_micRecordWav(JSContext *ctx, JSValue *this_val, int argc, JSValue
         fileParams = js_get_path_from_params(ctx, argv, false);
     }
 
-    // ===== PARSE OPTIONS PARAMETER =====
+    /*
+     * Options: maxMs (0 = unlimited), stopOnSel (SEL aborts an ongoing capture) and
+     * gain, which arrives as tenths of a unit and is only applied inside 0.5x-4.0x.
+     */
     uint32_t maxMs = 8000; // Default: 8 seconds
     bool stopOnSel = true; // Default: stop on button press
     float gain = 1.0f;     // Default: no gain adjustment
@@ -85,7 +91,10 @@ JSValue native_micRecordWav(JSContext *ctx, JSValue *this_val, int argc, JSValue
         }
     }
 
-    // ===== RESOLVE FILESYSTEM =====
+    /*
+     * No explicit filesystem: use whichever storage is mounted, and answer with a
+     * failed result object (rather than throwing) when there is none.
+     */
     FS *fs = fileParams.fs;
     if (fs == nullptr) {
         // No filesystem specified - auto-detect (SD or LittleFS)
@@ -101,11 +110,16 @@ JSValue native_micRecordWav(JSContext *ctx, JSValue *this_val, int argc, JSValue
         }
     }
 
-    // ===== NORMALIZE PATH =====
+    /*
+     * The WAV writer needs an absolute path inside the mounted filesystem.
+     */
     String path = fileParams.path;
     if (!path.startsWith("/")) { path = "/" + path; }
 
-    // ===== SETUP RECORDING CALLBACK =====
+    /*
+     * Callback polled by the recorder: refreshing the input state here is what lets
+     * SEL stop an otherwise unlimited capture.
+     */
     uint32_t outBytes = 0;
     auto jsCallback = [&]() -> bool {
         // Check if user wants to stop via button press
@@ -118,7 +132,10 @@ JSValue native_micRecordWav(JSContext *ctx, JSValue *this_val, int argc, JSValue
         return true; // Continue recording
     };
 
-    // ===== EXECUTE RECORDING =====
+    /*
+     * Runs the recording; outBytes receives the number of PCM bytes actually stored
+     * at `path`.
+     */
     bool ok = mic_record_wav_to_path(
         fs,        // Filesystem pointer
         path,      // Output file path
@@ -128,7 +145,10 @@ JSValue native_micRecordWav(JSContext *ctx, JSValue *this_val, int argc, JSValue
         jsCallback // Progress callback with stop control
     );
 
-    // ===== BUILD RESULT OBJECT =====
+    /*
+     * Result object mirrors the documented contract: ok/path/bytes plus the fixed
+     * 48 kHz mono format of the WAV writer.
+     */
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "ok", JS_NewBool(ok ? 1 : 0));
     JS_SetPropertyStr(ctx, obj, "path", JS_NewString(ctx, path.c_str()));

@@ -37,15 +37,17 @@ public:
         NO_ACTION,
     };
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Constructor / destructor: bring the receiver up and enter the scan loop,
+     * then stop RX and release the shared RF module on destruction.
+     */
     RFScan();
     ~RFScan();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Life Cycle
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Life cycle: setup() arms the receiver, restores the configured scan range
+     * and paints the capture list; loop() runs until the user leaves.
+     */
     void setup();
     void loop();
 
@@ -78,17 +80,21 @@ private:
     int scrollOffset = 0;
     bool listDirty = true;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // State management
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * State management: list navigation plus the signal and scan-option menus.
+     * Both menus stop the receiver and release the shared bus before drawing,
+     * and report back through set_option().
+     */
     bool handle_list_input();
     void open_signal_menu(int index);
     void open_scan_options();
     void set_option(RFMenuOption option, int index);
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Operations: decode or RAW-capture one received burst, de-duplicate it
+     * against the list, and act on the selected entry (info / replay / save /
+     * delete).
+     */
     bool decode_signal(const std::vector<int> &durations);
     bool read_raw(const std::vector<int> &durations);
     bool is_m5_duplicate_capture(const RfCodes &data);
@@ -102,9 +108,10 @@ private:
     void set_threshold();
     // void set_range(); // Using similar function from rf_utils.h
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Utils
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Utils: receiver arming, the RSSI frequency hunt (best of _MAX_TRIES
+     * samples), list selection movement and the capture-list renderer.
+     */
     void enable_receive();
     void init_freqs();
     bool fast_scan();

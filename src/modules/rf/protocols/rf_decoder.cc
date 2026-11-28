@@ -14,17 +14,21 @@
 #include "rf_registry_ext.h"
 #include <globals.h>
 
-// --- Decode tuning (mirrors the classic OOK receiver) ----------------------
+/*
+ * Decode tuning (mirrors the classic OOK receiver).
+ */
 #define RF_SEPARATION_LIMIT 4300 // µs: a longer low is treated as an inter-frame gap
 #define RF_RECEIVE_TOLERANCE 60  // % tolerance on pulse-length matching
 #define RF_NOMINAL_TE_TOLERANCE 20
 #define RF_MAX_CHANGES 131       // max transitions kept per frame
 
-// --- RX noise rejection ----------------------------------------------------
-// In RX the CC1101 OOK slicer outputs random hash when there is no real signal.
-// Without these filters every noise burst becomes a "phantom" capture, flooding
-// Scan/Copy. The classic OOK receiver rejects this via its own ISR noise
-// pre-filter; we reproduce it here.
+/*
+ * RX noise rejection.
+ * In RX the CC1101 OOK slicer outputs random hash when there is no real signal.
+ * Without these filters every noise burst becomes a "phantom" capture, flooding
+ * Scan/Copy. The classic OOK receiver rejects this via its own ISR noise
+ * pre-filter; we reproduce it here.
+ */
 #define RF_RX_MIN_TRANSITIONS 16 // discard captures with fewer edges (noise bursts)
 #define RF_M5_RX_GLITCH_US 220   // M5 RF433R AGC noise is mostly shorter than real OOK pulses
 #define RF_M5_RX_MIN_TRANSITIONS 110
@@ -69,9 +73,13 @@ static void rf_filter_m5_rx_glitches(std::vector<int> &durations) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// RMT capture session
-// ---------------------------------------------------------------------------
+/*
+ * RMT capture session.
+ * Two receive back-ends share this API: the RMT RX channel (data handed over
+ * by the receive-done ISR through a one-slot queue) and, on M5 RF modules that
+ * expose only a plain GPIO, a CHANGE interrupt that records edge durations into
+ * a fixed buffer and publishes them once the line has been idle for 30 ms.
+ */
 static bool rf_rx_done_cb(
     rmt_channel_handle_t channel, const rmt_rx_done_event_data_t *edata, void *user_data
 ) {
@@ -274,12 +282,16 @@ void rf_symbols_to_durations(const rmt_symbol_word_t *symbols, size_t count, std
     }
 }
 
-// ---------------------------------------------------------------------------
-// OOK decode (faithful port of the classic receiveProtocol state machine)
-// ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
-// RAW builder (port of RFScan::read_raw inner loop)
-// ---------------------------------------------------------------------------
+/*
+ * RAW builder (port of the RFScan::read_raw inner loop). The OOK frame decode
+ * itself lives in rf_codec.cc, not here.
+ *
+ * Serialises the durations into the "+a -b ..." text form and reports the first
+ * positive pulse as the base `te`. Two inter-frame gaps (low < -5000 µs) mark
+ * one full repetition; the pulse indexes seen inside that repetition are then
+ * CRC-64'd so identical frames can be de-duplicated. Returns the transition
+ * count written to `dataOut`.
+ */
 int rf_build_raw(
     const std::vector<int> &durations, String &dataOut, bool &hasCrc, uint64_t &crcOut,
     std::vector<int> &indexedOut, int &bitsOut, int &teOut

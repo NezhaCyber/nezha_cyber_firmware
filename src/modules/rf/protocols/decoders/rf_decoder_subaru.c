@@ -127,9 +127,13 @@ const RfStreamCodec subaru_protocol = {
 #endif
 };
 
-// ============================================================================
-// DECODER HELPER FUNCTIONS
-// ============================================================================
+/*
+ * Decoder helper functions.
+ * Subaru scatters the button, serial and counter across eight inverted,
+ * bit-rotated payload bytes and mixes in two shift registers, so decoding is a
+ * fixed sequence of un-inversions and rotations rather than a plain field
+ * slice. subaru_rotate_left_3bytes() is the shared rotation primitive.
+ */
 
 static void subaru_rotate_left_3bytes(uint8_t* b0, uint8_t* b1, uint8_t* b2, uint8_t count) {
     for(uint8_t i = 0; i < count; i++) {
@@ -234,9 +238,12 @@ static uint8_t rf_stream_protocol_decoder_subaru_get_hash_data(void* context) {
     return hash;
 }
 
-// ============================================================================
-// ENCODER IMPLEMENTATION
-// ============================================================================
+/*
+ * Encoder implementation.
+ * Inverse of the decoder helpers: subaru_encode_count() re-interleaves the 16-bit
+ * counter into its scattered, inverted bit positions, and the burst is 75
+ * preamble pairs, a 2800 µs gap and a 2800 µs sync followed by the payload.
+ */
 #if RF_STREAM_WITH_ENCODER
 
 static void subaru_encode_count(uint8_t* KB, uint16_t count) {
@@ -450,9 +457,13 @@ RfStreamProtocolStatus
 }
 
 #endif
-// ============================================================================
-// DECODER IMPLEMENTATION
-// ============================================================================
+/*
+ * Decoder implementation.
+ * 800 µs short / 1600 µs long elements with a ±200 µs window. feed() walks
+ * Reset -> CheckPreamble -> FoundGap -> FoundSync -> Data: it needs at least 0x15
+ * preamble pairs, then a 2800 µs gap that is immediately followed by a 2800 µs
+ * sync before payload bits are shifted in.
+ */
 
 void* rf_stream_protocol_decoder_subaru_alloc(RfStreamEnvironment* environment) {
     UNUSED(environment);

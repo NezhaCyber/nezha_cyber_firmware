@@ -1,4 +1,9 @@
-// --- wifi_recover.h ---
+/*
+ * Wi-Fi handshake password recovery API. Exposes wifi_recover_menu(), the
+ * screen entry point that lets the user pick a wordlist and a .pcap capture
+ * and then starts the cracker. Declared extern "C" and compiled out of
+ * LITE_VERSION builds along with its implementation.
+ */
 #ifndef WIFI_RECOVER_H
 #define WIFI_RECOVER_H
 #ifndef LITE_VERSION
