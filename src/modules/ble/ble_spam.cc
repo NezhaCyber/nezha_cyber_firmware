@@ -587,8 +587,6 @@ static const char *BLE_SPAM_SAMSUNG_DEVICES[] = {
 // Special sentinel indices
 #define BLE_SPAM_ANDROID_RANDOM_IDX 2
 #define BLE_SPAM_SAMSUNG_RANDOM_IDX 3
-#define BLE_SPAM_WINDOWS_RANDOM_IDX 5 // after presets
-#define BLE_SPAM_WINDOWS_CUSTOM_IDX 6 // "+ Add New Custom Name" / custom saved
 
 static const char *bleSpamTxPowerLabel(BleSpamTxPower level) {
     switch (level) {
@@ -1194,6 +1192,7 @@ static void bleSpamPickRandomSelection(BleSpamAttackType &attackType, int &devic
         {BLE_SPAM_ATTACK_APPLE_PAIRING,
                                   bleSpamGetDeviceCount(BLE_SPAM_ATTACK_APPLE_PAIRING) - 1                                   }, // -1 to exclude Random/All sentinel
         {BLE_SPAM_ATTACK_APPLE_ACTION,       bleSpamGetDeviceCount(BLE_SPAM_ATTACK_APPLE_ACTION) - 1},
+        {BLE_SPAM_ATTACK_APPLE_NOT_YOUR_DEVICE, bleSpamGetDeviceCount(BLE_SPAM_ATTACK_APPLE_NOT_YOUR_DEVICE) - 1},
 #endif
         {BLE_SPAM_ATTACK_ANDROID_ALERT,      2                                                      }, // only Pixel + Generic, not Random/All
         {BLE_SPAM_ATTACK_WINDOWS_SWIFT_PAIR,
@@ -1549,6 +1548,20 @@ static void bleSpamDeinitAdvertiser() {
     BLEDevice::deinit();
 }
 
+// Builds the little-endian byte array NimBLE's ble_hs_id_set_rnd() expects:
+// index 0 = LSB of the on-air address, index 5 = MSB. The two MSBs of the MSB
+// byte are forced to 11 so the host always classifies the address as a valid
+// random static address — the host rejects anything else with BLE_HS_EINVAL,
+// and the controller then silently keeps the previous MAC.
+static void bleSpamMacToNimbleRnd(const uint8_t *mac, uint8_t *addr_le) {
+    addr_le[0] = mac[5];
+    addr_le[1] = mac[4];
+    addr_le[2] = mac[3];
+    addr_le[3] = mac[2];
+    addr_le[4] = mac[1];
+    addr_le[5] = mac[0] | 0xC0; // random static type bits
+}
+
 // CHANGED: replaces the old bleSpamRestartAdvertiserForMac which did a full deinit/init.
 // Now we only stop advertising, swap the MAC at the interface level and tell the
 // NimBLE host (or Bluedroid GAP) about the new address, then let the caller
@@ -1562,17 +1575,22 @@ bleSpamRestartAdvertiserForMac(BleSpamRunState &state, const BleSpamConfig &conf
 
 #ifdef CONFIG_BT_NIMBLE_ENABLED
     // NimBLE keeps its own copy of the random address in the host layer.
-    // ble_hs_id_set_rnd expects bytes in little-endian order (byte 0 = LSB of address).
-    // A valid random static address requires the two MSBs of the *most significant byte*
-    // (which is byte[5] in big-endian / byte[0] in little-endian) to be set to 11.
+    // ble_hs_id_set_rnd() sends LE Set Random Address to the controller right
+    // away, so the next start() advertises the new MAC immediately.
     uint8_t addr_le[6];
-    addr_le[0] = mac[5] | 0xC0; // MSB of address with random static bits set
-    addr_le[1] = mac[4];
-    addr_le[2] = mac[3];
-    addr_le[3] = mac[2];
-    addr_le[4] = mac[1];
-    addr_le[5] = mac[0];
-    ble_hs_id_set_rnd(addr_le);
+    bleSpamMacToNimbleRnd(mac, addr_le);
+    if (ble_hs_id_set_rnd(addr_le) != 0) {
+        // The host accepts this layout unconditionally (0xC0 type bits forced,
+        // MSB bit 0 cleared, so the all-ones/all-zeros checks cannot fire) —
+        // a failure here is a transient HCI-layer error, so regenerate once
+        // and keep the previous MAC if that also fails.
+        uint8_t retryMac[6];
+        bleSpamFastRandomMac(retryMac);
+        bleSpamMacToNimbleRnd(retryMac, addr_le);
+        if (ble_hs_id_set_rnd(addr_le) != 0) {
+            Serial.println("[BLE Spam] ble_hs_id_set_rnd failed, keeping previous MAC");
+        }
+    }
     NimBLEDevice::setOwnAddrType(BLE_OWN_ADDR_RANDOM);
 #else
     // Bluedroid: the GAP API handles the random address directly.
@@ -1610,7 +1628,13 @@ bleSpamSendTick(BleSpamRunState &state, const BleSpamConfig &config, const BleSp
             bleSpamRestartAdvertiserForMac(state, config, nextMac);
         }
 
-        if (!pAdvertising) return;
+        // pAdvertising is guaranteed non-null here (outer condition). MAC rotation
+        // calls stop() first; always reschedule so a transient miss can't wedge
+        // BLE spam into a stopped, busy-spinning state. Next tick retries start().
+        if (!pAdvertising) {
+            state.next_send_ms = now + config.adv_ms + config.gap_ms;
+            return;
+        }
 
         // For beacon random spam, force a stop before setting new data so NimBLE
         // flushes the payload and picks up the new name every packet
@@ -1620,15 +1644,31 @@ bleSpamSendTick(BleSpamRunState &state, const BleSpamConfig &config, const BleSp
 
         const BLEAdvertisementData *advertisementData =
             bleSpamSelectAdvertisement(state, attackType, deviceIndex);
-        if (!advertisementData) return;
+        if (!advertisementData) {
+            // Could not build a valid (<=31 byte) payload this cycle: reschedule
+            // instead of returning with advertising stopped and no next_send_ms,
+            // which would spin without transmitting. Next tick retries.
+            state.next_send_ms = now + config.adv_ms + config.gap_ms;
+            return;
+        }
 
-        pAdvertising->setAdvertisementData(*advertisementData);
+        // Always reschedule the next slot first so no path can wedge the loop.
+        state.next_send_ms = now + config.adv_ms + config.gap_ms;
+
+        bool advSet = pAdvertising->setAdvertisementData(*advertisementData);
         pAdvertising->setScanResponseData(emptyScanResponse);
-        pAdvertising->start();
+
+        // Only start + count the packet if NimBLE accepted the payload AND the
+        // controller actually started advertising. Otherwise reschedule and
+        // retry next cycle instead of counting a phantom TX. Stale payload on a
+        // failed setAdvertisementData() is never started.
+        bool started = false;
+        if (advSet) started = pAdvertising->start();
+
+        if (!advSet || !started) return;
 
         state.adv_active = true;
         state.adv_stop_ms = now + config.adv_ms;
-        state.next_send_ms = now + config.adv_ms + config.gap_ms;
         state.packet_counter++;
         state.sent_count++;
         state.window_packets++;
