@@ -16,8 +16,12 @@ uint32_t swap32(uint32_t value) {
            ((value & 0xFF000000) >> 24);
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Custom IR
+/*
+ * Custom IR.
+ * Flipper-format `.ir` playback: txIrFile() streams a whole file, the send*
+ * helpers emit one parsed/RAW code per protocol, and the recent-code ring keeps
+ * the last 16 replayed entries for one-tap resending.
+ */
 
 static std::vector<IRCode *> codes;
 

@@ -19,10 +19,10 @@ static constexpr const uint32_t UPDATE_INTERVAL_MS = 5000;
 
 static WireGuard wg;
 
-/*********************************************************************
-**  Function: parse_config_file
-**  parses wireguard config file wg.conf
-**********************************************************************/
+/*
+ * Function: parse_config_file
+ * parses wireguard config file wg.conf
+ */
 void parse_config_file(File configFile) {
     String line;
 
@@ -83,10 +83,10 @@ void parse_config_file(File configFile) {
     configFile.close();
 }
 
-/*********************************************************************
-**  Function: read_and_parse_file
-**  tries to open file wg.conf on local SD
-**********************************************************************/
+/*
+ * Function: read_and_parse_file
+ * tries to open file wg.conf on local SD
+ */
 void read_and_parse_file() {
     if (!setupSdCard()) {
         sdcardMounted = false;
@@ -107,10 +107,10 @@ void read_and_parse_file() {
     parse_config_file(file);
 }
 
-/*********************************************************************
-**  Function: wg_setup
-**  connect to wireguard tunnel
-**********************************************************************/
+/*
+ * Function: wg_setup
+ * connect to wireguard tunnel
+ */
 void wg_setup() {
     if (!wifiConnected) wifiConnectMenu();
 

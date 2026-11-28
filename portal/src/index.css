@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Light Theme — ChenTang Pass Technical Lab (Porcelain & Cinnabar) */
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 224 32% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 32% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 32% 10%;
+
+    --primary: 352 80% 48%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 92%;
+    --secondary-foreground: 224 24% 16%;
+
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 12% 42%;
+
+    --accent: 220 16% 91%;
+    --accent-foreground: 224 28% 12%;
+
+    --destructive: 0 78% 48%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 15% 85%;
+    --input: 220 15% 84%;
+    --ring: 352 80% 48%;
+
+    --cyber-crimson: 352 80% 48%;
+    --cyber-amber: 35 92% 45%;
+    --cyber-cyan: 192 88% 34%;
+    --cyber-emerald: 158 78% 32%;
+
+    --radius: 0.625rem;
+
+    --grid-line: rgba(15, 23, 42, 0.055);
+    --surface-glass: rgba(255, 255, 255, 0.84);
+    --terminal-bg: #0c0e14;
+    --terminal-fg: #e2e8f0;
+  }
+
+  /* Dark Theme — Nezha Obsidian Cyber Instrument (Volcanic Obsidian, Crimson & Cyan) */
+  .dark {
+    --background: 228 28% 4%;
+    --foreground: 210 25% 95%;
+
+    --card: 226 24% 7%;
+    --card-foreground: 210 25% 95%;
+
+    --popover: 226 24% 7.5%;
+    --popover-foreground: 210 25% 95%;
+
+    --primary: 352 92% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 225 20% 12%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 225 19% 11%;
+    --muted-foreground: 218 14% 58%;
+
+    --accent: 225 20% 14%;
+    --accent-foreground: 210 25% 96%;
+
+    --destructive: 0 84% 56%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 225 18% 16%;
+    --input: 225 18% 16%;
+    --ring: 352 92% 56%;
+
+    --cyber-crimson: 352 92% 56%;
+    --cyber-amber: 38 96% 54%;
+    --cyber-cyan: 188 94% 48%;
+    --cyber-emerald: 156 80% 44%;
+
+    --grid-line: rgba(255, 255, 255, 0.036);
+    --surface-glass: rgba(11, 13, 20, 0.78);
+    --terminal-bg: #050609;
+    --terminal-fg: #dbe4f0;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer utilities {
+  .bg-precision-grid {
+    background-image:
+      linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+    background-size: 36px 36px;
+  }
+
+  .panel-surface {
+    background: var(--surface-glass);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .telemetry-mono {
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .terminal-surface {
+    background-color: var(--terminal-bg);
+    color: var(--terminal-fg);
+  }
+}
+
+/* Custom slim scrollbar for terminal and select lists */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

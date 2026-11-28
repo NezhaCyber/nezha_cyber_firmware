@@ -1,6 +1,7 @@
 #include "playbooks.h"
 
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/sd_functions.h"
 #include "core/serial_commands/cli.h"
@@ -59,8 +60,11 @@ bool playbooks_run_json(const String &jsonText) {
     drawMainBorderWithTitle(pbName);
     tft.setTextSize(FP);
     const int x = BORDER_PAD_X;
-    const int y0 = BORDER_PAD_Y + LH + 6;
+    const int y0 = uiContentTop();
     const int w = tftWidth - 2 * BORDER_PAD_X;
+    const int cardH = max(56, uiContentBottom(true) - y0);
+    uiDrawCard(x, y0, w, cardH, true);
+    printCenterFootnote("ESC=Abort");
 
     bool aborted = false;
     size_t totalSteps = steps.size();
@@ -77,15 +81,19 @@ bool playbooks_run_json(const String &jsonText) {
             if (delayMs > 30000) delayMs = 30000;
 
             idx++;
-            tft.fillRect(x, y0, w, LH * 4 + 12, bruceConfig.bgColor);
-            tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+            const uint16_t surf = uiSurfaceColor();
+            tft.fillRect(x + 8, y0 + 8, w - 16, cardH - 16, surf);
             char hdr[48];
-            snprintf(hdr, sizeof(hdr), "Run %d/%d  Step %u/%u", r + 1, repeat, (unsigned)idx, (unsigned)totalSteps);
-            tft.drawString(hdr, x, y0);
-            tft.setTextColor(uiTextBrightColor(), bruceConfig.bgColor);
-            tft.drawString(String("> ") + cmdStr, x, y0 + LH + 4);
-            tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-            tft.drawString("ESC to abort", x, y0 + (LH + 4) * 2);
+            snprintf(hdr, sizeof(hdr), "%d/%d  (%u/%u)", r + 1, repeat, (unsigned)idx, (unsigned)totalSteps);
+            uiDrawKeyValueRow(x + 8, y0 + 10, w - 16, "Step", hdr, bruceConfig.priColor, surf);
+            tft.setTextColor(uiTextBrightColor(), surf);
+            tft.drawString(
+                bruce_i18n::utf8TruncateToWidth(String("> ") + cmdStr, w - 16, FP), x + 8, y0 + 28
+            );
+            int pct = (totalSteps > 0) ? (int)((idx * 100u) / totalSteps) : 100;
+            if (y0 + 46 + 8 < y0 + cardH - 4) {
+                uiDrawProgressBar(x + 8, y0 + 46, w - 16, 8, pct, bruceConfig.priColor, false);
+            }
 
             if (cmdStr[0] != '\0') { serialCli.parse(String(cmdStr)); }
 

@@ -12,10 +12,10 @@
 #include "core/led_control.h"
 #endif
 
-/*********************************************************************
-**  Function: optionsMenu
-**  Main Config menu entry point
-**********************************************************************/
+/*
+ *  Function: optionsMenu
+ *  Main Config menu entry point
+ */
 void ConfigMenu::optionsMenu() {
     returnToMenu = false;
     while (true) {
@@ -61,10 +61,10 @@ void ConfigMenu::optionsMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: displayUIMenu
-**  Display & UI configuration submenu with auto-rebuild
-**********************************************************************/
+/*
+ *  Function: displayUIMenu
+ *  Display & UI configuration submenu with auto-rebuild
+ */
 void ConfigMenu::displayUIMenu() {
     while (true) {
         std::vector<Option> localOptions = {
@@ -90,10 +90,10 @@ void ConfigMenu::displayUIMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: ledMenu
-**  LED configuration submenu with auto-rebuild for toggles
-**********************************************************************/
+/*
+ *  Function: ledMenu
+ *  LED configuration submenu with auto-rebuild for toggles
+ */
 #ifdef HAS_RGB_LED
 void ConfigMenu::ledMenu() {
     while (true) {
@@ -130,10 +130,10 @@ void ConfigMenu::ledMenu() {
     }
 }
 #endif
-/*********************************************************************
-**  Function: audioMenu
-**  Audio configuration submenu with auto-rebuild for toggles
-**********************************************************************/
+/*
+ *  Function: audioMenu
+ *  Audio configuration submenu with auto-rebuild for toggles
+ */
 void ConfigMenu::audioMenu() {
     while (true) {
         std::vector<Option> localOptions = {
@@ -163,10 +163,10 @@ void ConfigMenu::audioMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: systemMenu
-**  System configuration submenu with auto-rebuild for toggles
-**********************************************************************/
+/*
+ *  Function: systemMenu
+ *  System configuration submenu with auto-rebuild for toggles
+ */
 void ConfigMenu::systemMenu() {
     while (true) {
         std::vector<Option> localOptions = {
@@ -198,10 +198,10 @@ void ConfigMenu::systemMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: advancedMenu
-**  Advanced settings submenu (nested under System Config)
-**********************************************************************/
+/*
+ *  Function: advancedMenu
+ *  Advanced settings submenu (nested under System Config)
+ */
 void ConfigMenu::advancedMenu() {
     while (true) {
         std::vector<Option> localOptions = {
@@ -245,10 +245,10 @@ void ConfigMenu::advancedMenu() {
         // Menu rebuilds after each action
     }
 }
-/*********************************************************************
-**  Function: powerMenu
-**  Power management submenu with auto-rebuild
-**********************************************************************/
+/*
+ *  Function: powerMenu
+ *  Power management submenu with auto-rebuild
+ */
 void ConfigMenu::powerMenu() {
     while (true) {
         std::vector<Option> localOptions = {
@@ -274,10 +274,10 @@ void ConfigMenu::powerMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: devMenu
-**  Developer mode menu for advanced hardware configuration
-**********************************************************************/
+/*
+ *  Function: devMenu
+ *  Developer mode menu for advanced hardware configuration
+ */
 void ConfigMenu::devMenu() {
     while (true) {
         std::vector<Option> localOptions = {
@@ -301,10 +301,10 @@ void ConfigMenu::devMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: pinsMenu
-**  Developer mode menu for advanced hardware configuration
-**********************************************************************/
+/*
+ *  Function: pinsMenu
+ *  Developer mode menu for advanced hardware configuration
+ */
 void ConfigMenu::pinsMenu() {
     while (true) {
         std::vector<Option> localOptions = {
@@ -342,19 +342,19 @@ void ConfigMenu::pinsMenu() {
     }
 }
 
-/*********************************************************************
-**  Function: switchToUSBSerial
-**  Switch serial output to USB Serial
-**********************************************************************/
+/*
+ *  Function: switchToUSBSerial
+ *  Switch serial output to USB Serial
+ */
 void ConfigMenu::switchToUSBSerial() {
     USBserial.setSerialOutput(&Serial);
     Serial1.end();
 }
 
-/*********************************************************************
-**  Function: switchToUARTSerial
-**  Switch serial output to UART (handles pin conflicts)
-**********************************************************************/
+/*
+ *  Function: switchToUARTSerial
+ *  Switch serial output to UART (handles pin conflicts)
+ */
 void ConfigMenu::switchToUARTSerial() {
     // Check and resolve SD card pin conflicts
     if (bruceConfigPins.SDCARD_bus.checkConflict(bruceConfigPins.uart_bus.rx) ||
@@ -376,10 +376,10 @@ void ConfigMenu::switchToUARTSerial() {
     Serial1.begin(115200, SERIAL_8N1, bruceConfigPins.uart_bus.rx, bruceConfigPins.uart_bus.tx);
     USBserial.setSerialOutput(&Serial1);
 }
-/*********************************************************************
-**  Function: drawIcon
-**  Draw config gear icon
-**********************************************************************/
+/*
+ *  Function: drawIcon
+ *  Draw config gear icon
+ */
 void ConfigMenu::drawIcon(float scale) {
     clearIconArea();
     int radius = scale * 9;

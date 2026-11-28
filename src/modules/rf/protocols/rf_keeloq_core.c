@@ -36,7 +36,13 @@ uint64_t keeloq_normal_learning(uint32_t data, const uint64_t key) {
     return ((uint64_t)k2 << 32) | k1;
 }
 
-// --- Manufacturer-specific learning schemes (ported from keeloq_common) ------
+/*
+ * Manufacturer-specific learning schemes. Each vendor derives its 64-bit
+ * manufacturer key from the transmitted FIX/serial in a different way, so
+ * these mirror the reference implementations ported from Flipper Zero's
+ * keeloq_common: secure learning, the magic-XOR and magic-serial families,
+ * plus AERF, Erreka and Pujol. keeloq_derive_man() dispatches on the type.
+ */
 
 uint64_t keeloq_secure_learning(uint32_t data, uint32_t seed, const uint64_t key) {
     data &= 0x0FFFFFFF;

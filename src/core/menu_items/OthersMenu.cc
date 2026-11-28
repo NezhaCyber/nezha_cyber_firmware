@@ -13,6 +13,7 @@
 #include "modules/others/shell_terminal.h"
 #include "modules/others/u2f.h"
 #include "modules/others/wireless_sentinel.h"
+#include "modules/others/wordlist_gen.h"
 // Removed: #include "modules/others/timer.h"
 
 void OthersMenu::optionsMenu() {
@@ -33,6 +34,7 @@ void OthersMenu::optionsMenu() {
 #endif
 
 #if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
+        {"Wordlist Generator", wordlist_gen_run        },
         {"Flipper Tools",  flipper_tools_menu         },
 #endif
 #ifndef LITE_VERSION

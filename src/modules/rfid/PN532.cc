@@ -728,7 +728,13 @@ int PN532::emulate() {
             continue;
         }
 
-        // --- ISO-DEP / NFC Forum Type 4 Tag (NDEF over APDU) ---
+        /*
+         * ISO-DEP / NFC Forum Type 4 Tag emulation: the initiator drives us with
+         * C-APDUs. SELECT by DF-name (D2760000850101) or by ID (E103 CC / E104
+         * NDEF) picks the active file, READ BINARY serves it in chunks of at
+         * most kMaxResponseData followed by an SW1SW2 status; UPDATE BINARY is
+         * refused because the emulated NDEF content is read-only.
+         */
         if (request_len < 5) {
             delay(10);
             continue;

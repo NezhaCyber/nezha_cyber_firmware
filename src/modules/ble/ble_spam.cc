@@ -91,11 +91,11 @@ static const uint8_t continuity_na_actions[] = {
 static const int continuity_na_actions_count =
     sizeof(continuity_na_actions) / sizeof(continuity_na_actions[0]);
 
-// ============================================================================
-// Google Fast Pair — 3-byte model codes
-// Expanded list (Doominator1 original + MarlinSchuck additions, deduped)
-// Each triggers "New device nearby" Fast Pair popup on Android
-// ============================================================================
+/*
+ * Google Fast Pair 3-byte model codes (android_models[]).
+ * Expanded list (Doominator1 original + MarlinSchuck additions, deduped); each
+ * model triggers the "New device nearby" Fast Pair popup on Android.
+ */
 const DeviceType android_models[] = {
     {0x0001F0}, {0x000047}, {0x470000}, {0x00000A}, {0x0A0000}, {0x00000B}, {0x0B0000}, {0x00000D},
     {0x000007}, {0x070000}, {0x000009}, {0x090000}, {0x000048}, {0x001000}, {0x00B727}, {0x01E5CE},
@@ -111,9 +111,11 @@ const DeviceType android_models[] = {
 };
 int android_models_count = sizeof(android_models) / sizeof(android_models[0]);
 
-// ============================================================================
-// Samsung EasySetup — Galaxy Watch + Galaxy Buds models
-// ============================================================================
+/*
+ * Samsung EasySetup model tables for Galaxy Watch (single-byte selector, ported
+ * from the Flipper Zero ble_spam app) and Galaxy Buds; each triggers the
+ * "Galaxy device detected" pairing popup on Samsung Android devices.
+ */
 
 // Galaxy Watch — single byte model selector, ported from the current Flipper
 // Zero ble_spam app's samsung_watches table.
@@ -249,9 +251,12 @@ BLEAdvertisementData GetUniversalAdvertisementData(EBLEPayloadType Type, const S
     return AdvData;
 }
 
-// ============================================================================
-// iBeacon - FIXED: Proper button handling + stack init/deinit
-// ============================================================================
+/*
+ * iBeacon advertisement spoofer. Clears pending button presses and resets all
+ * key state before starting, generates a random MAC, advertises the beacon
+ * UUID/manufacturer data, and deinitializes the BLE stack on exit so the module
+ * is self-contained (init/deinit around every run).
+ */
 
 void ibeacon(const char *DeviceName, const char *BEACON_UUID, int ManufacturerId) {
     // CRITICAL: Clear any pending button presses before starting
@@ -362,9 +367,13 @@ void ibeacon(const char *DeviceName, const char *BEACON_UUID, int ManufacturerId
     Serial.println("[iBeacon] BLE stack deinitialized");
 }
 
-// ============================================================================
-// BLE Spam Attack Types and Configuration
-// ============================================================================
+/*
+ * BLE spam attack-type enumeration and run configuration. BleSpamAttackType
+ * selects the payload family (Apple pairing/action/not-your-device, Android
+ * alert, Windows Swift Pair, Samsung, raw beacon, or random-all);
+ * BLE_SPAM_MAX_CUSTOM_NAMES caps the persisted custom-name lists loaded via
+ * Preferences.
+ */
 
 enum BleSpamAttackType {
     BLE_SPAM_ATTACK_APPLE_PAIRING,
@@ -703,9 +712,12 @@ static uint32_t bleSpamAdjustMs(uint32_t ms, int direction) {
     return static_cast<uint32_t>(next);
 }
 
-// ============================================================================
-// Unified Industrial Hardware UI Helpers for BLE Spam
-// ============================================================================
+/*
+ * BLE spam UI helpers. BleSpamTouchZoneGuard is an RAII guard that disables the
+ * footer touch zone for the duration of the spam screen and restores it on
+ * exit; the inline layout helpers compute header geometry that adapts to
+ * compact (240x135) vs. flagship (320x240) displays.
+ */
 
 struct BleSpamTouchZoneGuard {
     bool prev;
@@ -1299,11 +1311,12 @@ static bool bleSpamGetNextMac(BleSpamRunState &state, BleSpamMacRandMode mode, u
     return false;
 }
 
-// ============================================================================
-// Apple Continuity dynamic packet builders (MarlinSchuck)
-// Dynamic random fields matching Flipper Zero reference — triggers iOS popups
-// where static payloads failed. Only used by the new BLE spam UI Apple paths.
-// ============================================================================
+/*
+ * Apple Continuity dynamic packet builders (MarlinSchuck).
+ * Dynamic random fields matching the Flipper Zero reference trigger iOS popups
+ * where static payloads failed; these builders are only used by the new BLE
+ * spam UI Apple paths.
+ */
 
 static size_t bleSpamBuildContinuityNearbyAction(uint8_t *buf) {
     uint8_t action = continuity_na_actions[esp_random() % continuity_na_actions_count];
@@ -1475,9 +1488,13 @@ bleSpamSelectAdvertisement(BleSpamRunState &state, BleSpamAttackType attackType,
     return &state.working_advertisement;
 }
 
-// ============================================================================
-// BLE Spam Advertiser Functions - FIXED: Always init/deinit
-// ============================================================================
+/*
+ * BLE spam advertiser lifecycle functions. Always initialize and deinitialize
+ * the BLE stack around a run; init gates on radioHasMemForBle() because the
+ * controller allocates a large contiguous DMA block that can fail
+ * half-initialized after Wi-Fi/SD heap churn, crashing the first advertisement
+ * call.
+ */
 
 static bool bleSpamInitAdvertiser(
     BleSpamRunState &state, const BleSpamConfig &config, const uint8_t *mac, bool resetStats

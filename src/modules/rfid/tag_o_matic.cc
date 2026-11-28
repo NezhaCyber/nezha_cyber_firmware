@@ -735,7 +735,14 @@ void TagOMatic::save_scan_result() {
     return;
 }
 
-// ========== MOD FOR JS INTERPRETER ========== Senape3000
+/*
+ * Headless (no UI, no event loop) entry points exposed to the JS interpreter:
+ * the headless constructor brings up the RFID module without launching the GUI
+ * loop, and the *_headless methods read/write tags and save/load dumps so
+ * scripts get the same behavior as the menu-driven flow.
+ *
+ * Original author: Senape3000.
+ */
 #if !defined(LITE_VERSION) && !defined(DISABLE_INTERPRETER)
 TagOMatic::TagOMatic(bool headless_mode) {
     // Constructor for headless mode (without UI)

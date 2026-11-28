@@ -29,9 +29,12 @@ public:
         SAVE_MODE
     };
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Constructors and destructor: the default starts the generic RFID
+     * front-end in READ_MODE; the state overload launches directly into a
+     * chosen mode. The destructor frees the owned RFIDInterface driver, which
+     * releases its I2C/SPI bus lease in the process.
+     */
     TagOMatic();
     TagOMatic(RFID_State initial_state);
     ~TagOMatic();
@@ -39,9 +42,12 @@ public:
 #if !defined(LITE_VERSION) && !defined(DISABLE_INTERPRETER)
     TagOMatic(bool headless_mode);
 #endif
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Life Cycle and Setup
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Lifecycle and driver selection: set_rfid_module() instantiates the
+     * RFIDInterface driver for bruceConfigPins.rfidModule (PN532, RFID2/RC522,
+     * or ST25R3916 over I2C/SPI); setup() brings it up and enters loop(),
+     * which dispatches the active RFID_State until EscPress returns to menu.
+     */
     void setup();
     void loop();
     void set_rfid_module();
@@ -68,9 +74,11 @@ private:
     String _sourceUID;
     String _sourcePages;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Display functions
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * TFT rendering helpers: display_banner() paints the module title, the
+     * dump_* helpers render the read UID/pages, NDEF record, or accumulated
+     * scan list, and show_not_implemented_card() reports unsupported modes.
+     */
     void display_banner();
     void dump_card_details();
     void dump_check_details();
@@ -78,17 +86,24 @@ private:
     void dump_scan_results();
     void show_not_implemented_card();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // State management
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * State machine and flow control: select_state() builds the mode menu,
+     * set_state() records the new RFID_State, delayWithReturn() yields to the
+     * scheduler while honoring an early exit, and ndefEmulationSupported()
+     * gates NDEF emulation on the active driver's capabilities.
+     */
     void select_state();
     void set_state(RFID_State state);
     void delayWithReturn(uint32_t ms);
     bool ndefEmulationSupported();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Tag operations dispatched by the state machine: read/scan/check a tag,
+     * write a custom UID, clone, emulate (plain or NDEF), erase, write data or
+     * NDEF, and save/load dumps. Each delegates to the underlying
+     * RFIDInterface driver so behavior is identical across PN532, RFID2, and
+     * ST25R3916.
+     */
     void read_card();
     void scan_cards();
     void check_card();
@@ -103,9 +118,12 @@ private:
     void save_scan_result();
     void load_file();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // NDEF
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * NDEF record construction: the create_* helpers prompt for a value and
+     * build a text, URL, Wi-Fi Simple Config, or custom-link record, while the
+     * build_* helpers encode the matching NDEF payload bytes shared by the
+     * write and emulate paths.
+     */
     void create_ndef_message();
     void create_ndef_url();
     void create_ndef_text();

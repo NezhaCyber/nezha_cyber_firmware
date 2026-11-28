@@ -53,9 +53,11 @@ static bool g_bleScanActive = false;
 // Device selection cache
 static SelectedDevice g_selectedDevice;
 
-//=============================================================================
-// Cleanup Function - Only stops scan, doesn't clear data
-//=============================================================================
+/*
+ * Scan-state cleanup. Stops the active NimBLE scan and clears its result buffer
+ * but deliberately leaves scannerData and g_selectedDevice intact so discovered
+ * devices and the current selection persist between UI operations.
+ */
 
 void cleanupBLESuiteState() {
     if (g_pBLEScan) {
@@ -68,9 +70,12 @@ void cleanupBLESuiteState() {
     delay(50);
 }
 
-//=============================================================================
-// v3.1: Samsung MAC OUI Detection
-//=============================================================================
+/*
+ * Samsung device detection and FastPair version heuristics. SAMSUNG_MAC_OUIS is
+ * a sorted OUI table matched by 8-char prefix via binary search
+ * (isSamsungMacCstr); isSamsungDevice wraps it for NimBLEAddress/String, and
+ * detectFastPairVersion currently defaults to FP_VERSION_2.
+ */
 
 const char *SAMSUNG_MAC_OUIS[] = {"00:1E:DF", "00:23:E7", "00:24:FE", "00:26:5C", "00:27:14", "00:2A:10",
                                   "00:2D:0A", "00:30:FA", "00:35:FE", "00:3C:E4", "00:40:96", "00:44:01",
@@ -115,9 +120,12 @@ bool isSamsungDevice(const String &mac) { return isSamsungMacCstr(mac.c_str()); 
 
 FastPairVersion detectFastPairVersion(NimBLEAddress target) { return FP_VERSION_2; }
 
-//=============================================================================
-// ScannerData Implementation with Snapshot Support
-//=============================================================================
+/*
+ * ScannerData implementation. addDevice deduplicates by address, keeps the best
+ * RSSI, and at the MAX_SCANNER_DEVICES (64) cap evicts the weakest non-priority
+ * entry (preferring to retain FastPair/HFP devices). getSnapshot returns a
+ * version-stamped copy cached for 1 s; all vector access is mutex-guarded.
+ */
 
 static constexpr size_t MAX_SCANNER_DEVICES = 64;
 
@@ -289,9 +297,11 @@ size_t ScannerData::size() {
     return result;
 }
 
-//=============================================================================
-// AutoCleanup Implementation
-//=============================================================================
+/*
+ * AutoCleanup implementation. Stores a std::function and runs it from the
+ * destructor when enabled; disable()/enable() toggle whether the teardown fires
+ * on scope exit.
+ */
 
 AutoCleanup::AutoCleanup(std::function<void()> func, bool enable) : cleanupFunc(func), enabled(enable) {}
 
@@ -302,18 +312,21 @@ AutoCleanup::~AutoCleanup() {
 void AutoCleanup::disable() { enabled = false; }
 void AutoCleanup::enable() { enabled = true; }
 
-//=============================================================================
-// isBLEInitialized Implementation
-//=============================================================================
+/*
+ * Reports whether the NimBLE stack is live: true when BLEStateManager is active
+ * or NimBLEDevice exposes a non-null advertising, scan, or server handle.
+ */
 
 bool isBLEInitialized() {
     return BLEStateManager::isBLEActive() || NimBLEDevice::getAdvertising() != nullptr ||
            NimBLEDevice::getScan() != nullptr || NimBLEDevice::getServer() != nullptr;
 }
 
-//=============================================================================
-// v3.1: Expanded FastPair Model Database
-//=============================================================================
+/*
+ * FastPair model database (fastpair_models[]). Maps 3-byte model IDs to a
+ * display name and device category (Headphones/Watch/Speaker/Fun/Prank), used
+ * to render meaningful pairing-popup targets; the table is null-terminated.
+ */
 
 const FastPairModelInfo fastpair_models[] = {
     {0x000047, "Pixel Buds Pro",         "Headphones"},
@@ -363,9 +376,13 @@ const FastPairModelInfo fastpair_models[] = {
     {0,        nullptr,                  nullptr     }
 };
 
-//=============================================================================
-// BLE State Manager - FIXED: Always init, handle deinit'd stack
-//=============================================================================
+/*
+ * BLEStateManager implementation. initBLE tears down Wi-Fi on no-PSRAM boards
+ * before bringing NimBLE up (gated by radioHasMemForBle/radioSafeBleInit) and
+ * sets TX power; deinitBLE cleans up clients and deinits the stack. Client
+ * tracking is idempotent on register and de-duplicated on cleanup to avoid a
+ * double-free.
+ */
 
 bool BLEStateManager::initBLE(const String &name, int powerLevel) {
     if (FORCE_RADIO_TEARDOWN_ON_SWITCH) {
@@ -442,9 +459,13 @@ bool BLEStateManager::isBLEActive() { return bleInitialized; }
 String BLEStateManager::getCurrentDeviceName() { return currentDeviceName; }
 size_t BLEStateManager::getActiveClientCount() { return activeClients.size(); }
 
-//=============================================================================
-// BLE Attack Manager
-//=============================================================================
+/*
+ * BLEAttackManager implementation. prepareForConnection re-inits the stack as
+ * "Nezha-Attack" with MTU 250 and bonding/auth enabled; connectToDevice creates
+ * a registered client with handshake-dependent timeouts/connection params and
+ * unregisters it on failure; profileDevice discovers services/characteristics
+ * and classifies FastPair/AVRCP/HID/Battery/DeviceInfo capabilities.
+ */
 
 void BLEAttackManager::prepareForConnection() {
     if (BLEStateManager::isBLEActive()) {
@@ -547,9 +568,12 @@ DeviceProfile BLEAttackManager::profileDevice(NimBLEAddress target) {
     return profile;
 }
 
-//=============================================================================
-// Connection Strategy Engine
-//=============================================================================
+/*
+ * Cascading connection attempts. Tries normal → aggressive (higher power,
+ * tighter connection params) → exploit-based (re-inits as "Nezha-Exploit" with
+ * security disabled, 3 retries) → HFP exploit for HFP-capable targets,
+ * returning the connected client and the successful method via connectionMethod.
+ */
 
 NimBLEClient *attemptConnectionWithStrategies(NimBLEAddress target, String &connectionMethod) {
     NimBLEClient *pClient = nullptr;
@@ -639,9 +663,11 @@ NimBLEClient *attemptConnectionWithStrategies(NimBLEAddress target, String &conn
     return nullptr;
 }
 
-//=============================================================================
-// HID Exploit Engine
-//=============================================================================
+/*
+ * HIDExploitEngine implementation. Profiles a target's HID capabilities (OS
+ * type, boot/report protocol, auth requirement, existing bond, VID/PID) and runs
+ * platform-specific pairing bypasses and injection attempts against it.
+ */
 
 HIDDeviceProfile HIDExploitEngine::analyzeHIDDevice(NimBLEAddress target, const String &name, int rssi) {
     HIDDeviceProfile profile;
@@ -1212,9 +1238,13 @@ bool HIDExploitEngine::testHIDVulnerability(NimBLEAddress target) {
     return hasHID && hasWriteAccess;
 }
 
-//=============================================================================
-// WhisperPair Exploit (FastPair Crypto Attacks)
-//=============================================================================
+/*
+ * WhisperPairExploit implementation: silent FastPair crypto attacks.
+ * findKBPCharacteristic locates the Key-Based Pairing write characteristic by
+ * known UUIDs, falling back to the first writable characteristic; executeSilent
+ * and executeAdvanced then send malformed KBP frames to probe for state/crypto
+ * flaws without triggering a visible popup.
+ */
 
 WhisperPairExploit::WhisperPairExploit() : bleManager() {}
 
@@ -1564,9 +1594,12 @@ bool WhisperPairExploit::executeAdvanced(NimBLEAddress target, int attackType) {
     return success && crashed;
 }
 
-//=============================================================================
-// Audio Attack Service
-//=============================================================================
+/*
+ * AudioAttackService implementation. findAndAttackAudioServices iterates a
+ * connected client's services and dispatches by UUID to attackAVRCP
+ * (0x110e/0x110f), attackAudioMedia (0x1843/0xb4b4/0x1844), or attackTelephony
+ * (0x1124/0x1125), returning whether any attack succeeded.
+ */
 
 bool AudioAttackService::findAndAttackAudioServices(NimBLEClient *pClient) {
     if (!pClient || !pClient->isConnected()) return false;
@@ -1778,9 +1811,12 @@ bool AudioAttackService::crashAudioStack(NimBLEAddress target) {
     return (sent1 || sent2 || sent3);
 }
 
-//=============================================================================
-// Ducky Script Engine
-//=============================================================================
+/*
+ * DuckyScriptEngine implementation. charToKeycode maps each ASCII character to a
+ * {modifier, keycode} pair; the engine parses script lines into DuckyCommand
+ * entries, loads payloads from SD or a string, and exposes the command buffer
+ * for execution by HIDDuckyService.
+ */
 
 DuckyScriptEngine::DuckyScriptEngine() : scriptLoaded(false) {}
 
@@ -1955,9 +1991,12 @@ void DuckyScriptEngine::clear() {
 }
 size_t DuckyScriptEngine::getCommandCount() { return commands.size(); }
 
-//=============================================================================
-// HID Ducky Service
-//=============================================================================
+/*
+ * HIDDuckyService implementation. Sends keystrokes over a forced HID connection:
+ * sendHIDReport writes an 8-byte report followed by a null report (key release),
+ * and higher-level helpers send strings, special keys, combos, and GUI chords,
+ * honoring defaultDelay between strokes.
+ */
 
 HIDDuckyService::HIDDuckyService() : defaultDelay(100) {}
 
@@ -2315,9 +2354,12 @@ bool HIDDuckyService::forceInjectDuckyScript(
 void HIDDuckyService::setDefaultDelay(int delay_ms) { defaultDelay = delay_ms; }
 size_t HIDDuckyService::getScriptSize() { return duckyEngine.getCommandCount(); }
 
-//=============================================================================
-// Auth Bypass Engine
-//=============================================================================
+/*
+ * AuthBypassEngine implementation. Seeded with placeholder known devices
+ * (Windows/Android/MacBook with all-zero link keys); stores a paired device's
+ * name, address, and 16-byte link key, then derives spoof addresses and
+ * attempts trusted-peer connection / forced re-pairing against a target.
+ */
 
 AuthBypassEngine::AuthBypassEngine() {
     uint8_t defaultKey[16] = {0};
@@ -2469,9 +2511,12 @@ bool AuthBypassEngine::exploitAuthBypass(NimBLEAddress target) {
     return false;
 }
 
-//=============================================================================
-// Multi Connection Attack
-//=============================================================================
+/*
+ * MultiConnectionAttack implementation. connectionFloodSingle re-inits the stack
+ * as "Nezha-Flooder" and hammers a target with connections; the class also runs
+ * advertising spam, MITM, and nRF24 jamming, tracking active clients so the
+ * destructor's cleanup() tears them all down.
+ */
 
 MultiConnectionAttack::MultiConnectionAttack() {}
 MultiConnectionAttack::~MultiConnectionAttack() { cleanup(); }
@@ -2669,9 +2714,12 @@ void MultiConnectionAttack::cleanup() {
     BLEStateManager::deinitBLE(true);
 }
 
-//=============================================================================
-// Vulnerability Scanner
-//=============================================================================
+/*
+ * VulnerabilityScanner implementation. scanDevice runs WhisperPair's silent
+ * FastPair probe plus a strategy connection attempt, collects pass/fail results
+ * from registered checks into a report, and relies on an AutoCleanup guard to
+ * deinitialize BLE on every exit path.
+ */
 
 VulnerabilityScanner::VulnerabilityScanner() { vulnerabilityChecks.clear(); }
 
@@ -2741,9 +2789,12 @@ std::vector<String> VulnerabilityScanner::getVulnerabilities() {
     return vulns;
 }
 
-//=============================================================================
-// HID Attack Service
-//=============================================================================
+/*
+ * HIDAttackServiceClass implementation. injectKeystrokes confirms with the user,
+ * resolves the target's name/HFP capability from scannerData, then forces a HID
+ * connection and injects keystrokes; BLE is deinitialized via AutoCleanup on
+ * exit.
+ */
 
 bool HIDAttackServiceClass::injectKeystrokes(NimBLEAddress target) {
     AutoCleanup cleanup([]() { BLEStateManager::deinitBLE(true); });
@@ -2909,9 +2960,11 @@ bool HIDAttackServiceClass::forceHIDKeystrokes(NimBLEAddress target, const Strin
     return anySent;
 }
 
-//=============================================================================
-// Pairing Attack Service
-//=============================================================================
+/*
+ * PairingAttackServiceClass implementation. bruteForcePIN iterates a list of
+ * common PINs (0000, 1234, 1111, …) against a target after user confirmation,
+ * with BLE torn down via AutoCleanup on exit.
+ */
 
 bool PairingAttackServiceClass::bruteForcePIN(NimBLEAddress target) {
     AutoCleanup cleanup([]() { BLEStateManager::deinitBLE(true); });
@@ -2981,9 +3034,12 @@ bool PairingAttackServiceClass::bruteForcePIN(NimBLEAddress target) {
     return success;
 }
 
-//=============================================================================
-// DoS Attack Service
-//=============================================================================
+/*
+ * DoSAttackServiceClass implementation. connectionFlood runs up to 20 attempts,
+ * re-initializing the stack as "Nezha-Flooder" between each to maximize
+ * connection pressure on a target; the service also exposes advertising-spam
+ * denial-of-service, with BLE cleanup via AutoCleanup.
+ */
 
 bool DoSAttackServiceClass::connectionFlood(NimBLEAddress target) {
     AutoCleanup cleanup([]() { BLEStateManager::deinitBLE(true); });
@@ -3068,19 +3124,22 @@ bool DoSAttackServiceClass::advertisingSpam(NimBLEAddress target) {
     return true;
 }
 
-//=============================================================================
-// File Operations
-//=============================================================================
+/*
+ * BLE-suite file helpers: selectFileFromSD picks a DuckyScript payload from the
+ * SD card, loadScriptFromSD reads it into the global script buffer, and
+ * getScriptFromUser prompts for a manual script — feeding the payload attack
+ * path.
+ */
 
-//=============================================================================
-// Shared UI helpers
-//
-// Every screen here used to hardcode its own frame, palette and pixel grid.
-// The grid assumed a tall panel: on a 135px Cardputer the menus fit two rows
-// and the device list exactly one, which is why a long list lost all sense of
-// place. These helpers derive the layout from the display and take every
-// colour from the active theme, so the suite matches the rest of Bruce.
-//=============================================================================
+/*
+ * Shared UI helpers.
+ *
+ * Every screen here used to hardcode its own frame, palette and pixel grid.
+ * The grid assumed a tall panel: on a 135px Cardputer the menus fit two rows
+ * and the device list exactly one, which is why a long list lost all sense of
+ * place. These helpers derive the layout from the display and take every
+ * colour from the active theme, so the suite matches the rest of Bruce.
+ */
 
 struct BleUiGeom {
     int listL, listW; // list rectangle
@@ -3383,9 +3442,12 @@ String getScriptFromUser() {
     return "";
 }
 
-//=============================================================================
-// FastPair Exploit Engine
-//=============================================================================
+/*
+ * FastPairExploitEngine implementation. smartExploit routes Samsung targets to
+ * exploitSamsungFastPair and all others to exploitGoogleFastPair; both drive
+ * exploitFastPairConnection with FP_EXPLOIT_ALL against the target's Key-Based
+ * Pairing characteristic.
+ */
 
 bool FastPairExploitEngine::smartExploit(NimBLEAddress target) {
     if (isSamsungDevice(target)) {
@@ -3577,9 +3639,12 @@ bool FastPairExploitEngine::testVulnerability(NimBLEAddress target) {
     return vulnerable;
 }
 
-//=============================================================================
-// FastPair Helpers
-//=============================================================================
+/*
+ * FastPair helper functions. findKBPCharacteristic locates the Key-Based Pairing
+ * write characteristic by known UUIDs (including the full 128-bit
+ * 0000fe2c-... form), falling back to the first writable characteristic in the
+ * service.
+ */
 
 NimBLERemoteCharacteristic *FastPairExploitEngine::findKBPCharacteristic(NimBLERemoteService *service) {
     if (!service) return nullptr;
@@ -3926,9 +3991,12 @@ void FastPairExploitEngine::generateRandomMac(uint8_t *mac) {
     mac[0] = (mac[0] & 0xFE) | 0x02;
 }
 
-//=============================================================================
-// v3.1: BLE Sniffer - FIXED: Always init
-//=============================================================================
+/*
+ * BLE sniffer. SnifferPacket records one captured advertisement (address, name,
+ * RSSI, raw payload plus hex, timestamp, channel); snifferPackets buffers them,
+ * snifferRunning gates capture, and payloadToHex renders the raw bytes for
+ * display.
+ */
 
 struct SnifferPacket {
     String address;
@@ -4263,9 +4331,12 @@ void BLE_Sniffer() {
     }
 }
 
-//=============================================================================
-// Target Selection Functions
-//=============================================================================
+/*
+ * Target selection. selectTargetFromScan runs the device-picker, warns on low
+ * heap (<10 KB free) but continues, deliberately preserves scannerData across
+ * operations, and records whether BLE was active beforehand so it can be
+ * restored on exit.
+ */
 
 String selectTargetFromScan(const char *title) {
     // Simple memory check - if heap is low, warn but continue
@@ -4319,7 +4390,12 @@ String selectTargetFromScan(const char *title) {
         passiveScanTime = 3;
     }
 
-    // === ACTIVE SCAN ===
+    /*
+     * Phase 1: NimBLE active scan. SCAN_WINDOW (99 ms) is just under SCAN_INT
+     * (100 ms), so the radio listens for nearly the whole interval; active
+     * scanning adds the SCAN_REQ/SCAN_RSP round trip, which is what surfaces
+     * names and the service UUIDs classified below (Fast Pair, HFP, class).
+     */
     g_pBLEScan->setActiveScan(true);
     tft.setTextColor(bleDim(), bruceConfig.bgColor);
     tft.drawString("Active scan (" + String(activeScanTime) + "s)...", sg.listL, sg.top + sg.rowH, 1);
@@ -4356,7 +4432,12 @@ String selectTargetFromScan(const char *title) {
             scannerData.addDevice(name, address, rssi, fastPair, hasHFP, deviceType);
         }
 
-        // === PASSIVE SCAN ===
+        /*
+         * Phase 2: NimBLE passive scan - no SCAN_REQ is ever transmitted, so
+         * this only collects advertisement PDUs. Devices that answer no scan
+         * request (silent beacons, some tags) show up only here, at a lower
+         * airtime and power cost than phase 1, bounded by PASSIVE_SCAN_TIME.
+         */
         g_pBLEScan->setActiveScan(false);
         tft.setTextColor(bleDim(), bruceConfig.bgColor);
         tft.drawString(
@@ -4598,9 +4679,11 @@ String selectMultipleTargetsFromScan(const char *title, std::vector<NimBLEAddres
     return String(targets.size()) + " targets selected";
 }
 
-//=============================================================================
-// parseAddress - Fixed MAC extraction
-//=============================================================================
+/*
+ * MAC address parser. Trims and uppercases the input, strips a trailing ":0"
+ * suffix, then scans for the first valid 17-character colon-hex MAC and returns
+ * it as a NimBLEAddress — robust to extra surrounding text.
+ */
 
 NimBLEAddress parseAddress(const String &addressInfo) {
     String cleanAddr = addressInfo;
@@ -4671,9 +4754,12 @@ NimBLEAddress parseAddress(const String &addressInfo) {
     return NimBLEAddress(std::string(""), BLE_ADDR_PUBLIC);
 }
 
-//=============================================================================
-// Attack Functions
-//=============================================================================
+/*
+ * Standalone attack / test entry points (address-only, no SelectedDevice).
+ * Includes runHFPVulnerabilityTest (probes CVE-2025-36911), write-access and
+ * protocol-fuzz tests, and jamming tests — each guarded by AutoCleanup BLE
+ * teardown.
+ */
 
 void runHFPVulnerabilityTest(NimBLEAddress target) {
     AutoCleanup cleanup([]() { BLEStateManager::deinitBLE(true); });
@@ -4899,9 +4985,11 @@ void runAdvertisingSpam(NimBLEAddress target) {
     dos.advertisingSpam(target);
 }
 
-//=============================================================================
-// Menu System
-//=============================================================================
+/*
+ * BLE-suite menu scaffolding. welcomeShown tracks whether the suite has been
+ * entered; showWelcomeScreen sets it immediately — the old blocking 2 s splash
+ * carrying a hardcoded version number was removed so the menu opens instantly.
+ */
 
 static bool welcomeShown = false;
 
@@ -4912,9 +5000,12 @@ void showWelcomeScreen() {
     welcomeShown = true;
 }
 
-//=============================================================================
-// BleSuiteMenu - FIXED: Init ONCE at entry
-//=============================================================================
+/*
+ * BLE suite top-level menu. Initializes the BLE stack once on entry as
+ * "Nezha-BLESuite", clears scannerData and the cached selection, then renders
+ * the main menu (scan, profile, FastPair/HFP/Audio/HID/memory/DoS/payload/test/
+ * universal attacks, sniffer).
+ */
 
 void BleSuiteMenu() {
     // FIX: Init BLE stack ONCE when entering the suite
@@ -4970,9 +5061,11 @@ void BleSuiteMenu() {
     }
 }
 
-//=============================================================================
-// Attack Execution with Target Selection
-//=============================================================================
+/*
+ * Attack-execution glue. getScanTitle maps a menu attack index to the
+ * appropriate target-selection prompt (e.g. "SELECT FASTPAIR DEVICE"), used when
+ * an attack needs the user to pick a target from the scan list.
+ */
 
 const char *getScanTitle(int attackIndex) {
     switch (attackIndex) {
@@ -5032,9 +5125,11 @@ void executeAttackWithTargetScan(int attackIndex) {
     delay(100);
 }
 
-//=============================================================================
-// Submenu Display
-//=============================================================================
+/*
+ * Submenu renderer. showSubMenu builds a generic option list via bleListLoop,
+ * carrying the currently selected target's name/address into the hint line so
+ * each submenu shows which device the attack is aimed at.
+ */
 
 int showSubMenu(const char *title, const char *options[], int optionCount) {
     // Carry the chosen target into the hint line so the submenus stop hiding
@@ -5046,9 +5141,12 @@ int showSubMenu(const char *title, const char *options[], int optionCount) {
     return bleListLoop(title, optionCount, hint, bleTextRow(options));
 }
 
-//=============================================================================
-// Attack Submenus
-//=============================================================================
+/*
+ * Per-category attack submenus. showFastPairSubMenu and the sibling HFP/Audio/
+ * HID/Memory/DoS/Payload/Testing submenus list the specific actions for a
+ * category (Quick Vulnerability Test, Memory Corruption, State Confusion,
+ * Crypto Overflow, …) and dispatch to the matching runner.
+ */
 
 void showFastPairSubMenu(NimBLEAddress target, SelectedDevice deviceInfo) {
     const char *options[] = {
@@ -5346,9 +5444,11 @@ void showTestingSubMenu(NimBLEAddress target, SelectedDevice deviceInfo) {
     }
 }
 
-//=============================================================================
-// Attack Functions - Updated to use SelectedDevice
-//=============================================================================
+/*
+ * SelectedDevice-aware attack runners. These take a SelectedDevice (name, RSSI,
+ * capability flags) alongside the target address; runUniversalAttack chains the
+ * HFP + HID + FastPair phases, skipping phases the target doesn't advertise.
+ */
 
 void runUniversalAttack(NimBLEAddress target, SelectedDevice deviceInfo) {
     AutoCleanup cleanup([]() { BLEStateManager::deinitBLE(true); });
@@ -5814,9 +5914,11 @@ void runHFPHIDPivotAttack(NimBLEAddress target) {
     }
 }
 
-//=============================================================================
-// UI Helpers
-//=============================================================================
+/*
+ * BLE-suite UI rendering helpers. bleWrapText wraps text inside the list area by
+ * measuring actual glyph widths (tft.textWidth) rather than assuming a fixed
+ * 6 px cell, returning the y just past the last line drawn.
+ */
 
 // Wraps `text` inside the list area, measuring glyphs rather than assuming a
 // 6px cell. Returns the y just past the last line drawn.

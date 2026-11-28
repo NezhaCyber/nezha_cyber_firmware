@@ -2,6 +2,7 @@
 #include "wireless_sentinel.h"
 
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/location_state.h"
 #include "core/mykeyboard.h"
 #include "core/radio_mem.h"
@@ -144,9 +145,12 @@ static void pushEvent(SentinelState *st, File &logFile, ThreatSev sev, const cha
     }
 }
 
-/*********************************************************************
-**  Engine 1: Wi-Fi Promiscuous Mgmt Watcher (zero-alloc RX callback)
-**********************************************************************/
+/*
+ * Engine 1: Wi-Fi promiscuous management-frame watcher.
+ * sentinelWifiRxCb is the zero-alloc RX callback: it inspects each mgmt
+ * frame for deauth/assoc patterns and evil-twin beacons without copying the
+ * payload, updating the shared SentinelState counters.
+ */
 static void sentinelWifiRxCb(void *buf, wifi_promiscuous_pkt_type_t type) {
     SentinelState *st = s_sentinel;
     if (!st || !buf || type != WIFI_PKT_MGMT) return;
@@ -288,9 +292,11 @@ static void sentinelEvaluateWifi(SentinelState *st, File &logFile) {
     portEXIT_CRITICAL(&st->mux);
 }
 
-/*********************************************************************
-**  Engine 2: BLE Stalker-Tracker & Skimmer Watcher (NimBLE 2.x)
-**********************************************************************/
+/*
+ * Engine 2: BLE stalker-tracker and skimmer watcher (NimBLE 2.x).
+ * A NimBLEScanCallbacks implementation that classifies advertised devices
+ * into trackers, skimmers, and other alerts in the shared SentinelState.
+ */
 #if defined(SENTINEL_HAS_BLE)
 class SentinelBleCb : public NimBLEScanCallbacks {
     void onResult(const NimBLEAdvertisedDevice *dev) override {
@@ -462,9 +468,11 @@ static void sentinelRunBleSweep(SentinelState *st, File &logFile, uint32_t durat
 }
 #endif
 
-/*********************************************************************
-**  Engine 3: CC1101 Sub-GHz Noise-Floor / Jamming Watcher
-**********************************************************************/
+/*
+ * Engine 3: CC1101 sub-GHz noise-floor and jamming watcher.
+ * sentinelRunRfSweep sweeps the 315/433/868/915 MHz bands, compares RSSI
+ * against a learned noise floor, and logs rising-edge jamming events.
+ */
 static void sentinelRunRfSweep(SentinelState *st, File &logFile) {
     if (bruceConfigPins.rfModule != CC1101_SPI_MODULE) return;
     static const float kBands[4] = {315.0f, 433.92f, 868.35f, 915.0f};
@@ -497,9 +505,11 @@ static void sentinelRunRfSweep(SentinelState *st, File &logFile) {
     deinitRfModule();
 }
 
-/*********************************************************************
-**  Defensive HUD Renderer
-**********************************************************************/
+/*
+ * Defensive HUD renderer.
+ * drawSentinelHud aggregates the per-engine alert counters and scrolls the
+ * event log onto the screen, highlighting the active band and logging state.
+ */
 static void drawSentinelHud(const SentinelState *st, const char *activeBand, size_t scrollOff, bool logging) {
     const uint32_t totalAlerts = st->totalDeauthAlerts + st->totalEvilTwinAlerts + st->totalTrackerAlerts +
                                  st->totalSkimmerAlerts + st->totalRfJamAlerts;
@@ -508,22 +518,17 @@ static void drawSentinelHud(const SentinelState *st, const char *activeBand, siz
 
     const int innerX = BORDER_PAD_X;
     const int innerW = tftWidth - 2 * BORDER_PAD_X;
-    int y = BORDER_PAD_Y + LH + 2;
+    int y = uiContentTop();
 
-    // Status pill bar
-    tft.fillRect(innerX, y, innerW, LH + 4, uiSurfaceColor());
-    tft.fillRect(innerX, y, 4, LH + 4, bannerCol);
-    tft.setTextSize(FP);
-    tft.setTextColor(bannerCol, uiSurfaceColor());
-    tft.drawString(statusTxt, innerX + 8, y + 2);
-    tft.setTextColor(uiTextBrightColor(), uiSurfaceColor());
+    // Centralized Nezha status strip
     char rightHdr[32];
     snprintf(rightHdr, sizeof(rightHdr), "%s%s", activeBand, logging ? " [LOG]" : "");
-    tft.drawRightString(rightHdr, innerX + innerW - 4, y + 2, 1);
-    y += LH + 7;
+    uiDrawStatusStrip(innerX, y, innerW, statusTxt, bannerCol, rightHdr);
+    y += ((FP == 1 && bruce_i18n::isChinese()) ? 18 : (LH + 6)) + 3;
 
     // Counters line
-    tft.fillRect(innerX, y, innerW, LH + 2, bruceConfig.bgColor);
+    tft.fillRect(innerX, y, innerW, LH + 3, bruceConfig.bgColor);
+    tft.setTextSize(FP);
     tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
     char cntLine[64];
     snprintf(
@@ -539,35 +544,39 @@ static void drawSentinelHud(const SentinelState *st, const char *activeBand, siz
     tft.drawString(cntLine, innerX, y);
     y += LH + 5;
 
-    // Event feed area
-    const int feedH = tftHeight - BORDER_PAD_X - LH - 4 - y;
-    tft.fillRect(innerX, y, innerW, max(0, feedH), bruceConfig.bgColor);
-    const int rowH = LH + 3;
-    const int maxRows = max(1, feedH / rowH);
+    // Event feed card
+    const int feedH = uiContentBottom(true) - y;
+    if (feedH >= 16) {
+        uiDrawCard(innerX, y, innerW, feedH, false);
+        const uint16_t surf = uiSurfaceColor();
+        const int rowH = LH + 3;
+        const int innerFeedY = y + 5;
+        const int maxRows = max(1, (feedH - 8) / rowH);
+        const int maxPx = innerW - 12;
 
-    if (st->eventCount == 0) {
-        tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-        tft.drawString("Monitoring RF airspace...", innerX, y + 4);
-    } else {
-        for (int r = 0; r < maxRows && (scrollOff + (size_t)r) < st->eventCount; ++r) {
-            // Newest first
-            size_t revIdx = (st->eventHead + SENTINEL_MAX_EVENTS - 1 - scrollOff - (size_t)r) %
-                            SENTINEL_MAX_EVENTS;
-            const SentinelEvent &ev = st->events[revIdx];
-            uint16_t col =
-                (ev.sev == ThreatSev::ALERT) ? TFT_RED : (ev.sev == ThreatSev::WATCH ? TFT_YELLOW : uiTextBrightColor());
-            tft.setTextColor(col, bruceConfig.bgColor);
-            char row[48];
-            snprintf(row, sizeof(row), "%s %s", ev.tag, ev.detail);
-            tft.drawString(row, innerX, y + r * rowH);
+        if (st->eventCount == 0) {
+            tft.setTextColor(uiTextMutedColor(), surf);
+            tft.drawString(
+                bruce_i18n::utf8TruncateToWidth(bruce_i18n::tr("Monitoring RF airspace..."), maxPx, FP),
+                innerX + 6,
+                innerFeedY + 2
+            );
+        } else {
+            for (int r = 0; r < maxRows && (scrollOff + (size_t)r) < st->eventCount; ++r) {
+                size_t revIdx = (st->eventHead + SENTINEL_MAX_EVENTS - 1 - scrollOff - (size_t)r) %
+                                SENTINEL_MAX_EVENTS;
+                const SentinelEvent &ev = st->events[revIdx];
+                uint16_t col =
+                    (ev.sev == ThreatSev::ALERT) ? TFT_RED : (ev.sev == ThreatSev::WATCH ? TFT_YELLOW : uiTextBrightColor());
+                tft.setTextColor(col, surf);
+                char row[48];
+                snprintf(row, sizeof(row), "%s %s", ev.tag, ev.detail);
+                tft.drawString(bruce_i18n::utf8TruncateToWidth(row, maxPx, FP), innerX + 6, innerFeedY + r * rowH);
+            }
         }
     }
 
-    // Footer hint
-    const int footY = tftHeight - BORDER_PAD_X - LH;
-    tft.fillRect(innerX, footY, innerW, LH, bruceConfig.bgColor);
-    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-    tft.drawString("UP/DN Scroll  ESC Exit", innerX, footY);
+    printCenterFootnote("UP/DN=Scroll  ESC=Back");
 }
 
 void wireless_sentinel_run(SentinelMode mode) {

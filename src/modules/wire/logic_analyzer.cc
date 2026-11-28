@@ -13,15 +13,15 @@
 #include <driver/rmt_rx.h>
 #include <algorithm>
 
-/*********************************************************************
-**  Logic Analyzer (RMT edge capture)
-**
-**  One RMT RX channel per probe GPIO. The ping-pong engine copies symbols
-**  into a per-channel user buffer with no CPU involvement, so a capture is
-**  gap-free from arm to either buffer-full or idle-timeout (signal_range_max).
-**  Edges are derived from the RMT symbols after the capture and rendered in
-**  an interactive waveform viewer (zoom / pan / cursor measurements).
-**********************************************************************/
+/*
+ * Logic Analyzer (RMT edge capture).
+ *
+ * One RMT RX channel per probe GPIO. The ping-pong engine copies symbols into a
+ * per-channel user buffer with no CPU involvement, so a capture is gap-free from
+ * arm to either buffer-full or idle-timeout (signal_range_max). Edges are
+ * derived from the RMT symbols after the capture and rendered in an interactive
+ * waveform viewer (zoom / pan / cursor measurements).
+ */
 
 #define LA_MAX_CHANNELS 4
 // RMT symbol durations are 15 bits: anything longer ends the frame (idle timeout)
@@ -51,9 +51,11 @@ struct LaSession {
 
 static LaSession laSession;
 
-/*********************************************************************
-**  Formatting helpers
-**********************************************************************/
+/*
+ * Display formatting helpers shared by the viewer, the serial commands and the
+ * CSV/VCD exporters. Durations are converted from RMT ticks with the session
+ * resolution, so they stay correct after a rate change.
+ */
 static String la_fmt_rate(uint32_t hz) {
     if (hz < 1000000) return String(hz / 1000) + " kHz";
     return String(hz / 1000000.0f, hz % 1000000 ? 1 : 0) + " MHz";
@@ -72,9 +74,10 @@ static String la_fmt_freq(double hz) {
     return String(hz / 1000000.0, 2) + "MHz";
 }
 
-/*********************************************************************
-**  Capture core
-**********************************************************************/
+/*
+ * Capture core: heap guard, per-channel RMT bring-up, the RX-done callback and
+ * the conversion of raw symbols into packed edges.
+ */
 // user_ctx points at the channel's LaRxState; the exact symbol count comes
 // with the rx_done event, so no buffer rescanning is needed afterwards.
 struct LaRxState {
@@ -222,9 +225,10 @@ static void la_extract(LaSession &s, uint8_t c) {
     s.valid = true;
 }
 
-/*********************************************************************
-**  Waveform viewer
-**********************************************************************/
+/*
+ * Waveform viewer: one lane per probe, redrawn only when the zoom / pan / cursor
+ * state changes. The footer measures the selected channel at the cursor.
+ */
 static void la_viewer() {
     LaSession &s = laSession;
     uint8_t nch = s.nch;
@@ -378,9 +382,11 @@ static void la_viewer() {
     check(DownPress);
 }
 
-/*********************************************************************
-**  Run a capture and open the viewer (menu action)
-**********************************************************************/
+/*
+ * Menu action: run one capture, convert every channel to edges and open the
+ * viewer. A failed or aborted capture frees the symbol buffers and clears the
+ * previous results so the exporters never run on stale data.
+ */
 static void la_capture_and_view() {
     LaSession &s = laSession;
     if (!la_run_capture(s)) {
@@ -393,9 +399,10 @@ static void la_capture_and_view() {
     la_viewer();
 }
 
-/*********************************************************************
-**  CSV export: one line per edge "channel,time_us,level"
-**********************************************************************/
+/*
+ * CSV export: one line per edge ("channel,time_us,level") plus a comment header
+ * per channel with its pin and idle level.
+ */
 static void la_save_csv() {
     LaSession &s = laSession;
     if (!s.valid) {
@@ -434,9 +441,11 @@ static void la_save_csv() {
     displaySuccess("Saved " + String(filename), true);
 }
 
-/*********************************************************************
-**  VCD (Value Change Dump) Export — opens directly in PulseView/GTKWave
-**********************************************************************/
+/*
+ * VCD (Value Change Dump) export, readable by PulseView and GTKWave. Channels
+ * are merged in strictly ascending tick order, so no per-sample buffer is
+ * needed regardless of capture length.
+ */
 static void la_save_vcd() {
     LaSession &s = laSession;
     if (!s.valid) {
@@ -511,9 +520,11 @@ static void la_save_vcd() {
     displaySuccess("Saved " + String(filename), true);
 }
 
-/*********************************************************************
-**  On-Device Protocol Decoders (UART, I2C, SPI, 1-Wire)
-**********************************************************************/
+/*
+ * On-device protocol decoders (UART, I2C, SPI, 1-Wire). Each one re-samples the
+ * captured edges at the derived timing points and renders the decoded bytes into
+ * a scrollable text area.
+ */
 static uint8_t la_sample_at(const LaSession &s, uint8_t ch, uint64_t tick) {
     const auto &e = s.edges[ch];
     uint8_t lvl = s.initLevel[ch];
@@ -782,9 +793,10 @@ static void la_decode_menu() {
     loopOptions(decOpts, MENU_TYPE_SUBMENU, "Protocol Decoder");
 }
 
-/*********************************************************************
-**  GPIO picker (same interaction as JTAG pin assignment)
-**********************************************************************/
+/*
+ * GPIO picker with the same interaction as the JTAG pin assignment menu; the
+ * list opens on the current assignment and -1 leaves the channel unassigned.
+ */
 static int8_t la_pick_pin(const char *title, int8_t current) {
     options.clear();
     int8_t picked = current;
@@ -796,9 +808,11 @@ static int8_t la_pick_pin(const char *title, int8_t current) {
     return picked;
 }
 
-/*********************************************************************
-**  Function: logic_analyzer_setup
-**********************************************************************/
+/*
+ * Logic analyzer menu: channel count, pins, RMT rate, depth, pull mode, glitch
+ * filter, plus the capture / decode / export actions. The menu is rebuilt on
+ * every pass so the labels reflect the current session settings.
+ */
 static void la_pins_menu();
 
 void logic_analyzer_setup() {
@@ -863,9 +877,12 @@ static void la_pins_menu() {
     }
 }
 
-/*********************************************************************
-**  Serial-command primitives (wire la ...), see wire_tools.h
-**********************************************************************/
+/*
+ * Serial-command primitives for `wire la ...` (see wire_tools.h). A capture
+ * request overrides the configured pins and rate; with no pin arguments the UI
+ * session pins are kept. The resulting capture becomes the session capture used
+ * by dump, save and the viewer.
+ */
 String wire_la_capture(uint32_t resHz, uint32_t depth, int8_t p1, int8_t p2, int8_t p3, int8_t p4) {
     LaSession &s = laSession;
     if (resHz < 20000 || resHz > LA_CLK_HZ || LA_CLK_HZ % resHz != 0)

@@ -3,9 +3,9 @@
 #include "modules/wire/wire_tools.h"
 #include <globals.h>
 
-/*********************************************************************
-**  wire uart ...
-**********************************************************************/
+/*
+ *  wire uart ...
+ */
 uint32_t wireUartBeginCallback(cmd *c) {
     Command command(c);
 
@@ -85,9 +85,9 @@ uint32_t wireUartAutoBaudCallback(cmd *c) {
     return true;
 }
 
-/*********************************************************************
-**  wire i2c ...
-**********************************************************************/
+/*
+ *  wire i2c ...
+ */
 uint32_t wireI2cScanCallback(cmd *c) {
     Command command(c);
     int sda = (int)strtol(command.getArgument("sda").getValue().c_str(), nullptr, 10);
@@ -148,9 +148,9 @@ uint32_t wireI2cWriteCallback(cmd *c) {
     return true;
 }
 
-/*********************************************************************
-**  wire spi ...
-**********************************************************************/
+/*
+ *  wire spi ...
+ */
 uint32_t wireSpiBeginCallback(cmd *c) {
     Command command(c);
     int sck = (int)strtol(command.getArgument("sck").getValue().c_str(), nullptr, 10);
@@ -199,9 +199,9 @@ uint32_t wireSpiEndCallback(cmd *c) {
     return true;
 }
 
-/*********************************************************************
-**  wire jtag ...
-**********************************************************************/
+/*
+ *  wire jtag ...
+ */
 uint32_t wireJtagIdcodeCallback(cmd *c) {
     Command command(c);
     int tck = (int)strtol(command.getArgument("tck").getValue().c_str(), nullptr, 10);
@@ -212,9 +212,9 @@ uint32_t wireJtagIdcodeCallback(cmd *c) {
     return true;
 }
 
-/*********************************************************************
-**  wire la ... (8/16 MB boards)
-**********************************************************************/
+/*
+ *  wire la ... (8/16 MB boards)
+ */
 #if !defined(BRUCE_COMPACT_CJK_FONT)
 uint32_t wireLaCaptureCallback(cmd *c) {
     Command command(c);
@@ -239,9 +239,9 @@ uint32_t wireLaStatusCallback(cmd *c) {
 }
 #endif
 
-/*********************************************************************
-**  wire cont ...
-**********************************************************************/
+/*
+ *  wire cont ...
+ */
 uint32_t wireContTestCallback(cmd *c) {
     Command command(c);
     int pinA = (int)strtol(command.getArgument("pin_a").getValue().c_str(), nullptr, 10);
@@ -250,9 +250,9 @@ uint32_t wireContTestCallback(cmd *c) {
     return true;
 }
 
-/*********************************************************************
-**  Registration
-**********************************************************************/
+/*
+ *  Registration
+ */
 void createWireUartCommand(Command *wireCmd) {
     Command wireUartCmd = wireCmd->addCompositeCmd("uart");
 

@@ -1,5 +1,9 @@
 #ifndef LITE_VERSION
-// --- wifi_recover.cc ---
+/*
+ * WPA/WPA2 handshake password recovery: parses an EAPOL 4-way handshake from a
+ * .pcap, then runs the offline wordlist attack (PBKDF2 PMK -> PTK/KCK -> MIC
+ * check) across both cores. The notes below record its throughput tuning.
+ */
 /*
   WiFi Password Cracker for Bruce (ESP32-S3 / T-Embed)
 

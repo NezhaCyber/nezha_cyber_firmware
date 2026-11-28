@@ -74,10 +74,11 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 
-// ---------------------------------------------------------------------------
-// Radio entry points: ROM stubs (esp32s3.rom.ld, linked on every Arduino S3
-// build) and libphy.a (linked with every Arduino S3 WiFi build).
-// ---------------------------------------------------------------------------
+/*
+ * Radio entry points declared for the linker: ROM stubs pulled from
+ * esp32s3.rom.ld (present on every Arduino S3 build) and libphy.a routines
+ * linked with every Arduino S3 WiFi build.
+ */
 extern "C" {
 unsigned int rom_chip_i2c_readReg(int block, int host, int reg_add);
 void rom_chip_i2c_writeReg(int block, int host, int reg_add, int data);
@@ -92,9 +93,11 @@ void set_rf_freq_offset(unsigned int xtal, unsigned int mhz, int khz);
 void stop_tx_tone(unsigned int en);
 }
 
-// ---------------------------------------------------------------------------
-// Undocumented hardware (addresses/bits per PBJ3000 doc/undocumented-registers-esp32s3.md)
-// ---------------------------------------------------------------------------
+/*
+ * Undocumented register addresses and bit definitions for the WiFi MAC dump
+ * engine, front-end, AGC, and LO/PLL, taken from PBJ3000's
+ * doc/undocumented-registers-esp32s3.md.
+ */
 #define J_DUMP_CTRL_REG 0x60033d5cU // undocumented WiFi MAC dump engine, ADC side
 #define J_DUMP_CTRL_RUN BIT(31)
 #define J_DUMP_CTRL_TRIG BIT(19)
@@ -178,23 +181,23 @@ void stop_tx_tone(unsigned int en);
 SOC_RESERVE_MEMORY_REGION(J_BANK_ADDR, J_BANK_ADDR + J_BANK_LEN, bruce_sdr_bank);
 #endif
 
-// ---------------------------------------------------------------------------
-// Bank <-> heap hand-off
-//
-// The reserved bank is the ADC dump target, so it must never hold live heap
-// data while a capture runs — but leaving it out of the heap permanently
-// starves Wi-Fi/BLE bring-up (esp_bt_controller_init needs a big contiguous
-// DMA block; on Cardputer the menu heap drops from ~90 kB to ~24 kB free).
-//
-// Fence protocol:
-//   boot        bank reserved, invisible to the heap (SDR always usable)
-//   sdrBankHeapInit()   (lazy, first radio bring-up) returns the bank to the
-//                       heap and immediately allocates it all back as a fence;
-//                       the fence keeps every other allocation out of the bank
-//   radio low on memory radio_mem.h frees the fence so Wi-Fi/BLE can use the
-//                       bank; SDR then refuses to start until reboot (clean
-//                       error, never a crash)
-// ---------------------------------------------------------------------------
+/*
+ * Bank <-> heap hand-off
+ *
+ * The reserved bank is the ADC dump target, so it must never hold live heap
+ * data while a capture runs — but leaving it out of the heap permanently
+ * starves Wi-Fi/BLE bring-up (esp_bt_controller_init needs a big contiguous
+ * DMA block; on Cardputer the menu heap drops from ~90 kB to ~24 kB free).
+ *
+ * Fence protocol:
+ *   boot        bank reserved, invisible to the heap (SDR always usable)
+ *   sdrBankHeapInit()   (lazy, first radio bring-up) returns the bank to the
+ *                       heap and immediately allocates it all back as a fence;
+ *                       the fence keeps every other allocation out of the bank
+ *   radio low on memory radio_mem.h frees the fence so Wi-Fi/BLE can use the
+ *                       bank; SDR then refuses to start until reboot (clean
+ *                       error, never a crash)
+ */
 static uint8_t *s_fence = nullptr;     // whole-bank allocation; null once a radio took the bank
 static bool s_region_in_heap = false;  // heap_caps_add_region already done
 
@@ -216,9 +219,11 @@ void sdrBankReleaseForRadio() {
     }
 }
 
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
+/*
+ * Module-level SDR state: the bank pointer and saved/restored SRAM usage
+ * register, ready flag, current frequency/sample-rate/TX power, the Wi-Fi
+ * channel vs. custom off-grid frequency choice, and the pending menu value.
+ */
 static volatile uint32_t *s_bank = nullptr; // bank as seen by the CPU
 static uint32_t s_usage_saved = 0;          // SENSITIVE_INTERNAL_SRAM_USAGE_3_REG before we touched it
 static uint32_t s_usage_bank = 0;           // one-hot bit handing the bank to the engine
@@ -263,10 +268,11 @@ static uint32_t rate_ctrl_bits(enum JamRate r) {
     return 0;
 }
 
-// ---------------------------------------------------------------------------
-// Receive gain: manual force through the documented AGC register (no librftest
-// needed — the bits are in PBJ3000's register doc). -1 = AGC free-running.
-// ---------------------------------------------------------------------------
+/*
+ * Receive gain control. A manual index is forced through the documented AGC
+ * register (no vendor librftest blob needed — the bits come from PBJ3000's
+ * register doc); s_rx_gain == -1 leaves the AGC free-running.
+ */
 static int s_rx_gain = -1;
 
 static uint32_t rx_gain_max(void) {
@@ -294,9 +300,10 @@ static void rx_gain_apply(void) {
 
 static void rx_gain_release(void) { rx_gain_apply_locked(false, 0); }
 
-// ---------------------------------------------------------------------------
-// Analog I2C helpers (regi2c critical section is the vendor PHY's own lock)
-// ---------------------------------------------------------------------------
+/*
+ * Analog I2C helpers for LO selection and PLL status; the regi2c critical
+ * section used here is the vendor PHY's own lock.
+ */
 // rx_lo_select() from upstream esp-sdr rx_lo.h, ESP32-S3 constants.
 static void rx_lo_select(bool alternate) {
     unsigned int old = rom_chip_i2c_readReg(J_LO_BLOCK, 1, J_LO_REG);
@@ -334,11 +341,11 @@ static bool pll_in_window(void) {
     return (status & J_RFPLL_STATUS_VCO) == 0U;
 }
 
-// ---------------------------------------------------------------------------
-// Front ends (ported from esp_sdr.c / esp_sdr_rx.c / esp_sdr_tx.c, minus the
-// librftest gain ladders we do not have: gains stay on the PHY's calibrated
-// tables and the AGC stays free-running)
-// ---------------------------------------------------------------------------
+/*
+ * Front-end switching, ported from esp_sdr.c / esp_sdr_rx.c / esp_sdr_tx.c
+ * minus the librftest gain ladders we do not ship: gains stay on the PHY's
+ * calibrated tables and the AGC runs free.
+ */
 
 // force_txon_mode(en, 0, 0): bit 1 forces the front end to stay in TX mode —
 // without it the MAC never enables the transmitter outside a real frame.
@@ -449,9 +456,11 @@ static inline void bank_to_engine(void) {
 
 static inline void bank_to_cpu(void) { REG_WRITE(SENSITIVE_INTERNAL_SRAM_USAGE_3_REG, s_usage_saved); }
 
-// ---------------------------------------------------------------------------
-// Dump engine: DAC playback (TX) and ADC capture (RX)
-// ---------------------------------------------------------------------------
+/*
+ * Undocumented MAC dump engine primitives: one-shot DAC playback bursts for
+ * TX and blocking ADC captures (with sentinel words) for RX, both gated by a
+ * DONE-bit timeout.
+ */
 
 // One DAC burst over the first count words of the bank. Caller has already
 // handed the bank to the engine.
@@ -518,9 +527,11 @@ static inline uint32_t tx_word(int16_t i, int16_t q) {
     return ((uint32_t)i & 0x3ffU) | (((uint32_t)q & 0x3ffU) << 10);
 }
 
-// ---------------------------------------------------------------------------
-// Waveforms
-// ---------------------------------------------------------------------------
+/*
+ * Waveform generators that fill the 64 KiB dump bank: a xorshift32 white-noise
+ * source and a phase-accumulating CW tone generator, plus fill_bank overloads
+ * that write the bank from the CPU side.
+ */
 
 // xorshift32: fast white noise, one update per complex sample.
 struct NoiseGen {
@@ -562,9 +573,11 @@ static void fill_bank(ToneGen &g) {
     for (uint32_t j = 0; j < J_SAMPLES_MAX; j++) s_bank[j] = g.word();
 }
 
-// ---------------------------------------------------------------------------
-// WiFi bring-up/down (pattern from jam_detect.cc)
-// ---------------------------------------------------------------------------
+/*
+ * Wi-Fi bring-up/teardown for the jammer (pattern shared with jam_detect.cc):
+ * start esp_wifi in STA mode, apply TX power, and stop it cleanly when the
+ * run ends.
+ */
 static bool jammer_wifi_start(void) {
     ensureWifiPlatform();
     nvs_flash_init();
@@ -611,9 +624,11 @@ static void jammer_stop(void) {
     jammer_wifi_stop();
 }
 
-// ---------------------------------------------------------------------------
-// UI helpers
-// ---------------------------------------------------------------------------
+/*
+ * UI helpers shared by the run screens: the live frame chrome, status-line
+ * redraw, current-tuning label (channel vs. off-grid MHz), and live retune
+ * logic that rejects frequencies the VCO cannot lock.
+ */
 
 // Shared live screen frame: title, one status line, hint line.
 static void jammer_frame(const char *subtitle) {
@@ -704,9 +719,11 @@ static uint8_t pick_channel(void) {
     return (uint8_t)sel;
 }
 
-// ---------------------------------------------------------------------------
-// Run screens
-// ---------------------------------------------------------------------------
+/*
+ * Active run screens: continuous noise and CW-tone jamming, a 2.4 GHz channel
+ * sweep, a live raw-I/Q spectrum analyzer (256-point FFT), and CS16 record/
+ * replay to and from SD.
+ */
 static void run_noise_jam(void) {
     NoiseGen gen;
     rx_front_end(true, J_RETUNE_SETTLE_US);
@@ -963,12 +980,12 @@ static void run_iq_spectrum(void) {
     rx_front_end(true, J_RETUNE_SETTLE_US);
 }
 
-// ---------------------------------------------------------------------------
-// SDR file modes: raw I/Q to/from SD as CS16 (interleaved int16 I/Q, the
-// SDR#/URH standard; our 10-bit samples go in the top bits). Record keeps the
-// CPU side of the radio: SD runs on its own SPI bus, the dump engine only
-// owns the SRAM bank between capture and hand-back.
-// ---------------------------------------------------------------------------
+/*
+ * SDR file modes: raw I/Q to/from SD as CS16 (interleaved int16 I/Q, the
+ * SDR#/URH standard; our 10-bit samples go in the top bits). Record keeps the
+ * CPU side of the radio: SD runs on its own SPI bus, the dump engine only
+ * owns the SRAM bank between capture and hand-back.
+ */
 static const char *IQ_DIR = "/BruceIQ";
 
 // Convert one bank of raw words to CS16 bytes in chunks; returns bytes written
@@ -1130,9 +1147,11 @@ static void run_iq_play(File &f) {
     rx_front_end(false, J_RETUNE_SETTLE_US);
 }
 
-// ---------------------------------------------------------------------------
-// Menu
-// ---------------------------------------------------------------------------
+/*
+ * Configuration menus and the top-level sdr_menu: pick TX power, sample rate,
+ * RX gain, and Wi-Fi channel or off-grid frequency, then launch the chosen
+ * run inside the shared jammer start/stop wrapper.
+ */
 static void pick_tx_power(void) {
     std::vector<Option> opts;
     opts.push_back({"+19.5 dBm", [&]() { s_tx_power_qdbm = 78; }});

@@ -16,9 +16,10 @@ static SPIClass *spiBus = nullptr;
 static int8_t spiCsPin = -1;
 static uint32_t spiFreq = 1000000;
 
-/*********************************************************************
-**  Helpers
-**********************************************************************/
+/*
+ * Bus helpers: hex formatting, hex-pair parsing with an even-length check, and
+ * resolution of the configured outer-bus pins whenever an argument is -1.
+ */
 static String bytesToHex(const uint8_t *data, size_t len) {
     String out;
     for (size_t i = 0; i < len; i++) {
@@ -50,9 +51,11 @@ static bool spi_resolve(int8_t &sck, int8_t &miso, int8_t &mosi, int8_t &cs) {
     return sck >= 0 && miso >= 0 && mosi >= 0 && cs >= 0;
 }
 
-/*********************************************************************
-**  Serial-command primitives (wire spi ...), see wire_tools.h
-**********************************************************************/
+/*
+ * Serial-command primitives for `wire spi ...` (see wire_tools.h). Begin leases
+ * the auxiliary hardware SPI host and leaves CS driven HIGH; end only drops the
+ * local handle because the HAL owns the shared bus for the whole session.
+ */
 bool wire_spi_begin(int8_t sck, int8_t miso, int8_t mosi, int8_t cs, uint32_t freqHz) {
     if (!spi_resolve(sck, miso, mosi, cs)) return false;
     if (freqHz < 1000 || freqHz > 40000000) return false;
@@ -260,9 +263,10 @@ static void spi_dump_flash_menu() {
     }
 }
 
-/*********************************************************************
-**  Function: spi_pick_clock
-**********************************************************************/
+/*
+ * Clock picker; the chosen rate is used by every later transaction, including
+ * the JEDEC probe and the flash dump.
+ */
 static void spi_pick_clock() {
     static const uint32_t clocks[] = {400000, 1000000, 4000000, 8000000, 16000000, 26000000};
     constexpr size_t N = sizeof(clocks) / sizeof(clocks[0]);
@@ -276,11 +280,10 @@ static void spi_pick_clock() {
     loopOptions(options, MENU_TYPE_SUBMENU, "SPI Clock", selected);
 }
 
-/*********************************************************************
-**  Function: spi_console
-**  CS-framed HEX exchange loop: OK opens the HEX keyboard, response is
-**  appended to a scrolling log. ESC leaves.
-**********************************************************************/
+/*
+ * CS-framed HEX console: SEL opens the HEX keyboard, the response is appended to
+ * a scrolling log, ESC leaves the console.
+ */
 static void spi_console() {
     drawMainBorderWithTitle("SPI Console");
     BruceConfigPins::SPIPins pins = bruceConfigPins.outer_bus;
@@ -314,9 +317,10 @@ static void spi_console() {
     check(SelPress);
 }
 
-/*********************************************************************
-**  Function: spi_bus_setup
-**********************************************************************/
+/*
+ * SPI bus menu: pins, clock, JEDEC flash detection, flash dump and the hex
+ * console. Every entry that talks to the bus brings it up again first.
+ */
 void spi_bus_setup() {
     returnToMenu = false;
     while (!returnToMenu) {

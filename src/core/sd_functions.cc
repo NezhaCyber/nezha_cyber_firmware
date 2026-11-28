@@ -29,28 +29,28 @@
 String fileToCopy;
 std::vector<FileList> fileList;
 
-/***************************************************************************************
-** Function name: setupLittleFS
-** Description:   Start LittleFS
-***************************************************************************************/
+/*
+ * Function name: setupLittleFS
+ * Description:   Start LittleFS
+ */
 bool setupLittleFS(uint8_t maxFiles) {
     if (maxFiles < 1) { maxFiles = 1; }
     return LittleFS.begin(false, "/littlefs", maxFiles);
 }
 
-/***************************************************************************************
-** Function name: closeLittleFS
-** Description:   Turn Off LittleFS, set littlefsMounted state to false
-***************************************************************************************/
+/*
+ * Function name: closeLittleFS
+ * Description:   Turn Off LittleFS, set littlefsMounted state to false
+ */
 void closeLittleFS() {
     LittleFS.end();
     Serial.println("LittleFS Unmounted...");
 }
 
-/***************************************************************************************
-** Function name: setupSdCard
-** Description:   Start SD Card
-***************************************************************************************/
+/*
+ * Function name: setupSdCard
+ * Description:   Start SD Card
+ */
 bool setupSdCard(uint8_t maxFiles) {
     if (maxFiles < 1) { maxFiles = 1; }
 #ifndef USE_SD_MMC
@@ -131,10 +131,10 @@ bool setupSdCard(uint8_t maxFiles) {
     }
 }
 
-/***************************************************************************************
-** Function name: closeSdCard
-** Description:   Turn Off SDCard, set sdcardMounted state to false
-***************************************************************************************/
+/*
+ * Function name: closeSdCard
+ * Description:   Turn Off SDCard, set sdcardMounted state to false
+ */
 void closeSdCard() {
     // Release the log file before the filesystem goes away, otherwise the next
     // log write would touch a closed FAT volume.
@@ -144,10 +144,10 @@ void closeSdCard() {
     sdcardMounted = false;
 }
 
-/***************************************************************************************
-** Function name: ToggleSDCard
-** Description:   Turn Off or On the SDCard, return sdcardMounted state
-***************************************************************************************/
+/*
+ * Function name: ToggleSDCard
+ * Description:   Turn Off or On the SDCard, return sdcardMounted state
+ */
 bool ToggleSDCard() {
     if (sdcardMounted == true) {
         closeSdCard();
@@ -158,10 +158,10 @@ bool ToggleSDCard() {
         return sdcardMounted;
     }
 }
-/***************************************************************************************
-** Function name: deleteFromSd
-** Description:   delete file or folder
-***************************************************************************************/
+/*
+ * Function name: deleteFromSd
+ * Description:   delete file or folder
+ */
 bool deleteFromSd(FS fs, String path) {
     File dir = fs.open(path);
     Serial.printf("Deleting: %s\n", path.c_str());
@@ -190,10 +190,10 @@ bool deleteFromSd(FS fs, String path) {
     return success;
 }
 
-/***************************************************************************************
-** Function name: renameFile
-** Description:   rename file or folder
-***************************************************************************************/
+/*
+ * Function name: renameFile
+ * Description:   rename file or folder
+ */
 bool renameFile(FS fs, String path, String filename) {
     String newName = keyboard(filename, 76, "Type the new Name:");
     if (newName == "\x1B") return false;
@@ -206,10 +206,10 @@ bool renameFile(FS fs, String path, String filename) {
         return false;
     }
 }
-/***************************************************************************************
-** Function name: copyToFs
-** Description:   copy file from SD or LittleFS to LittleFS or SD
-***************************************************************************************/
+/*
+ * Function name: copyToFs
+ * Description:   copy file from SD or LittleFS to LittleFS or SD
+ */
 bool copyToFs(FS from, FS to, String path, bool draw) {
     // Using Global Buffer
     bool result = false;
@@ -300,10 +300,10 @@ bool copyToFs(FS from, FS to, String path, bool draw) {
     return result;
 }
 
-/***************************************************************************************
-** Function name: copyFile
-** Description:   copy file address to memory
-***************************************************************************************/
+/*
+ * Function name: copyFile
+ * Description:   copy file address to memory
+ */
 bool copyFile(FS fs, String path) {
     File file = fs.open(path, FILE_READ);
     if (!file.isDirectory()) {
@@ -317,10 +317,10 @@ bool copyFile(FS fs, String path) {
     }
 }
 
-/***************************************************************************************
-** Function name: pasteFile
-** Description:   paste file to new folder
-***************************************************************************************/
+/*
+ * Function name: pasteFile
+ * Description:   paste file to new folder
+ */
 bool pasteFile(FS fs, String path) {
     // Using Global Buffer
 
@@ -376,10 +376,10 @@ bool pasteFile(FS fs, String path) {
     return true;
 }
 
-/***************************************************************************************
-** Function name: createFolder
-** Description:   create new folder
-***************************************************************************************/
+/*
+ * Function name: createFolder
+ * Description:   create new folder
+ */
 bool createFolder(FS fs, String path) {
     String foldername = keyboard("", 76, "Folder Name: ");
     if (foldername == "\x1B") return false;
@@ -390,10 +390,10 @@ bool createFolder(FS fs, String path) {
     return true;
 }
 
-/**********************************************************************
-**  Function: readLineFromFile
-**  Read the line of the config file until the ';'
-**********************************************************************/
+/*
+ *  Function: readLineFromFile
+ *  Read the line of the config file until the ';'
+ */
 String readLineFromFile(File myFile) {
     String line = "";
     char character;
@@ -406,10 +406,10 @@ String readLineFromFile(File myFile) {
     return line;
 }
 
-/***************************************************************************************
-** Function name: folderExists
-** Description:   check if a folder exists
-***************************************************************************************/
+/*
+ * Function name: folderExists
+ * Description:   check if a folder exists
+ */
 bool folderExists(FS fs, String path) {
     if (path == "" || path == "/") return true;
 
@@ -421,11 +421,11 @@ bool folderExists(FS fs, String path) {
     return isDir;
 }
 
-/***************************************************************************************
-** Function name: readSmallFile
-** Description:   read a small (<3KB) file and return its contents as a single string
-**                on any error returns an empty string
-***************************************************************************************/
+/*
+ * Function name: readSmallFile
+ * Description:   read a small (<3KB) file and return its contents as a single string
+ *                on any error returns an empty string
+ */
 String readSmallFile(FS &fs, const String &filepath) {
     String fileContent = "";
     File file;
@@ -446,11 +446,11 @@ String readSmallFile(FS &fs, const String &filepath) {
     return fileContent;
 }
 
-/***************************************************************************************
-** Function name: readFile
-** Description:   read file and return its contents as a char*
-**                caller needs to call free()
-***************************************************************************************/
+/*
+ * Function name: readFile
+ * Description:   read file and return its contents as a char*
+ *                caller needs to call free()
+ */
 char *readBigFile(FS *fs, const String &filepath, bool binary, size_t *fileSize) {
     File file = fs->open(filepath);
     if (!file) {
@@ -483,10 +483,10 @@ char *readBigFile(FS *fs, const String &filepath, bool binary, size_t *fileSize)
     return buf;
 }
 
-/***************************************************************************************
-** Function name: getFileSize
-** Description:   get a file size without opening
-***************************************************************************************/
+/*
+ * Function name: getFileSize
+ * Description:   get a file size without opening
+ */
 size_t getFileSize(FS &fs, String filepath) {
     File file = fs.open(filepath, FILE_READ);
     if (!file) return 0;
@@ -520,10 +520,10 @@ String crc32File(FS &fs, const String &filepath) {
     return (String(s));
 }
 
-/***************************************************************************************
-** Function name: sortList
-** Description:   sort files/folders by name
-***************************************************************************************/
+/*
+ * Function name: sortList
+ * Description:   sort files/folders by name
+ */
 bool sortList(const FileList &a, const FileList &b) {
     if (a.folder != b.folder) {
         return a.folder > b.folder; // true if a is a folder and b is not
@@ -536,10 +536,10 @@ bool sortList(const FileList &a, const FileList &b) {
     return fa < fb;
 }
 
-/***************************************************************************************
-** Function name: checkExt
-** Description:   check file extension
-***************************************************************************************/
+/*
+ * Function name: checkExt
+ * Description:   check file extension
+ */
 bool checkExt(String ext, String pattern) {
     ext.toUpperCase();
     pattern.toUpperCase();
@@ -560,10 +560,10 @@ bool checkExt(String ext, String pattern) {
     return ext == lastExt;
 }
 
-/***************************************************************************************
-** Function name: readFs
-** Description:   read files/folders from a folder
-***************************************************************************************/
+/*
+ * Function name: readFs
+ * Description:   read files/folders from a folder
+ */
 void readFs(FS &fs, const String &folder, const String &allowed_ext) {
     int allFilesCount = 0;
     fileList.clear();
@@ -610,10 +610,10 @@ void readFs(FS &fs, const String &folder, const String &allowed_ext) {
     fileList.push_back(object);
 }
 
-/*********************************************************************
-**  Function: loopSD
-**  Where you choose what to do with your SD Files
-**********************************************************************/
+/*
+ *  Function: loopSD
+ *  Where you choose what to do with your SD Files
+ */
 String loopSD(FS &fs, bool filePicker, const String &allowed_ext, String rootPath) {
     delay(10);
     if (!fs.exists(rootPath)) {
@@ -908,10 +908,10 @@ String loopSD(FS &fs, bool filePicker, const String &allowed_ext, String rootPat
     return result;
 }
 
-/*********************************************************************
-**  Function: viewFile
-**  Display file content
-**********************************************************************/
+/*
+ *  Function: viewFile
+ *  Display file content
+ */
 void viewFile(FS &fs, const String &filepath) {
     File file = fs.open(filepath, FILE_READ);
     if (!file) return;
@@ -923,10 +923,10 @@ void viewFile(FS &fs, const String &filepath) {
 
     area.show();
 }
-/*********************************************************************
-**  Function: checkLittleFsSize
-**  Check if there are more then 4096 bytes available for storage
-**********************************************************************/
+/*
+ *  Function: checkLittleFsSize
+ *  Check if there are more then 4096 bytes available for storage
+ */
 bool checkLittleFsSize() {
     if ((LittleFS.totalBytes() - LittleFS.usedBytes()) < 4096) {
         displayError("LittleFS is Full", true);
@@ -934,17 +934,17 @@ bool checkLittleFsSize() {
     } else return true;
 }
 
-/*********************************************************************
-**  Function: checkLittleFsSize
-**  Check if there are more then 4096 bytes available for storage
-**********************************************************************/
+/*
+ *  Function: checkLittleFsSize
+ *  Check if there are more then 4096 bytes available for storage
+ */
 bool checkLittleFsSizeNM() { return (LittleFS.totalBytes() - LittleFS.usedBytes()) >= 4096; }
 
-/*********************************************************************
-**  Function: getFsStorage
-**  Function will return true and FS will point to SDFS if available
-**  and LittleFS otherwise. If LittleFS is full it wil return false.
-**********************************************************************/
+/*
+ *  Function: getFsStorage
+ *  Function will return true and FS will point to SDFS if available
+ *  and LittleFS otherwise. If LittleFS is full it wil return false.
+ */
 bool getFsStorage(FS *&fs) {
     // don't try to mount SD Card if not previously mounted
     if (sdcardMounted) fs = &SD;
@@ -954,10 +954,10 @@ bool getFsStorage(FS *&fs) {
     return true;
 }
 
-/*********************************************************************
-**  Function: fileInfo
-**  Display file info
-**********************************************************************/
+/*
+ *  Function: fileInfo
+ *  Display file info
+ */
 void fileInfo(FS &fs, const String &filepath) {
     File file = fs.open(filepath, FILE_READ);
     if (!file) return;
@@ -1027,11 +1027,11 @@ void fileInfo(FS &fs, const String &filepath) {
     while (!check(EscPress) && !check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(20)); }
 }
 
-/*********************************************************************
-**  Function: createNewFile
-**  Function will save a file into FS. If file already exists it will
-**  append a version number to the file name.
-**********************************************************************/
+/*
+ *  Function: createNewFile
+ *  Function will save a file into FS. If file already exists it will
+ *  append a version number to the file name.
+ */
 File createNewFile(FS *&fs, String filepath, String filename) {
     if (!fs) return File();
 

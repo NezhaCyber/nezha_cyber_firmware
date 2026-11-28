@@ -53,15 +53,20 @@ public:
         // ERASE_MODE,
     };
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Constructs the Chameleon Ultra front-end (the ChameleonUltra driver is
+     * created with logging enabled) and tears it down; the device itself is
+     * not contacted until connect() is called from setup().
+     */
     Chameleon();
     ~Chameleon();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Life Cycle
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Lifecycle and device link: connect() searches for and pairs with the
+     * Chameleon Ultra over its transport; setup() connects, drops into
+     * BATTERY_INFO_MODE, and enters loop(), which dispatches the LF/HF
+     * AppMode state machine until EscPress returns to the menu.
+     */
     void setup();
     void loop();
     bool connect();
@@ -86,23 +91,31 @@ private:
     std::set<String> _scanned_set;
     std::vector<ScanResult> _scanned_tags;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // State management
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Mode state machine: addOptionSetMode() registers a menu option bound to
+     * an AppMode, selectMode() renders that menu, and setMode() records the
+     * chosen LF/HF mode before loop() dispatches the matching operation.
+     */
     void addOptionSetMode(const char *name, AppMode mode);
     void selectMode();
     void setMode(AppMode mode);
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Display functions
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * TFT rendering helpers: displayBanner() paints the module title,
+     * dumpHFCardDetails() renders the read HF tag's UID/ATQA/SAK/type, and
+     * dumpScanResults() lists the tags accumulated during a scan.
+     */
     void displayBanner();
     void dumpHFCardDetails();
     void dumpScanResults();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Tag operations split by band: the LF_* group reads/scans/clones/emulates
+     * low-frequency (e.g. EM410x) tags and saves/loads their dumps; the HF_*
+     * group does the same for high-frequency tags plus data writing. fullScan
+     * sweeps both bands, while getBatteryInfo/factoryReset are device-level
+     * commands routed through the Chameleon.
+     */
     void readLFTag();
     void scanLFTags();
     void cloneLFTag();
@@ -127,9 +140,15 @@ private:
     // void erase_card();
     // void write_ndef_data();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Helpers
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Parsing, persistence, and tag helpers: the format and parse pairs for
+     * LFUID/HFData convert between the Chameleon's raw data and printable
+     * strings;
+     * writeFileLF/HF and readFileLF/HF persist dumps to storage; readHFDataBlocks
+     * pulls MIFARE Classic (key-authenticated) or Ultralight pages. selectSlot
+     * picks the active Chameleon emulation slot, isMifareClassic classifies by
+     * SAK, and saveScanResult stores a scan session.
+     */
     void formatLFUID();
     void parseLFUID();
     bool writeFileLF(String filename);

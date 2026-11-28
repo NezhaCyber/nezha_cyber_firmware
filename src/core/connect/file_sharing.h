@@ -6,23 +6,26 @@
 
 class FileSharing : public EspConnection {
 public:
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * FileSharing connection wrapper.
+     * Extends EspConnection to transfer files to and from a peer.
+     */
     FileSharing();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * File transfer entry points.
+     * sendFile()/receiveFile() drive the upload and download flows.
+     */
     void sendFile();
     void receiveFile();
 
 private:
     String recvFileName;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Helpers
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * File selection and reassembly helpers.
+     * Pick a file to send, append incoming chunks, and derive a safe destination filename.
+     */
     File selectFile();
     bool appendToFile(Message fileMessage);
     void createFilename(FS *fs, Message fileMessage);
