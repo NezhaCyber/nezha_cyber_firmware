@@ -2,6 +2,10 @@ export type ChipFamily = "esp32s3" | "esp32" | "esp32c5" | "esp32c6" | "esp32s2"
 
 export type PartitionRole = "boot" | "table" | "nvs" | "app" | "fs" | "dump";
 
+export type FirmwareEdition = "full" | "standard" | "compact" | "lite";
+
+export type ReleaseChannel = "stable" | "beta" | "archive";
+
 export interface PartitionDescriptor {
   label: string;
   offset: string;
@@ -14,6 +18,8 @@ export interface FlashPart {
   label: string;
   offset: string;
   path: string;
+  sizeBytes?: number | null;
+  downloadUrl?: string | null;
 }
 
 export interface FlashModePreset {
@@ -35,6 +41,9 @@ export interface BoardBuild {
   mcu: string;
   chipFamily: ChipFamily;
   flashSize: string;
+  flashSizeMB?: number;
+  maxAppBytes?: number;
+  edition?: FirmwareEdition;
   psram: string;
   display: string;
   partitionTable: string;
@@ -43,6 +52,14 @@ export interface BoardBuild {
   downloadModeHintEn: string;
   downloadModeHintZh: string;
   partitions: PartitionDescriptor[];
+  binarySizeBytes?: number | null;
+  otaSizeBytes?: number | null;
+  flashUsagePct?: number | null;
+  ramUsedBytes?: number | null;
+  ramTotalBytes?: number | null;
+  sha256?: string | null;
+  downloadUrl?: string | null;
+  staticReady?: boolean;
   flashModes: {
     merged: FlashModePreset;
     partitioned?: FlashModePreset;
@@ -51,8 +68,10 @@ export interface BoardBuild {
 
 export interface FirmwareRelease {
   version: string;
-  channel: "stable" | "beta" | "archive";
+  channel: ReleaseChannel;
   releaseDate: string;
+  releaseUrl?: string | null;
+  source?: "github" | "bundled";
   notesEn: string;
   notesZh: string;
   builds: BoardBuild[];

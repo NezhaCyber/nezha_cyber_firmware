@@ -184,6 +184,14 @@
   - 单行上限：**110 列**（`ColumnLimit: 110`）
   - 花括号：`BreakBeforeBraces: Attach`，`AccessModifierOffset: -4`，`IndentCaseLabels: true`，`BinPackArguments: false`
 - **Python（`scripts/build/*.py`、`tools/*.py`）**：兼容 Python 3.11+，并通过 `python3 -m py_compile` 语法检查。
+- **注释风格——禁止装饰性 ASCII 边框**：不得使用由重复符号组成的分隔线／方框注释，例如 `// -----`、`// ==== 标题 ====`、`/* ==== ... ==== */`、`// ////`，或仅由 `*`／`#` 构成的整行。请改写为简洁的多行块注释，说明代码的**真实行为**、输入输出及硬件或生命周期约束，且注释行不超过 110 列：
+  ```cpp
+  /*
+   * 严格的 802.11 MAC 解析：接受冒号或连字符分隔的十六进制，
+   * 拒绝格式错误、越界、全零或组播地址。
+   */
+  ```
+  禁止复述显而易见的语法，也不得在注释中保留过期修改记录（`// UPDATED`、`// Unchanged`、`// Y changed from 95 to 85`）——历史由 git 提交承载，而非源码注释。
 - **内存与边界安全**：字符串格式化统一使用 `snprintf(..., sizeof(buf), ...)`；对所有无线报文、SD 文件解析与动态内存分配（`malloc` / `ps_malloc`）做完备边界与空指针校验。
 
 ---

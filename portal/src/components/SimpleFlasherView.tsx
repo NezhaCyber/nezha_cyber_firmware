@@ -9,13 +9,17 @@ import {
   ChevronDown,
   ChevronUp,
   Cpu,
+  Download,
+  ExternalLink,
   Flame,
   FolderSync,
   FolderUp,
+  HardDrive,
   HelpCircle,
   Loader2,
   PlugZap,
   Plus,
+  RefreshCw,
   RotateCcw,
   SlidersHorizontal,
   Terminal,
@@ -39,12 +43,20 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { ManifestSource } from "@/hooks/useManifest";
 import { useLocale } from "@/i18n/LocaleContext";
 import { cn, formatBytes, formatDuration } from "@/lib/utils";
+import {
+  checkBoardFlashCompatibility,
+  computeFlashUsagePct,
+  inferEdition,
+  type BoardCompatibilityResult,
+} from "@/services/githubReleases";
 import type {
   BoardBuild,
   CustomLocalPart,
   DetectedChipInfo,
+  FirmwareEdition,
   FirmwareManifest,
   FirmwareRelease,
   FlashProgressState,
@@ -53,16 +65,25 @@ import type {
 
 export type FirmwareSourceMode = "manifest" | "local";
 export type ManifestFlashLayout = "merged" | "partitioned";
+export type ReleaseChannelFilter = "all" | "stable" | "beta";
 
 interface SimpleFlasherViewProps {
   isSupported: boolean;
   manifest: FirmwareManifest | null;
   manifestLoading: boolean;
+  syncingGitHub: boolean;
+  manifestSource: ManifestSource;
   manifestError: string | null;
+  onReloadManifest: () => void;
+  channelFilter: ReleaseChannelFilter;
+  onChangeChannelFilter: (filter: ReleaseChannelFilter) => void;
+  filteredReleases: FirmwareRelease[];
   selectedRelease: FirmwareRelease | null;
   onSelectReleaseVersion: (version: string) => void;
   selectedBoard: BoardBuild | null;
   onSelectBoardId: (id: string) => void;
+  boardCompat: BoardCompatibilityResult;
+  suggestedCompatibleBoard: BoardBuild | null;
   sourceMode: FirmwareSourceMode;
   onChangeSourceMode: (mode: FirmwareSourceMode) => void;
   flashLayout: ManifestFlashLayout;
@@ -99,11 +120,19 @@ export function SimpleFlasherView({
   isSupported,
   manifest,
   manifestLoading,
+  syncingGitHub,
+  manifestSource,
   manifestError,
+  onReloadManifest,
+  channelFilter,
+  onChangeChannelFilter,
+  filteredReleases,
   selectedRelease,
   onSelectReleaseVersion,
   selectedBoard,
   onSelectBoardId,
+  boardCompat,
+  suggestedCompatibleBoard,
   sourceMode,
   onChangeSourceMode,
   flashLayout,
@@ -146,7 +175,23 @@ export function SimpleFlasherView({
     ? allBuilds
     : featuredBuilds.length > 0
       ? featuredBuilds
-      : allBuilds.slice(0, 2);
+      : allBuilds.slice(0, 4);
+
+  const betaCount = (manifest?.releases ?? []).filter((r) => r.channel === "beta").length;
+  const stableCount = (manifest?.releases ?? []).filter((r) => r.channel !== "beta").length;
+
+  const editionLabel = (ed: FirmwareEdition): string => {
+    switch (ed) {
+      case "lite":
+        return t("editionLite");
+      case "compact":
+        return t("editionCompact");
+      case "standard":
+        return t("editionStandard");
+      default:
+        return t("editionFull");
+    }
+  };
 
   // If user or USB auto-detect selected a secondary board, reveal it cleanly
   const selectedIsSecondary =
@@ -160,12 +205,8 @@ export function SimpleFlasherView({
   const isDone = progress.phase === "done";
   const isConnecting = progress.phase === "connecting";
 
-  const hasChipMismatch =
-    chipInfo !== null &&
-    selectedBoard !== null &&
-    chipInfo.chipFamily !== "unknown" &&
-    chipInfo.chipFamily !== selectedBoard.chipFamily &&
-    sourceMode === "manifest";
+  const hasChipMismatch = boardCompat.chipMismatch;
+  const hasFlashOverflow = boardCompat.flashOverflow;
 
   const step1Done = selectedBoard !== null;
   const step2Done = isConnected || isDone;
@@ -229,8 +270,117 @@ export function SimpleFlasherView({
         ))}
       </div>
 
-      {/* STEP 1: Clean Visual Board Picker */}
-      <section className="space-y-3">
+      {/* STEP 1: Release Version + Visual Board Picker */}
+      <section className="space-y-3.5">
+        {/* Live GitHub Release Version & Channel Selector */}
+        <div className="rounded-xl border border-border/80 bg-card/75 p-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-foreground">
+                {t("releaseVersionLabel")}
+              </span>
+              <Badge
+                variant={manifestSource === "github" ? "cyan" : "secondary"}
+                className="telemetry-mono text-[10px]"
+              >
+                {syncingGitHub ? (
+                  <Loader2 className="mr-1 h-2.5 w-2.5 animate-spin" />
+                ) : null}
+                {manifestSource === "github"
+                  ? t("releaseSourceGithub")
+                  : t("releaseSourceBundled")}
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {/* Channel Filter Pills: All / Stable / Beta */}
+              <div className="inline-flex rounded-lg border border-border/80 bg-muted/40 p-0.5 text-[11px]">
+                {(
+                  [
+                    { key: "all", label: t("channelAll"), show: true },
+                    { key: "stable", label: `${t("channelStable")}${stableCount > 0 ? ` (${stableCount})` : ""}`, show: true },
+                    { key: "beta", label: `${t("channelBeta")}${betaCount > 0 ? ` (${betaCount})` : ""}`, show: betaCount > 0 },
+                  ] as const
+                )
+                  .filter((c) => c.show)
+                  .map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => onChangeChannelFilter(c.key)}
+                      className={cn(
+                        "rounded-md px-2 py-0.5 font-medium transition-colors",
+                        channelFilter === c.key
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+              </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={isBusy || syncingGitHub}
+                onClick={onReloadManifest}
+                title={t("releaseRefreshBtn")}
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5", syncingGitHub && "animate-spin")} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="min-w-0 flex-1">
+              <Select
+                value={selectedRelease?.version ?? ""}
+                onValueChange={onSelectReleaseVersion}
+                disabled={isBusy || filteredReleases.length === 0}
+              >
+                <SelectTrigger className="telemetry-mono h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredReleases.map((rel) => (
+                    <SelectItem key={rel.version} value={rel.version}>
+                      {rel.version} ·{" "}
+                      {rel.channel === "stable"
+                        ? t("channelStable")
+                        : rel.channel === "beta"
+                          ? t("channelBeta")
+                          : t("channelArchive")}
+                      {rel.releaseDate ? ` (${rel.releaseDate})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedRelease?.releaseUrl && (
+              <a
+                href={selectedRelease.releaseUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md border border-border/80 bg-background/60 px-3 text-xs font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                <span>{t("releaseViewGithub")}</span>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
+
+          {selectedRelease && (
+            <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+              {locale === "zh" ? selectedRelease.notesZh : selectedRelease.notesEn}
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="text-base font-semibold tracking-tight text-foreground">
@@ -238,10 +388,16 @@ export function SimpleFlasherView({
             </h2>
             <p className="text-xs text-muted-foreground">{t("chooseBoardHint")}</p>
           </div>
-          {selectedRelease && (
-            <Badge variant="secondary" className="telemetry-mono text-[11px]">
-              {selectedRelease.version}
-            </Badge>
+          {selectedBoard?.downloadUrl && (
+            <a
+              href={selectedBoard.downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-cyber-cyan hover:underline"
+            >
+              <Download className="h-3 w-3" />
+              <span>{t("downloadBinBtn")}</span>
+            </a>
           )}
         </div>
 
@@ -260,6 +416,13 @@ export function SimpleFlasherView({
             const active = selectedBoard?.id === board.id;
             const autoMatched =
               selectedPort !== null && selectedPort.suggestedBoardId === board.id;
+            const edition = inferEdition(board);
+            const usagePct = computeFlashUsagePct(board);
+            const compat = checkBoardFlashCompatibility(board, chipInfo);
+            const binSize =
+              board.binarySizeBytes ?? board.flashModes.merged.parts[0]?.sizeBytes ?? null;
+            const appLimit = board.maxAppBytes ?? null;
+
             return (
               <motion.button
                 key={board.id}
@@ -273,13 +436,14 @@ export function SimpleFlasherView({
                   active
                     ? "border-cyber-crimson/80 bg-card shadow-[0_0_28px_-12px_hsl(var(--cyber-crimson)/0.55)] ring-1 ring-cyber-crimson/35"
                     : "border-border/80 bg-card/70 hover:border-foreground/25 hover:bg-card",
+                  chipInfo && !compat.compatible && "opacity-60",
                 )}
               >
                 <div className="flex w-full items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5">
                     <div
                       className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg border transition-colors",
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors",
                         active
                           ? "border-cyber-crimson/40 bg-cyber-crimson/12 text-cyber-crimson"
                           : "border-border bg-muted/60 text-muted-foreground",
@@ -293,23 +457,73 @@ export function SimpleFlasherView({
                       </div>
                       <div className="telemetry-mono text-[11px] text-muted-foreground">
                         {board.mcu} · {board.flashSize}
+                        {board.psram && board.psram.toLowerCase() !== "none"
+                          ? ` · ${board.psram}`
+                          : ""}
                       </div>
                     </div>
                   </div>
 
-                  {autoMatched ? (
-                    <Badge variant="cyan" className="text-[10px]">
-                      <Usb className="h-3 w-3" />
-                      {t("usbDetectedBadge")}
-                    </Badge>
-                  ) : board.featured ? (
-                    <Badge variant={active ? "crimson" : "secondary"} className="text-[10px]">
-                      {t("featuredBadge")}
-                    </Badge>
-                  ) : null}
+                  <div className="flex flex-col items-end gap-1">
+                    {chipInfo && compat.flashOverflow ? (
+                      <Badge variant="amber" className="text-[10px]">
+                        {t("incompatibleFlashBadge")}
+                      </Badge>
+                    ) : autoMatched ? (
+                      <Badge variant="cyan" className="text-[10px]">
+                        <Usb className="h-3 w-3" />
+                        {t("usbDetectedBadge")}
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant={
+                          edition === "lite" || edition === "compact"
+                            ? "amber"
+                            : active
+                              ? "crimson"
+                              : "secondary"
+                        }
+                        className="telemetry-mono text-[10px]"
+                      >
+                        {editionLabel(edition)}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-3 text-[11px] text-muted-foreground">{board.display}</div>
+                <div className="mt-2.5 text-[11px] text-muted-foreground">{board.display}</div>
+
+                {/* Firmware Memory Footprint & Partition Ceiling */}
+                <div className="mt-2.5 w-full space-y-1 border-t border-border/60 pt-2">
+                  <div className="telemetry-mono flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <HardDrive className="h-3 w-3" />
+                      {binSize
+                        ? `${t("firmwareSizeLabel")}: ${formatBytes(binSize)}`
+                        : `${t("memoryLimitLabel")}: ${appLimit ? formatBytes(appLimit) : board.flashSize}`}
+                    </span>
+                    <span>
+                      {usagePct !== null
+                        ? `${usagePct.toFixed(1)}%${appLimit ? ` / ${formatBytes(appLimit)}` : ""}`
+                        : board.flashSize}
+                    </span>
+                  </div>
+                  {usagePct !== null && (
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          usagePct > 95
+                            ? "bg-destructive"
+                            : usagePct > 85
+                              ? "bg-cyber-amber"
+                              : "bg-cyber-emerald",
+                        )}
+                        style={{ width: `${Math.min(100, Math.max(4, usagePct))}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
               </motion.button>
             );
           })}
@@ -584,7 +798,50 @@ export function SimpleFlasherView({
                   <Alert variant="warning">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertTitle className="text-xs">{t("chipMismatchTitle")}</AlertTitle>
-                    <AlertDescription>{t("chipMismatchDesc")}</AlertDescription>
+                    <AlertDescription className="space-y-2">
+                      <div>{t("chipMismatchDesc")}</div>
+                      {suggestedCompatibleBoard && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onSelectBoardId(suggestedCompatibleBoard.id)}
+                          className="h-7 text-xs"
+                        >
+                          {t("switchCompatibleBtn")}:{" "}
+                          {locale === "zh"
+                            ? suggestedCompatibleBoard.boardNameZh
+                            : suggestedCompatibleBoard.boardName}
+                        </Button>
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {!hasChipMismatch && hasFlashOverflow && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle className="text-xs">
+                      {t("flashOverflowTitle")} ({boardCompat.requiredFlashMB} MB &gt;{" "}
+                      {boardCompat.detectedFlashMB} MB)
+                    </AlertTitle>
+                    <AlertDescription className="space-y-2">
+                      <div>{t("flashOverflowDesc")}</div>
+                      {suggestedCompatibleBoard && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onSelectBoardId(suggestedCompatibleBoard.id)}
+                          className="h-7 text-xs"
+                        >
+                          {t("switchCompatibleBtn")}:{" "}
+                          {locale === "zh"
+                            ? suggestedCompatibleBoard.boardNameZh
+                            : suggestedCompatibleBoard.boardName}
+                        </Button>
+                      )}
+                    </AlertDescription>
                   </Alert>
                 )}
 

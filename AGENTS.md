@@ -184,6 +184,14 @@ Every firmware change must remain compatible with **both** primary hardware tier
   - Max line length: **110 columns** (`ColumnLimit: 110`)
   - Braces: `BreakBeforeBraces: Attach`, `AccessModifierOffset: -4`, `IndentCaseLabels: true`, `BinPackArguments: false`
 - **Python (`scripts/build/*.py`, `tools/*.py`)**: Python 3.11+ compatible, clean type hints where appropriate, verified with `python3 -m py_compile`.
+- **Comment style — no decorative ASCII banners / 注释风格——禁止装饰性 ASCII 边框**: Do **not** write separator/box comments built from repeated punctuation, e.g. `// -----`, `// ==== Title ====`, `/* ==== ... ==== */`, `// ////`, or lines made only of `*`/`#`. Replace them with a concise multi-line block comment that states the **real behaviour**, inputs/outputs, and any hardware or lifecycle constraint, keeping every comment line within the 110-column limit:
+  ```cpp
+  /*
+   * Strict 802.11 MAC parsing: accepts colon- or hyphen-separated hex and
+   * rejects malformed, out-of-range, all-zero, or multicast addresses.
+   */
+  ```
+  Never narrate obvious C++ syntax, and never leave stale changelog notes in comments (`// UPDATED`, `// Unchanged`, `// Y changed from 95 to 85`) — history belongs in git commits, not in source comments.
 - **Safety**: Use `snprintf` with `sizeof(buf)`, bounds-check all packet/frame/SD parsers, and check pointer/allocation return values (`nullptr` checks on `malloc`/`ps_malloc`).
 
 ---

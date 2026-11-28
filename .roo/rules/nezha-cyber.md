@@ -17,5 +17,6 @@
   - Keep `src/core/lang_zh_cn.h` strictly ASCII `strcmp`-sorted. Never hand-edit `src/core/cjk_font_data.h`; run `python3 tools/gen_cjk_font.py && python3 tools/gen_cjk_font.py --check`.
 - **Style, Checks & Security / 风格、验证与安全**:
   - Format C++ to `.clang-format` (LLVM, 4 spaces, 110 cols).
+  - **Comment style / 注释风格**: No decorative ASCII banner/box comments (`// -----`, `// ==== Title ====`, `/* ==== */`, `// ////`, lines of only `*`/`#`). Use concise multi-line `/* ... */` blocks explaining real behaviour, inputs/outputs, and hardware/lifecycle constraints; comment lines ≤110 columns. No stale `// UPDATED` / `// Unchanged` changelog notes in comments.
   - Run `python3 tools/gen_cjk_font.py --check-tables`, `python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py`, and `pio run -e lilygo-t-deck -e m5stack-cplus1_1`, and report exact results honestly.
   - Branch off `development` and target all PRs to `development` (maintainer handles `development` → `main`) with atomic Conventional Commits and comply with `SECURITY.md`.

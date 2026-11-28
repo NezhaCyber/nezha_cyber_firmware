@@ -7,6 +7,7 @@ import {
   SimpleFlasherView,
   type FirmwareSourceMode,
   type ManifestFlashLayout,
+  type ReleaseChannelFilter,
 } from "@/components/SimpleFlasherView";
 import { TopBar, type PortalTab } from "@/components/TopBar";
 import { UsbFileTransferView } from "@/components/UsbFileTransferView";
@@ -17,6 +18,10 @@ import { useUsbFileTransfer } from "@/hooks/useUsbFileTransfer";
 import { useWebSerial } from "@/hooks/useWebSerial";
 import { LocaleProvider, useLocale } from "@/i18n/LocaleContext";
 import type { BinarySegmentInput } from "@/services/espFlasher";
+import {
+  checkBoardFlashCompatibility,
+  pickBestCompatibleBoard,
+} from "@/services/githubReleases";
 import type { CustomLocalPart } from "@/types/firmware";
 
 function guessOffsetFromFilename(filename: string, isEsp32Classic: boolean): string {
@@ -29,10 +34,18 @@ function guessOffsetFromFilename(filename: string, isEsp32Classic: boolean): str
 
 function PortalWorkspace() {
   const { t } = useLocale();
-  const { manifest, loading: manifestLoading, error: manifestError } = useManifest();
+  const {
+    manifest,
+    loading: manifestLoading,
+    syncingGitHub,
+    source: manifestSource,
+    error: manifestError,
+    reload: reloadManifest,
+  } = useManifest();
 
   const [activeTab, setActiveTab] = useState<PortalTab>("flash");
   const [sourceMode, setSourceMode] = useState<FirmwareSourceMode>("manifest");
+  const [channelFilter, setChannelFilter] = useState<ReleaseChannelFilter>("all");
   const [selectedVersion, setSelectedVersion] = useState<string>("");
   const [selectedBoardId, setSelectedBoardId] = useState<string>("lilygo-t-deck");
   const [flashLayout, setFlashLayout] = useState<ManifestFlashLayout>("merged");
@@ -62,18 +75,28 @@ function PortalWorkspace() {
 
   releaseUsbFilesRef.current = usbFiles.disconnect;
 
+  const filteredReleases = useMemo(() => {
+    const all = manifest?.releases ?? [];
+    if (channelFilter === "all") return all;
+    if (channelFilter === "beta") return all.filter((r) => r.channel === "beta");
+    return all.filter((r) => r.channel !== "beta");
+  }, [manifest, channelFilter]);
+
   useEffect(() => {
-    if (manifest && manifest.releases.length > 0 && !selectedVersion) {
-      setSelectedVersion(manifest.releases[0].version);
+    if (filteredReleases.length === 0) return;
+    if (!selectedVersion || !filteredReleases.some((r) => r.version === selectedVersion)) {
+      const preferred =
+        filteredReleases.find((r) => r.channel === "stable") ?? filteredReleases[0];
+      setSelectedVersion(preferred.version);
     }
-  }, [manifest, selectedVersion]);
+  }, [filteredReleases, selectedVersion]);
 
   const selectedRelease = useMemo(() => {
-    if (!manifest || manifest.releases.length === 0) return null;
+    if (filteredReleases.length === 0) return manifest?.releases[0] ?? null;
     return (
-      manifest.releases.find((r) => r.version === selectedVersion) ?? manifest.releases[0]
+      filteredReleases.find((r) => r.version === selectedVersion) ?? filteredReleases[0]
     );
-  }, [manifest, selectedVersion]);
+  }, [filteredReleases, manifest, selectedVersion]);
 
   const selectedBoard = useMemo(() => {
     if (!selectedRelease || selectedRelease.builds.length === 0) return null;
@@ -81,6 +104,22 @@ function PortalWorkspace() {
       selectedRelease.builds.find((b) => b.id === selectedBoardId) ?? selectedRelease.builds[0]
     );
   }, [selectedRelease, selectedBoardId]);
+
+  // When actual chip + flash size is detected over Web Serial, auto-switch if current selection won't fit
+  useEffect(() => {
+    if (!serial.chipInfo || !selectedRelease) return;
+    const currentCompat = checkBoardFlashCompatibility(selectedBoard, serial.chipInfo);
+    if (!currentCompat.compatible) {
+      const best = pickBestCompatibleBoard(
+        selectedRelease.builds,
+        serial.chipInfo,
+        serial.selectedPort?.suggestedBoardId,
+      );
+      if (best && best.id !== selectedBoard?.id) {
+        setSelectedBoardId(best.id);
+      }
+    }
+  }, [serial.chipInfo, serial.selectedPort, selectedRelease, selectedBoard]);
 
   const activeManifestParts = useMemo(() => {
     if (!selectedBoard) return [];
@@ -132,6 +171,10 @@ function PortalWorkspace() {
 
   const handleOpenConsoleAfterFlash = async () => {
     setActiveTab("console");
+    if (serial.isConnected) {
+      await serial.hardReset();
+      await new Promise((r) => setTimeout(r, 250));
+    }
     await serial.attachSerialMonitor();
   };
 
@@ -140,16 +183,29 @@ function PortalWorkspace() {
     setActiveTab("files");
   };
 
-  const hasChipMismatch =
-    serial.chipInfo !== null &&
-    selectedBoard !== null &&
-    serial.chipInfo.chipFamily !== "unknown" &&
-    serial.chipInfo.chipFamily !== selectedBoard.chipFamily &&
-    sourceMode === "manifest";
+  const boardCompat = useMemo(
+    () =>
+      sourceMode === "manifest"
+        ? checkBoardFlashCompatibility(selectedBoard, serial.chipInfo)
+        : {
+            compatible: true,
+            chipMismatch: false,
+            flashOverflow: false,
+            requiredFlashMB: 0,
+            detectedFlashMB: serial.chipInfo?.flashSizeMB ?? 0,
+            binarySizeBytes: null,
+          },
+    [sourceMode, selectedBoard, serial.chipInfo],
+  );
+
+  const suggestedCompatibleBoard = useMemo(() => {
+    if (!serial.chipInfo || !selectedRelease || boardCompat.compatible) return null;
+    return pickBestCompatibleBoard(selectedRelease.builds, serial.chipInfo);
+  }, [serial.chipInfo, selectedRelease, boardCompat.compatible]);
 
   const segmentCount =
     sourceMode === "manifest" ? activeManifestParts.length : localParts.length;
-  const canFlash = serial.isConnected && segmentCount > 0 && !hasChipMismatch;
+  const canFlash = serial.isConnected && segmentCount > 0 && boardCompat.compatible;
 
   const repository = manifest?.repository ?? "NezhaCyber/nezha_cyber_firmware";
 
@@ -181,11 +237,19 @@ function PortalWorkspace() {
                 isSupported={serial.isSupported}
                 manifest={manifest}
                 manifestLoading={manifestLoading}
+                syncingGitHub={syncingGitHub}
+                manifestSource={manifestSource}
                 manifestError={manifestError}
+                onReloadManifest={reloadManifest}
+                channelFilter={channelFilter}
+                onChangeChannelFilter={setChannelFilter}
+                filteredReleases={filteredReleases}
                 selectedRelease={selectedRelease}
                 onSelectReleaseVersion={setSelectedVersion}
                 selectedBoard={selectedBoard}
                 onSelectBoardId={setSelectedBoardId}
+                boardCompat={boardCompat}
+                suggestedCompatibleBoard={suggestedCompatibleBoard}
                 sourceMode={sourceMode}
                 onChangeSourceMode={setSourceMode}
                 flashLayout={flashLayout}
@@ -262,13 +326,27 @@ function PortalWorkspace() {
               <SerialMonitorPanel
                 isSupported={serial.isSupported}
                 monitorConnected={serial.monitorConnected}
+                monitorConnecting={serial.monitorConnecting}
                 isFlashingBusy={serial.isBusy || usbFiles.transfer.active}
+                selectedPort={serial.selectedPort}
+                knownPorts={serial.knownPorts}
+                monitorBaudRate={serial.monitorBaudRate}
+                onChangeMonitorBaudRate={serial.setMonitorBaudRate}
+                lineEnding={serial.lineEnding}
+                onChangeLineEnding={serial.setLineEnding}
+                localEcho={serial.localEcho}
+                onChangeLocalEcho={serial.setLocalEcho}
+                monitorError={serial.monitorError}
                 lines={serial.terminalLines}
+                pendingLine={serial.pendingLine}
+                rxBytes={serial.rxBytes}
+                txBytes={serial.txBytes}
                 onAttach={serial.attachSerialMonitor}
                 onDetach={serial.detachSerialMonitor}
                 onHardReset={serial.hardReset}
                 onClear={serial.clearTerminal}
                 onSendCommand={serial.sendSerialCommand}
+                onSendCtrlC={serial.sendSerialCtrlC}
               />
             </motion.div>
           )}

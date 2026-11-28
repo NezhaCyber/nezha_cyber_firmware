@@ -1,13 +1,16 @@
 # Nezha Cyber (哪吒网络安全) Firmware Makefile
 # Author: 钟智强 (ctkqiang)
-# Auto-detects PlatformIO, connected serial port, and target board:
-#   - /dev/cu.usbmodem1101         -> LilyGO T-Deck (lilygo-t-deck, ESP32-S3)
-#   - /dev/cu.usbserial-81526C1AF0 -> M5StickC Plus 1.1 (m5stack-cplus1_1, ESP32)
+# Auto-detects PlatformIO, connected serial port, chip flash capacity, and target board:
+#   - /dev/cu.usbmodem1101         -> LilyGO T-Deck (lilygo-t-deck, ESP32-S3, 16MB)
+#   - /dev/cu.usbserial-81526C1AF0 -> M5StickC Plus 1.1 (m5stack-cplus1_1, ESP32, 4MB <4MB)
 
 SHELL := /bin/sh
 
 TDECK_PORT  ?= /dev/cu.usbmodem1101
 STICKC_PORT ?= /dev/cu.usbserial-81526C1AF0
+REPO        ?= NezhaCyber/nezha_cyber_firmware
+RELEASE     ?=
+CHANNEL     ?=
 
 # Auto-pick default ENV based on which known device port is currently plugged in
 ifeq ($(origin ENV), undefined)
@@ -43,6 +46,8 @@ endif
 BAUD         ?= 921600
 MONITOR_BAUD ?= 115200
 BIN          ?= NezhaCyber-$(ENV).bin
+OTA_BIN      ?= .pio/build/$(ENV)/firmware.bin
+ERASE        ?= 0
 
 # Prefer PlatformIO's managed venv (avoids Homebrew Python 3.15 incompatibility with ESP32 platform)
 PIO ?= $(shell \
@@ -85,13 +90,14 @@ define RESOLVE_PORT
 			echo "👉 LilyGO T-Deck Download Mode (/dev/cu.usbmodem1101):"; \
 			echo "   1. Power OFF -> press & HOLD Trackball (GPIO0) -> Power ON -> release."; \
 			echo "👉 M5StickC Plus 1.1 (/dev/cu.usbserial-81526C1AF0):"; \
-			echo "   1. Connect via USB-C data cable and run 'make stickc-plus'."; \
+			echo "   1. Connect via USB-C data cable and run 'make stickc-plus' (or 'make stickc-plus-lite')."; \
 			exit 1; \
 		fi; \
 	fi
 endef
 
-.PHONY: help check-pio check-port detect ports envs build install upload flash-bin monitor clean test \
+.PHONY: help check-pio check-port check-size detect ports envs releases build install install-release install-beta \
+        upload flash-bin monitor clean test \
         tdeck tdeck-plus cardputer stickc-plus cplus1_1 stickc-plus-lite stickc-plus2 core2 cyd
 
 .DEFAULT_GOAL := help
@@ -104,29 +110,33 @@ help: ## Show this help message
 	@echo "  CHIP         = $(CHIP)"
 	@echo "  PORT         = $(PORT)"
 	@echo "  BAUD         = $(BAUD)"
+	@echo "  REPO         = $(REPO)"
 	@echo "  PIO          = $(if $(PIO),$(PIO),<not found>)"
 	@echo ""
-	@echo "Known auto-detected ports:"
-	@echo "  $(TDECK_PORT)         -> lilygo-t-deck (ESP32-S3)"
-	@echo "  $(STICKC_PORT) -> m5stack-cplus1_1 (ESP32)"
+	@echo "Known auto-detected ports & flash tiers:"
+	@echo "  $(TDECK_PORT)         -> lilygo-t-deck (ESP32-S3, 16MB Full)"
+	@echo "  $(STICKC_PORT) -> m5stack-cplus1_1 (ESP32, 4MB Compact <4MB)"
 	@echo ""
 	@echo "Targets:"
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 	@echo ""
 	@echo "Examples:"
-	@echo "  make install                                # Auto-detect T-Deck or M5StickC Plus 1.1 & flash"
-	@echo "  make tdeck                                  # Install on LilyGO T-Deck (/dev/cu.usbmodem1101)"
-	@echo "  make stickc-plus                            # Install on M5StickC Plus 1.1 (/dev/cu.usbserial-81526C1AF0)"
-	@echo "  make stickc-plus-lite                       # Install M5Launcher Lite on M5StickC Plus 1.1"
-	@echo "  make detect                                 # Probe connected port & ESP chip type"
-	@echo "  make upload                                 # Re-flash without rebuilding"
-	@echo "  make monitor                                # Open serial monitor (115200 baud)"
+	@echo "  make releases                               # List GitHub Releases (Stable & Beta) + firmware memory sizes"
+	@echo "  make install-release                        # Auto-detect chip/flash & install latest Stable from GitHub"
+	@echo "  make install-beta ENV=m5stack-cplus1_1      # Install latest Beta (<4MB) on M5StickC Plus 1.1"
+	@echo "  make install RELEASE=v2.1.0                 # Install a specific GitHub Release tag"
+	@echo "  make install                                # Build from source, check flash fit & flash connected device"
+	@echo "  make tdeck                                  # Build & install on LilyGO T-Deck (16MB)"
+	@echo "  make stickc-plus                            # Build & install Compact (<4MB) on M5StickC Plus 1.1"
+	@echo "  make stickc-plus-lite                       # Build & install Launcher Lite (<2.5MB) on M5StickC Plus 1.1"
+	@echo "  make detect                                 # Probe connected chip type & exact Flash capacity (4/8/16MB)"
+	@echo "  make check-size ENV=m5stack-cplus1_1        # Verify built binary fits target device flash limit"
 	@echo ""
 
 check-pio: ## Verify PlatformIO CLI is available
 	@if [ -z "$(PIO)" ] || [ ! -x "$(PIO)" ]; then \
 		echo "❌ PlatformIO CLI not found."; \
-		echo "Install PlatformIO or ensure ~/.platformio/penv/bin/pio exists."; \
+		echo "Install PlatformIO or use 'make install-release' to flash directly from GitHub Releases."; \
 		exit 1; \
 	fi
 	@echo "✅ Using PlatformIO: $(PIO)"
@@ -134,17 +144,10 @@ check-pio: ## Verify PlatformIO CLI is available
 check-port: ## Check if preferred or any USB serial port is connected
 	@$(RESOLVE_PORT)
 
-detect: ## Probe connected USB serial port and detect ESP chip type via esptool
+detect: ## Probe connected USB serial port, ESP chip type & Flash size (4/8/16MB)
 	@set -e; \
 	$(RESOLVE_PORT); \
-	if [ -n "$(ESPTOOL)" ]; then \
-		"$(ESPTOOL)" --port "$$ACTIVE_PORT" chip-id; \
-	elif [ -n "$(PIO)" ]; then \
-		"$(PIO)" pkg exec -p tool-esptoolpy -- esptool.py --port "$$ACTIVE_PORT" chip-id; \
-	else \
-		echo "❌ Neither esptool nor PlatformIO was found."; \
-		exit 1; \
-	fi
+	python3 tools/install_firmware.py --probe-port "$$ACTIVE_PORT"
 
 ports: ## List all detected USB serial ports
 	@echo "🔍 Scanning /dev/cu.* and /dev/tty* ..."
@@ -159,41 +162,74 @@ envs: ## List all supported board environments in platformio.ini
 	@echo "📋 Available environments in platformio.ini:"
 	@awk '/^default_envs =/{flag=1; next} /^$$/{flag=0} flag{gsub(/^[ \t]*;?[ \t]*/, ""); sub(/[ \t]*;.*/, ""); if (length($$0)) print "  - " $$0}' platformio.ini
 
-build: check-pio ## Build firmware for ENV (generates NezhaCyber-<ENV>.bin)
+releases: ## List GitHub Releases (Stable / Beta) with per-board memory sizes
+	@python3 tools/install_firmware.py --list-releases --repo "$(REPO)" $(if $(CHANNEL),--channel "$(CHANNEL)",)
+
+check-size: ## Verify NezhaCyber-<ENV>.bin fits the target device Flash & partition ceiling
+	@python3 tools/install_firmware.py --check-bin "$(BIN)" --env "$(ENV)" $(if $(wildcard $(OTA_BIN)),--ota-bin "$(OTA_BIN)",)
+
+build: check-pio ## Build firmware for ENV and verify Flash/partition fit
 	@echo "🔨 Building Nezha Cyber (哪吒网络安全) firmware for $(ENV) (chip=$(CHIP))..."
 	"$(PIO)" run -e "$(ENV)"
 	@if [ -f "$(BIN)" ]; then \
-		echo "✅ Merged binary ready: $(BIN)"; \
+		python3 tools/install_firmware.py --check-bin "$(BIN)" --env "$(ENV)" $(if $(wildcard $(OTA_BIN)),--ota-bin "$(OTA_BIN)",); \
 	fi
 
-install: check-pio ## Auto-detect port & board, build, and flash firmware
-	@set -e; \
-	$(RESOLVE_PORT); \
-	echo "🚀 Building and flashing $(ENV) (chip=$(CHIP)) to $$ACTIVE_PORT..."; \
-	"$(PIO)" run -e "$(ENV)" -t upload --upload-port "$$ACTIVE_PORT"; \
-	echo ""; \
-	echo "🎉 Flash complete! Press the Reset button (or power-cycle) on your device to boot Nezha Cyber."
+install-release: ## Auto-detect chip/flash & install prebuilt firmware from GitHub Releases
+	@python3 tools/install_firmware.py --install-release \
+		--repo "$(REPO)" \
+		--tag "$(if $(RELEASE),$(RELEASE),latest)" \
+		$(if $(CHANNEL),--channel "$(CHANNEL)",--channel stable) \
+		$(if $(filter-out undefined,$(origin ENV)),--env "$(ENV)",) \
+		$(if $(filter-out undefined,$(origin PORT)),--port "$(PORT)",) \
+		--baud "$(BAUD)" \
+		$(if $(filter 1 true yes,$(ERASE)),--erase,)
+
+install-beta: ## Auto-detect chip/flash & install latest Beta release from GitHub Releases
+	@$(MAKE) install-release RELEASE=beta CHANNEL=beta
+
+install: ## Build & flash from source (or pass RELEASE=vX.Y.Z / CHANNEL=beta to install from GitHub)
+	@if [ -n "$(RELEASE)" ] || [ -n "$(CHANNEL)" ]; then \
+		$(MAKE) install-release; \
+	else \
+		set -e; \
+		$(MAKE) check-pio; \
+		$(RESOLVE_PORT); \
+		echo "🚀 Building $(ENV) (chip=$(CHIP))..."; \
+		"$(PIO)" run -e "$(ENV)"; \
+		if [ -f "$(BIN)" ]; then \
+			python3 tools/install_firmware.py --check-bin "$(BIN)" --env "$(ENV)" $(if $(wildcard $(OTA_BIN)),--ota-bin "$(OTA_BIN)",); \
+		fi; \
+		echo "⚡ Flashing $(ENV) to $$ACTIVE_PORT..."; \
+		"$(PIO)" run -e "$(ENV)" -t upload -t nobuild --upload-port "$$ACTIVE_PORT"; \
+		echo ""; \
+		echo "🎉 Flash complete! Press the Reset button (or power-cycle) on your device to boot Nezha Cyber."; \
+	fi
 
 upload: check-pio ## Flash already-built firmware without rebuilding (nobuild)
 	@set -e; \
+	if [ -f "$(BIN)" ]; then \
+		python3 tools/install_firmware.py --check-bin "$(BIN)" --env "$(ENV)" $(if $(wildcard $(OTA_BIN)),--ota-bin "$(OTA_BIN)",); \
+	fi; \
 	$(RESOLVE_PORT); \
 	echo "⚡ Uploading prebuilt $(ENV) firmware to $$ACTIVE_PORT..."; \
 	"$(PIO)" run -e "$(ENV)" -t upload -t nobuild --upload-port "$$ACTIVE_PORT"; \
 	echo ""; \
 	echo "🎉 Upload complete! Press the Reset button (or power-cycle) on your device to boot Nezha Cyber."
 
-flash-bin: ## Flash merged NezhaCyber-<ENV>.bin directly via esptool at 0x00000
+flash-bin: ## Validate flash limit & flash merged NezhaCyber-<ENV>.bin directly at 0x00000
 	@set -e; \
 	if [ ! -f "$(BIN)" ]; then \
 		echo "ℹ️  $(BIN) not found. Building first..."; \
 		$(MAKE) build ENV="$(ENV)"; \
 	fi; \
+	python3 tools/install_firmware.py --check-bin "$(BIN)" --env "$(ENV)"; \
 	$(RESOLVE_PORT); \
 	echo "⚡ Flashing $(BIN) to $$ACTIVE_PORT (chip=$(CHIP), baud=$(BAUD))..."; \
 	if [ -n "$(ESPTOOL)" ]; then \
-		"$(ESPTOOL)" --chip "$(CHIP)" --port "$$ACTIVE_PORT" --baud "$(BAUD)" write_flash 0x00000 "$(BIN)"; \
+		"$(ESPTOOL)" --chip "$(CHIP)" --port "$$ACTIVE_PORT" --baud "$(BAUD)" write-flash 0x00000 "$(BIN)"; \
 	elif [ -n "$(PIO)" ]; then \
-		"$(PIO)" pkg exec -p tool-esptoolpy -- esptool.py --chip "$(CHIP)" --port "$$ACTIVE_PORT" --baud "$(BAUD)" write_flash 0x00000 "$(BIN)"; \
+		"$(PIO)" pkg exec -p tool-esptoolpy -- esptool.py --chip "$(CHIP)" --port "$$ACTIVE_PORT" --baud "$(BAUD)" write-flash 0x00000 "$(BIN)"; \
 	else \
 		echo "❌ Neither esptool nor PlatformIO was found."; \
 		exit 1; \
@@ -213,29 +249,29 @@ clean: check-pio ## Clean PlatformIO build artifacts for ENV
 test: ## Run host-native C++17 & Python unit test suite
 	@bash test/run_tests.sh
 
-# Convenience device shortcuts
-tdeck: ## Auto-install Nezha Cyber on standard LilyGO T-Deck (ESP32-S3)
+# Convenience device shortcuts (also support RELEASE=latest or CHANNEL=beta!)
+tdeck: ## Install Nezha Cyber (16MB Full) on standard LilyGO T-Deck
 	@$(MAKE) install ENV=lilygo-t-deck PORT="$(TDECK_PORT)"
 
-tdeck-plus: ## Auto-install Nezha Cyber on LilyGO T-Deck Plus (ESP32-S3)
+tdeck-plus: ## Install Nezha Cyber (16MB Full) on LilyGO T-Deck Plus
 	@$(MAKE) install ENV=lilygo-t-deck-pro PORT="$(TDECK_PORT)"
 
-cardputer: ## Auto-install Nezha Cyber on M5Stack Cardputer (ESP32-S3)
+cardputer: ## Install Nezha Cyber (8MB) on M5Stack Cardputer
 	@$(MAKE) install ENV=m5stack-cardputer PORT="$(TDECK_PORT)"
 
-stickc-plus: ## Auto-install Nezha Cyber on M5StickC Plus 1.1 (ESP32)
+stickc-plus: ## Install Nezha Cyber (4MB Compact <4MB) on M5StickC Plus 1.1
 	@$(MAKE) install ENV=m5stack-cplus1_1 PORT="$(STICKC_PORT)"
 
 cplus1_1: stickc-plus ## Alias for stickc-plus (M5StickC Plus 1.1)
 
-stickc-plus-lite: ## Auto-install M5Launcher Lite on M5StickC Plus 1.1 (ESP32)
+stickc-plus-lite: ## Install Nezha Cyber Launcher Lite (<2.5MB) on M5StickC Plus 1.1
 	@$(MAKE) install ENV=LAUNCHER_m5stack-cplus1_1 PORT="$(STICKC_PORT)"
 
-stickc-plus2: ## Auto-install Nezha Cyber on M5StickC Plus2 (ESP32)
+stickc-plus2: ## Install Nezha Cyber (8MB) on M5StickC Plus2
 	@$(MAKE) install ENV=m5stack-cplus2 PORT="$(STICKC_PORT)"
 
-core2: ## Auto-install Nezha Cyber on M5Stack Core2 (ESP32)
+core2: ## Install Nezha Cyber (16MB Full) on M5Stack Core2
 	@$(MAKE) install ENV=m5stack-core2 PORT="$(STICKC_PORT)"
 
-cyd: ## Auto-install Nezha Cyber on CYD-2432S028 (ESP32)
+cyd: ## Install Nezha Cyber (4MB Compact <4MB) on CYD-2432S028
 	@$(MAKE) install ENV=CYD-2432S028 PORT="$(STICKC_PORT)"
