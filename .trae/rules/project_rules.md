@@ -36,6 +36,7 @@
 
 ## 6. Formatting, Build Verification & Git / 格式化、验证与提交
 - C++ follows `.clang-format` (LLVM, 4 spaces, 110 columns, attached braces).
+- **Comment style / 注释风格**: 禁止装饰性 ASCII 边框注释（`// -----`、`// ==== 标题 ====`、`/* ==== */`、`// ////`、纯 `*`/`#` 整行）。改用简洁的多行 `/* ... */` 块注释（内部 ` * ` 行），说明真实行为、输入输出与硬件/生命周期约束；注释行 ≤110 列。禁止过期修改记录（`// UPDATED` / `// Unchanged`），历史由 git 提交承载。
 - Verify before finishing:
   ```sh
   python3 tools/gen_cjk_font.py --check-tables

@@ -23,6 +23,7 @@ Authoritative specification: `AGENTS.md` (EN) and `AGENTS_ZH.md` (简体中文).
 
 ## 3. Code Style, Verification & Git / 代码风格、验证与提交
 - C++/C (`.cc`/`.h`): Strictly follow `.clang-format` (LLVM, 4 spaces, no tabs, 110 column limit, attached braces).
+- Comment style: **no decorative ASCII banner/box comments** (`// -----`, `// ==== Title ====`, `/* ==== */`, `// ////`, lines of only `*`/`#`). Use a concise multi-line `/* ... */` block (interior ` * ` lines) explaining real behaviour, inputs/outputs, and hardware/lifecycle constraints; keep comment lines ≤110 columns. No stale `// UPDATED` / `// Unchanged` changelog notes — history belongs in commits.
 - Python (`scripts/build/*.py`, `tools/*.py`): Python 3.11+ compatible; verify with `python3 -m py_compile`.
 - Before finishing any firmware change, verify:
   - `python3 tools/gen_cjk_font.py --check-tables`

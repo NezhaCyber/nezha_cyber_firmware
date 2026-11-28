@@ -34,6 +34,7 @@
 
 6. **Style, Build Verification & Security**
    - Follow `.clang-format` (LLVM, 4 spaces, 110 columns, attached braces) for `.cc`/`.h` and Python 3.11+ (`py_compile`) for build/host scripts.
+   - **Comment style**: No decorative ASCII banner/box comments (`// -----`, `// ==== Title ====`, `/* ==== */`, `// ////`, lines of only `*`/`#`). Use concise multi-line `/* ... */` blocks (interior ` * ` lines) explaining real behaviour, inputs/outputs, and hardware/lifecycle constraints; comment lines ≤110 columns. No stale `// UPDATED` / `// Unchanged` changelog notes — history belongs in commits.
    - Required verification commands:
      - `python3 tools/gen_cjk_font.py --check-tables`
      - `python3 -m py_compile scripts/build/*.py tools/gen_cjk_font.py`

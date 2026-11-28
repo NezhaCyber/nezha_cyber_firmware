@@ -34,5 +34,6 @@ inclusion: always
 1. **Read before writing**: Inspect real files before editing; never hallucinate pins, macros, headers, or APIs.
 2. **Minimal scoped diffs**: Modify only files required by the task. No drive-by refactors, no stubs/`TODO`s, no mocked telemetry.
 3. **Formatting**: `.cc` / `.h` follow `.clang-format` (LLVM, 4 spaces, 110 cols, attached braces, `IndentCaseLabels: true`).
+   - **Comment style**: No decorative ASCII banner/box comments (`// -----`, `// ==== Title ====`, `/* ==== */`, `// ////`, lines of only `*`/`#`). Use concise multi-line `/* ... */` blocks explaining real behaviour, inputs/outputs, and hardware/lifecycle constraints; comment lines ≤110 cols. No stale `// UPDATED` / `// Unchanged` changelog notes.
 4. **Clean tree**: Never commit `NezhaCyber-*.bin`, `.pio/`, `__pycache__/`, `include/webFiles.h`, `include/current_year.h`, or `compile_commands.json`.
 5. **Git**: Branch off `development` (`feat/*`, `fix/*`, `ui/*`, `i18n/*`, `docs/*`, `chore/*`) with atomic Conventional Commits; all PRs must target `development` (maintainer promotes `development` → `main`).
