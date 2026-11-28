@@ -54,7 +54,7 @@ def build_manifest(board: dict[str, str], repo: str, tag: str, base_url: str | N
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate esp-web-tools manifests for Nezha Cyber")
     parser.add_argument("--out-dir", type=Path, required=True, help="Output directory for manifest JSON files")
-    parser.add_argument("--repo", default="ctkqiang/nezha_cyber_firmware", help="GitHub owner/repo")
+    parser.add_argument("--repo", default="NezhaCyber/nezha_cyber_firmware", help="GitHub owner/repo")
     parser.add_argument("--tag", default="latest", help="Release tag (e.g. v2.1.0) or 'latest'")
     parser.add_argument("--base-url", default=None, help="Optional override base URL for .bin files")
     args = parser.parse_args()
