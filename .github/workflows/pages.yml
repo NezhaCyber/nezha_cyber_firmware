@@ -1,21 +1,26 @@
-name: Deploy WebSerial Flasher & Companion (GitHub Pages)
+name: Deploy Web Flasher Portal (GitHub Pages)
 
 on:
   release:
     types: [published]
   push:
-    branches: [main, development]
+    branches: [main]
     paths:
-      - "tools/web_companion/**"
+      - "portal/**"
       - "tools/gen_web_manifests.py"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag for flasher manifests (default: latest)"
+        description: "Release tag for flasher manifests & binaries (default: latest)"
         required: false
         default: "latest"
         type: string
+      sync_release_bins:
+        description: "Copy published GitHub Release .bin assets into static Pages bundle (same-origin, zero CORS issues)"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -23,63 +28,151 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages-web-companion
+  group: pages
   cancel-in-progress: false
 
 jobs:
-  build-pages:
-    name: Stage WebSerial Companion & Manifests
+  build:
+    name: Build & Stage Static Portal (/portal)
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Checkout portal & manifest generator only
+        uses: actions/checkout@v7
         with:
-          python-version: "3.11"
+          sparse-checkout: |
+            portal
+            tools
 
-      - name: Resolve release tag
-        id: meta
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: portal/package-lock.json
+
+      - name: Install portal dependencies
+        working-directory: portal
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run portal protocol & manifest unit tests
+        working-directory: portal
+        run: npm test
+
+      - name: Build static production bundle
+        working-directory: portal
+        env:
+          PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
         run: |
-          if [ -n "${{ github.event.release.tag_name }}" ]; then
-            TAG="${{ github.event.release.tag_name }}"
-          elif [ -n "${{ inputs.release_tag }}" ]; then
-            TAG="${{ inputs.release_tag }}"
+          if [ -n "$PAGES_BASE_PATH" ]; then
+            export VITE_BASE_PATH="${PAGES_BASE_PATH%/}/"
+          else
+            export VITE_BASE_PATH="./"
+          fi
+          echo "Building static portal with VITE_BASE_PATH=$VITE_BASE_PATH"
+          npm run build
+
+      - name: Resolve release tag & stage static manifests + optional release binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_NAME: ${{ github.repository }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+          SYNC_BINS: ${{ github.event_name != 'workflow_dispatch' || inputs.sync_release_bins == true }}
+        run: |
+          if [ -n "$EVENT_TAG" ]; then
+            TAG="$EVENT_TAG"
+          elif [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
           else
             TAG="latest"
           fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Stage static site and generate esp-web-tools manifests
-        run: |
-          mkdir -p _site/manifests
-          if [ -d tools/web_companion ]; then
-            cp -r tools/web_companion/* _site/
-          else
-            cat > _site/index.html <<'HTML'
-            <!doctype html><html><body><h1>Nezha Cyber WebSerial Portal</h1><p>Merge feat/platform-ecosystem to enable the full companion UI.</p></body></html>
-          HTML
-          fi
+          # Generate esp-web-tools manifests alongside the Vite SPA bundle
           python3 tools/gen_web_manifests.py \
-            --out-dir _site/manifests \
-            --repo "${{ github.repository }}" \
-            --tag "${{ steps.meta.outputs.tag }}"
-          touch _site/.nojekyll
+            --out-dir portal/dist/manifests \
+            --repo "$REPO_NAME" \
+            --tag "$TAG"
+
+          # Mirror published factory .bin files into static Pages so Web Serial fetches same-origin without CORS blocks
+          if [ "$SYNC_BINS" = "true" ]; then
+            if [ "$TAG" = "latest" ]; then
+              RESOLVED_TAG=$(gh release view --repo "$REPO_NAME" --json tagName -q .tagName 2>/dev/null || true)
+            else
+              RESOLVED_TAG="$TAG"
+            fi
+
+            if [ -n "$RESOLVED_TAG" ]; then
+              OUT_DIR="portal/dist/firmware/releases/${RESOLVED_TAG}"
+              mkdir -p "$OUT_DIR"
+              if gh release download "$RESOLVED_TAG" \
+                --repo "$REPO_NAME" \
+                --pattern "NezhaCyber-*.bin" \
+                --dir "$OUT_DIR" \
+                --clobber 2>/dev/null; then
+                rm -f "$OUT_DIR"/NezhaCyber-*-ota.bin
+                RESOLVED_TAG="$RESOLVED_TAG" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          tag = os.environ["RESOLVED_TAG"]
+          rel_dir = Path("portal/dist/firmware/releases") / tag
+          bins = {p.name for p in rel_dir.glob("NezhaCyber-*.bin")}
+          if not bins:
+              raise SystemExit(0)
+
+          mpath = Path("portal/dist/firmware/manifest.json")
+          manifest = json.loads(mpath.read_text(encoding="utf-8"))
+          if manifest.get("releases"):
+              latest = manifest["releases"][0]
+              latest["version"] = tag
+              for b in latest.get("builds", []):
+                  merged = b.get("flashModes", {}).get("merged")
+                  if not merged:
+                      continue
+                  for part in merged.get("parts", []):
+                      if part.get("name") in bins:
+                          part["path"] = f"firmware/releases/{tag}/{part['name']}"
+              mpath.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+              print(f"Synced {len(bins)} release binaries into static Pages for {tag}")
+          PY
+              else
+                echo "No published release binaries found for '$RESOLVED_TAG'; continuing with portal-only deploy."
+                rmdir "$OUT_DIR" 2>/dev/null || true
+              fi
+            else
+              echo "No published GitHub Release yet; continuing with static portal deploy."
+            fi
+          fi
+
+      - name: Finalize static Pages output (.nojekyll, SPA 404 fallback, sanity check)
+        run: |
+          touch portal/dist/.nojekyll
+          cp portal/dist/index.html portal/dist/404.html
+          test -s portal/dist/index.html
+          test -s portal/dist/404.html
+          python3 -c 'import json; json.load(open("portal/dist/firmware/manifest.json", encoding="utf-8")); json.load(open("portal/dist/manifests/boards.json", encoding="utf-8"))'
 
       - name: Upload GitHub Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
-          path: _site
+          path: portal/dist
 
-  deploy-pages:
+  deploy:
     name: Deploy to GitHub Pages
-    needs: build-pages
+    needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
