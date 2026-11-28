@@ -107,14 +107,18 @@ JSValue native_subghzSetFrequency(JSContext *ctx, JSValue *this_val, int argc, J
     return JS_UNDEFINED;
 }
 
-// ============================================================================
-// Raw pulse TX API — allows JS brute-force apps to send arbitrary pulse
-// sequences without per-code init/deinit overhead.
-//
-//   subghz.txSetup(freq_mhz)  — init CC1101 for TX at given frequency
-//   subghz.txPulses(array)    — send array of signed µs durations (+HIGH/−LOW)
-//   subghz.txEnd()            — deinit the RF module
-// ============================================================================
+/*
+ * Raw pulse TX API, which lets JS brute-force scripts send arbitrary pulse trains
+ * without per-code init/deinit overhead.
+ *
+ *   subghz.txSetup(freq_mhz)  — init CC1101 for TX at the given frequency
+ *   subghz.txPulses(array)    — send signed microsecond durations (+HIGH/-LOW)
+ *   subghz.txEnd()            — deinit the RF module
+ *
+ * The TX pin belongs to the session: CC1101 modules drive IO0, everything else
+ * drives bruceConfigPins.rfTx. txPulses() refuses to run without an active
+ * session and leaves the pin LOW once the burst is finished.
+ */
 
 JSValue native_subghzTxSetup(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
     // usage: subghz.txSetup(freq_mhz : number)

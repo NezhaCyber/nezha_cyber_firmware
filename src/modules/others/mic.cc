@@ -207,7 +207,10 @@ bool InitI2SMicroPhone() {
 void mic_test_one_task() {
     tft.fillScreen(TFT_BLACK);
 
-    // ===== CALCULATE DYNAMIC DIMENSIONS =====
+    /*
+     * Derive the spectrogram viewport from the current screen size and
+     * allocate the per-frame framebuffer plus the persistent FFT plan.
+     */
     const int MARGIN_X = (tftWidth > 200) ? 10 : 5;  // Change for margin
     const int MARGIN_Y = (tftHeight > 200) ? 10 : 5; // Change for margin
     const int displayWidth = tftWidth - (2 * MARGIN_X);
@@ -262,7 +265,10 @@ void mic_test_one_task() {
 
         posData = (posData + 1) % HISTORY_LEN;
 
-        // ===== RENDER WITH SCALING =====
+        /*
+         * Render the FFT history into the framebuffer, scaling the fixed
+         * SPECTRUM_WIDTH/HEIGHT history onto the actual display dimensions.
+         */
         for (int y = 0; y < displayHeight; y++) {
             // Original spectrum y-display y-map
             int srcY = (y * SPECTRUM_HEIGHT) / displayHeight;
@@ -523,7 +529,11 @@ bool mic_record_wav_to_path(
 
 void mic_record_app() {
 
-    // ===== LAYOUT CONSTANTS =====
+    /*
+     * Screen geometry for the recorder UI.
+     * Constants adapt margins, row heights, and font sizes to the display,
+     * with a separate path for tiny screens such as the 135 px Cardputer.
+     */
     const bool isTinyScreen = (tftHeight <= 150); // e.g. Cardputer: 135px tall
     const int MARGIN = (tftWidth > 200) ? 10 : 5;
     const int HEADER_HEIGHT = (tftHeight > 200) ? 35 : (isTinyScreen ? 22 : 25);
@@ -553,7 +563,11 @@ void mic_record_app() {
     float gain_value = mic_config.gain;
     bool stealth_enabled = mic_config.stealth_mode;
 
-    // ===== HELPER FOR UI DRAWING =====
+    /*
+     * Local helper that redraws one menu row.
+     * Clears only the changed row's region before repainting its label and
+     * value, keeping the rest of the screen untouched to avoid flicker.
+     */
 
     auto drawItem = [&](int itemIndex, bool isSelected, bool isEdit) {
         int yPos = 0;
@@ -645,7 +659,11 @@ void mic_record_app() {
         }
     };
 
-    // ===== INITIAL DESIGN (Only once) =====
+    /*
+     * One-time paint of the recorder's static chrome.
+     * Fills the header, footer instructions, and every menu row before the
+     * input loop starts, so only changed rows are repainted afterward.
+     */
     tft.fillScreen(bruceConfig.bgColor);
 
     // Header
@@ -666,7 +684,11 @@ void mic_record_app() {
     // Draw all the elements for the first time
     for (int i = 0; i < NUM_ITEMS; i++) { drawItem(i, (i == selected_item), editing); }
 
-    // ===== MAIN LOOP =====
+    /*
+     * Configuration input loop.
+     * Polls navigation/edit keys, updates time/gain/stealth values, and
+     * redraws only affected rows; breaks on Start or jumps to cleanup on Esc.
+     */
     while (true) {
         InputHandler();
         wakeUpScreen();
@@ -737,7 +759,10 @@ void mic_record_app() {
             }
         }
 
-        // ===== OPTIMIZED REDraw LOGIC =====
+        /*
+         * Minimal redraw: repaint only the previously and newly selected
+         * rows (and the edited row) instead of the whole screen each frame.
+         */
 
         if (selection_changed) {
             drawItem(prev_selected, false, false);
@@ -755,7 +780,10 @@ void mic_record_app() {
         if (millis() - last_input > 120000) { goto cleanup_and_exit; }
     }
 
-    // ===== RECORDING BLOCK =====
+    /*
+     * Recording phase: persist the chosen settings, ensure storage and the
+     * /BruceMIC directory exist, and pick a non-conflicting WAV filename.
+     */
     {
         mic_config.record_time_ms = time_seconds * 1000;
         mic_config.gain = gain_value;
@@ -780,7 +808,10 @@ void mic_record_app() {
             snprintf(filename, sizeof(filename), "/BruceMIC/recording_%d.wav", index++);
         } while (fs->exists(filename));
 
-        //===== UI CLEANING AND SETUP =====
+        /*
+         * Prepare the in-recording display: in stealth mode dim to black with
+         * a single dot, otherwise clear and draw the red recording header.
+         */
 
         if (stealth_enabled) {
             setBrightness(10, false);
@@ -793,7 +824,10 @@ void mic_record_app() {
             // Clean the screen completely
             tft.fillScreen(bruceConfig.bgColor);
 
-            // ===== HEADER RECORDING =====
+            /*
+             * Draw the red recording header bar with the centered REC label,
+             * sized to fit the current display width.
+             */
             const int REC_HEADER_HEIGHT = (tftHeight > 200) ? 40 : 30;
             tft.fillRect(0, 0, tftWidth, REC_HEADER_HEIGHT, TFT_RED);
             tft.setTextSize((tftWidth > 200) ? 2 : 1);
@@ -804,7 +838,10 @@ void mic_record_app() {
             tft.setCursor((tftWidth - headerWidth) / 2, (REC_HEADER_HEIGHT - 16) / 2);
             tft.print(headerText);
 
-            // ===== STATIC INFO (Gain, Filename, Instructions) =====
+            /*
+             * Static readout beneath the header: gain multiplier, the
+             * (possibly truncated) output filename, and the stop hint.
+             */
             const int INFO_START_Y = REC_HEADER_HEIGHT + 10;
             tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
             tft.setTextSize(TEXT_SIZE_SMALL);
@@ -840,7 +877,11 @@ void mic_record_app() {
         unsigned long lastUpdate = 0;
         String lastTimerStr = "";
 
-        // ===== CALLBACK DURING RECORDING =====
+        /*
+         * Per-chunk callback invoked during WAV capture.
+         * Returns false to abort on SEL; otherwise refreshes the elapsed /
+         * total timer readout at most twice per second.
+         */
         auto onRecordingLoop = [&]() -> bool {
             InputHandler();
             if (check(SelPress)) return false;
@@ -955,7 +996,10 @@ void mic_record_app() {
         }
     }
 
-// ===== CLEANUP =====
+/*
+ * Shared exit path for the recorder.
+ * Restores the original brightness when leaving stealth mode, then returns.
+ */
 cleanup_and_exit:
     if (stealth_enabled) { setBrightness(originalBrightness, false); }
 }

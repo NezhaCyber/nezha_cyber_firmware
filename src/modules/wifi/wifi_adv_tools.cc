@@ -54,9 +54,11 @@ static void getLocCoords(double &lat, double &lon) {
 #endif
 }
 
-// ============================================================================
-// 1. PASSIVE WI-FI PROBE REQUEST MONITOR (Privacy & RF Client Diagnostics)
-// ============================================================================
+/*
+ * Passive Wi-Fi probe-request monitor (privacy and RF client diagnostics):
+ * registers a promiscuous RX callback, parses 802.11 probe-request management
+ * frames, and extracts the STA MAC, requested SSID, and supported rates.
+ */
 constexpr size_t PROBE_MAX_ENTRIES = 40;
 
 struct ProbeEntry {
@@ -139,9 +141,11 @@ static void probeRxCallback(void *buf, wifi_promiscuous_pkt_type_t type) {
     portEXIT_CRITICAL(&s_probeCtx->mux);
 }
 
-// ============================================================================
-// 2. DEFENSIVE WI-FI IDS WATCHDOG (Deauth / Disassoc / Beacon Flood Monitor)
-// ============================================================================
+/*
+ * Defensive Wi-Fi IDS watchdog: tallies deauthentication, disassociation, and
+ * beacon frames per source to detect flood attacks, raising an alert when a
+ * station's frame rate exceeds the configured threshold.
+ */
 constexpr size_t IDS_MAX_LOGS = 24;
 
 struct IdsEvent {
@@ -244,19 +248,12 @@ void wifi_probe_sniffer() {
 
     auto drawHeader = [&]() {
         drawMainBorderWithTitle("Probe Monitor");
-        tft.setTextSize(FP);
-        tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-        tft.drawCentreString(
-            bruce_i18n::tr("UP/DN=Scroll  SEL=Menu  ESC=Back"),
-            tftWidth / 2,
-            tftHeight - BORDER_PAD_X - LH,
-            1
-        );
+        printCenterFootnote("UP/DN=Scroll  SEL=Menu  ESC=Back");
     };
     drawHeader();
 
-    const int top = BORDER_PAD_Y + FM * LH + 4;
-    const int bot = tftHeight - BORDER_PAD_X - LH - 4;
+    const int top = uiContentTop();
+    const int bot = uiContentBottom(true);
     const int left = BORDER_PAD_X + 4;
     const int w = tftWidth - 2 * BORDER_PAD_X - 8;
 
@@ -521,19 +518,12 @@ void wifi_ids_watchdog() {
 
     auto drawFrame = [&]() {
         drawMainBorderWithTitle("WiFi IDS Watchdog");
-        tft.setTextSize(FP);
-        tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-        tft.drawCentreString(
-            bruce_i18n::tr("UP/DN=CH Lock  SEL=Menu  ESC=Back"),
-            tftWidth / 2,
-            tftHeight - BORDER_PAD_X - LH,
-            1
-        );
+        printCenterFootnote("UP/DN=CH Lock  SEL=Menu  ESC=Back");
     };
     drawFrame();
 
-    const int top = BORDER_PAD_Y + FM * LH + 4;
-    const int bot = tftHeight - BORDER_PAD_X - LH - 4;
+    const int top = uiContentTop();
+    const int bot = uiContentBottom(true);
     const int left = BORDER_PAD_X + 4;
     const int w = tftWidth - 2 * BORDER_PAD_X - 8;
 

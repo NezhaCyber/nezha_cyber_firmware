@@ -160,21 +160,21 @@ uint32_t keeloq_build_hop(const String &mf_name, uint8_t btn, uint32_t serial, u
 }
 
 #if RF_DEBUG
-// ---------------------------------------------------------------------------
-// KeeLoq golden self-test (`subghz keeloqtest`).
-//
-// Cipher fidelity is already pinned by code-equivalence to the reference
-// (identical NLF 0x3A5C742E, 528 rounds, taps), so this validates the *routes*:
-// for every manufacturer family, build the hop, encrypt it (simple AND normal
-// learning) exactly as the TX side does, then decrypt it back through the real
-// `keeloq_check_decrypt[_centurion]` exactly as `keeloq_identify` does, and
-// confirm the button/serial/counter survive the round-trip.
-//
-// Normal learning derives the manufacturer key from `fix` (button|serial) on
-// BOTH sides — matching the reference encoder (keeloq.c). The test also probes
-// the legacy `man = normal_learning(hop)` derivation to show it does NOT survive
-// the round-trip (the bug this milestone fixes in keeloq_step).
-// ---------------------------------------------------------------------------
+/*
+ * KeeLoq golden self-test (`subghz keeloqtest`).
+ *
+ * Cipher fidelity is already pinned by code-equivalence to the reference
+ * (identical NLF 0x3A5C742E, 528 rounds, taps), so this validates the *routes*:
+ * for every manufacturer family, build the hop, encrypt it (simple AND normal
+ * learning) exactly as the TX side does, then decrypt it back through the real
+ * `keeloq_check_decrypt[_centurion]` exactly as `keeloq_identify` does, and
+ * confirm the button/serial/counter survive the round-trip.
+ *
+ * Normal learning derives the manufacturer key from `fix` (button|serial) on
+ * BOTH sides — matching the reference encoder (keeloq.c). The test also probes
+ * the legacy `man = normal_learning(hop)` derivation to show it does NOT survive
+ * the round-trip (the bug this milestone fixes in keeloq_step).
+ */
 
 // An arbitrary manufacturer key (value is irrelevant to a round-trip; we only
 // require encrypt/decrypt to use the same derived key).
@@ -243,10 +243,12 @@ bool rf_keeloq_selftest() {
             legacy_ok ? "PASS" : "FAIL"
         );
     }
-    // --- Learning-type round-trip --------------------------------------------
-    // For every supported learning type, encrypt the hop with the derived
-    // manufacturer key (encode side) and decrypt it back with the same
-    // derivation (decode side), exactly as keeloq_step / keeloq_identify do.
+    /*
+     * Learning-type round-trip: for every supported learning type, encrypt the
+     * hop with the derived manufacturer key (encode side) and decrypt it back
+     * with the same derivation (decode side), exactly as keeloq_step /
+     * keeloq_identify do.
+     */
     struct LtCase {
         const char *name;
         uint32_t type;

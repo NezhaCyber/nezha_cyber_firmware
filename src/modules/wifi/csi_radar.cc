@@ -3,6 +3,7 @@
 #include "csi_radar_dsp.h"
 
 #include "core/display.h"
+#include "core/i18n.h"
 #include "core/mykeyboard.h"
 #include "core/radio_mem.h"
 #include "core/sd_functions.h"
@@ -136,16 +137,10 @@ static void drawCsiRadarScreen(
 ) {
     const int x = BORDER_PAD_X;
     const int w = tftWidth - 2 * BORDER_PAD_X;
-    int y = BORDER_PAD_Y + LH + 2;
+    int y = uiContentTop();
 
-    // 1) Status Header Bar
+    // 1) Centralized Nezha Status Strip
     uint16_t stCol = stateColor(snap.state);
-    tft.fillRect(x, y, w, LH + 4, uiSurfaceColor());
-    tft.fillRect(x, y, 4, LH + 4, stCol);
-    tft.setTextSize(FP);
-    tft.setTextColor(stCol, uiSurfaceColor());
-    tft.drawString(stateLabel(snap.state), x + 8, y + 2);
-
     char rightInfo[40];
     snprintf(
         rightInfo,
@@ -156,12 +151,12 @@ static void drawCsiRadarScreen(
         (unsigned)snap.motionScore,
         sensLabel(snap.sensitivity)
     );
-    tft.setTextColor(uiTextBrightColor(), uiSurfaceColor());
-    tft.drawRightString(rightInfo, x + w - 4, y + 2, 1);
-    y += LH + 6;
+    uiDrawStatusStrip(x, y, w, stateLabel(snap.state), stCol, rightInfo);
+    y += ((FP == 1 && bruce_i18n::isChinese()) ? 18 : (LH + 6)) + 3;
 
     // 2) Telemetry Sub-bar
     tft.fillRect(x, y, w, LH + 2, bruceConfig.bgColor);
+    tft.setTextSize(FP);
     tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
     char meta[64];
     snprintf(
@@ -177,9 +172,9 @@ static void drawCsiRadarScreen(
     y += LH + 4;
 
     // 3) Scrolling Motion Waveform Graph
-    const int footY = tftHeight - BORDER_PAD_X - LH;
+    const int botY = uiContentBottom(true);
     const int specH = (nativeCsi && snap.activeBins > 0) ? 20 : 0;
-    const int graphH = max(24, footY - y - specH - (specH ? 6 : 3));
+    const int graphH = max(24, botY - y - specH - (specH ? 6 : 2));
 
     tft.fillRect(x, y, w, graphH, uiSurfaceColor());
     tft.drawRect(x, y, w, graphH, uiBorderDimColor());
@@ -188,7 +183,7 @@ static void drawCsiRadarScreen(
     const int presY = y + graphH - 2 - ((graphH - 4) * 30) / 100;
     const int motY = y + graphH - 2 - ((graphH - 4) * 65) / 100;
     for (int gx = x + 2; gx < x + w - 2; gx += 6) {
-        tft.drawFastHLine(gx, presY, 3, TFT_DARKGREY);
+        tft.drawFastHLine(gx, presY, 3, uiBorderDimColor());
         tft.drawFastHLine(gx, motY, 3, TFT_MAROON);
     }
 
@@ -222,10 +217,8 @@ static void drawCsiRadarScreen(
         }
     }
 
-    // 5) Footer Controls
-    tft.fillRect(x, footY, w, LH, bruceConfig.bgColor);
-    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-    tft.drawString("OK:Calib  <>:Sens  ESC:Exit", x, footY);
+    // 5) Centralized Footer Controls
+    printCenterFootnote("OK=Calib  LR=Sens  ESC=Back");
 }
 
 static void runCsiRadarSession(bool filterBssid, const uint8_t targetBssid[6], uint8_t ch, const char *apLabel) {

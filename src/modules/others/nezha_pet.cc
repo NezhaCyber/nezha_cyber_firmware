@@ -14,9 +14,11 @@
 
 namespace {
 
-// ============================================================================
-// Persistent Pet State (NVS namespace "nezha_pet")
-// ============================================================================
+/*
+ * Persistent pet state stored in the NVS namespace "nezha_pet".
+ * Holds level/xp plus the spirit, mood, and bond meters, plus counters that
+ * survive reboots and are written back through Preferences.
+ */
 struct NezhaPetState {
     uint16_t level = 1;
     uint16_t xp = 0;
@@ -150,9 +152,11 @@ static String idleCaption(const NezhaPetState &st, uint8_t tick) {
     return bruce_i18n::tr(kQuotes[(tick / 20) % 5]);
 }
 
-// ============================================================================
-// Tear-Free Animated 哪吒魔童 Vector Mascot (templated for Sprite or TFT)
-// ============================================================================
+/*
+ * Templated vector rendering of the Nezha mascot.
+ * Works against either a Sprite or the TFT so the scene can be composed
+ * off-screen and pushed without tearing; begins with the heart glyph helper.
+ */
 template <typename Canvas>
 static void drawHeartOn(Canvas &c, int cx, int cy, int r, uint16_t col) {
     c.fillCircle(cx - r, cy - r / 2, r, col);
@@ -455,9 +459,11 @@ static void drawNezhaMascot(
     renderNezhaScene(tft, sx, sy, sw, sh, st, mode, frame);
 }
 
-// ============================================================================
-// HUD Chrome, Telemetry Panel & 5-Action Dock
-// ============================================================================
+/*
+ * HUD chrome for the pet screen.
+ * Draws the labeled stat bars (spirit/mood/bond), the telemetry panel, and
+ * the five-button action dock used to feed, play, and otherwise interact.
+ */
 static void drawStatBar(int x, int y, int w, int h, const String &label, int val, int maxVal, uint16_t fillCol) {
     uint16_t bg = bruceConfig.bgColor;
     uint16_t track = uiSurfaceColor();
@@ -625,9 +631,11 @@ static void drawActionDock(int selected, bool compact) {
     }
 }
 
-// ============================================================================
-// Purely Passive Ambient RF Spirit Scan (NO deauth / NO packet injection)
-// ============================================================================
+/*
+ * Passive ambient RF patrol that feeds the pet's spirit meter.
+ * Scans Wi-Fi SSIDs with no deauth or packet injection, restores the prior
+ * Wi-Fi mode afterward, and counts discovered nodes for the state counters.
+ */
 static int runPassiveRfPatrol() {
     wifi_mode_t prevMode = WiFi.getMode();
     if (prevMode == WIFI_MODE_NULL) {

@@ -186,16 +186,16 @@ bool rf_tx_raw_bits(const String &bits, int te) {
 }
 
 #if RF_DEBUG
-// ---------------------------------------------------------------------------
-// Golden encoder self-test (`subghz selftest`).
-//
-// For each reference-derived protocol, encode key=0xA / 4 bits / 1 repetition
-// and compare the produced durations against the EXPECTED absolute timings,
-// written here straight from the protocol spec (te_short/te_long, sync gap and
-// preamble) rather than re-derived from the registry factors. A mismatch beyond
-// RF_GOLDEN_TOL therefore catches a wrong factor, te or pulse order in a def —
-// the spec-fidelity gap that loopback (self-consistent by construction) hides.
-// ---------------------------------------------------------------------------
+/*
+ * Golden encoder self-test (`subghz selftest`).
+ *
+ * For each reference-derived protocol, encode key=0xA / 4 bits / 1 repetition
+ * and compare the produced durations against the EXPECTED absolute timings,
+ * written here straight from the protocol spec (te_short/te_long, sync gap and
+ * preamble) rather than re-derived from the registry factors. A mismatch beyond
+ * RF_GOLDEN_TOL therefore catches a wrong factor, te or pulse order in a def —
+ * the spec-fidelity gap that loopback (self-consistent by construction) hides.
+ */
 #define RF_GOLDEN_TOL 16 // µs (covers the few protocols whose te_long != k*te_short)
 
 // key=0xA -> bits 1,0,1,0 (MSB first) -> one,zero,one,zero,sync

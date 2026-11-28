@@ -35,9 +35,11 @@
 #include "core/wifi/wifi_common.h"
 #include <globals.h>
 
-// ============================================
-// Configuration Constants
-// ============================================
+/*
+ * Configuration constants for the NetCut ARP module: scan-list cap, poison
+ * cadence and burst sizes, restore repetition rounds, troll timing bounds,
+ * and the LittleFS path used for VIP persistence.
+ */
 #define NETCUT_MAX_DEVICES 64      // Max devices in scan list
 #define NETCUT_ARP_INTERVAL_MS 150 // ARP poison packet repeat interval (ms)
 #define NETCUT_POISON_BURST 5      // Packets per poison burst
@@ -51,9 +53,11 @@
 
 #define NETCUT_VIP_FILE "/netcut_vip.json" // LittleFS VIP persistence file
 
-// ============================================
-// Data Structures
-// ============================================
+/*
+ * Per-device record shared by the scan, poison, restore, and troll paths.
+ * The MAC is kept both as raw bytes (for direct ARP packet construction on
+ * the hot path) and as a string (for display and VIP lookup).
+ */
 
 /**
  * @brief Represents a network device discovered by ARP scan.
@@ -85,15 +89,16 @@ struct NetCutDevice {
     }
 };
 
-// ============================================
-// Module State (internal, managed by netcut.cc)
-// ============================================
-// All state is file-scoped in netcut.cc to prevent global collision.
-// Only function declarations are exposed here.
+/*
+ * Module state is file-scoped inside netcut.cc to prevent global symbol
+ * collisions; this header exposes only the public function declarations.
+ */
 
-// ============================================
-// Public API — Menu Entry Point
-// ============================================
+/*
+ * Top-level entry point launched from the Wi-Fi menu. Requires an active STA
+ * connection; the flow is check WiFi -> scan devices -> list -> per-device or
+ * global actions.
+ */
 
 /**
  * @brief Main entry point for NetCut module.
@@ -104,9 +109,11 @@ struct NetCutDevice {
  */
 void netcutMenu();
 
-// ============================================
-// Public API — Core ARP Operations
-// ============================================
+/*
+ * Core ARP operations: device discovery via the LwIP ARP table, bidirectional
+ * poisoning of a target and the gateway, and reliable restore using broadcast
+ * plus unicast ARP reply/request combinations per RFC 826.
+ */
 
 /**
  * @brief Scan the local network for devices via ARP requests.
@@ -144,9 +151,11 @@ void netcutCutAll();
  */
 void netcutResumeAll();
 
-// ============================================
-// Public API — Troll Mode
-// ============================================
+/*
+ * Troll mode alternates a device between poison (offline) and restore (online)
+ * phases on per-device timers. Both single-device and bulk variants are
+ * blocking loops that run until the user presses Esc.
+ */
 
 /**
  * @brief Start Troll Mode for a single device.
@@ -163,9 +172,11 @@ void netcutTrollDevice(int deviceIndex);
  */
 void netcutTrollAll();
 
-// ============================================
-// Public API — VIP Management
-// ============================================
+/*
+ * VIP devices are immune to cut and troll operations. Toggling VIP on an
+ * active target restores it immediately; the VIP MAC list is persisted to
+ * LittleFS so it survives reboots and is re-applied during each scan.
+ */
 
 /**
  * @brief Toggle VIP status for a device.
@@ -187,9 +198,11 @@ void netcutSaveVipList();
  */
 void netcutLoadVipList();
 
-// ============================================
-// Public API — Troll Timing Configuration
-// ============================================
+/*
+ * Interactive menu to adjust the troll offline and online durations through
+ * Bruce's loopOptions() numeric input. Values are clamped to [1, 300] seconds
+ * and stored as milliseconds for the active loop.
+ */
 
 /**
  * @brief Interactive menu to adjust troll offline/online durations.

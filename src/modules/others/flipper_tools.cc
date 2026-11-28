@@ -53,9 +53,11 @@ static bool hitBackChevron(int tx, int ty) {
     return tx < 42 && ty >= hy - 4 && ty <= hy + 26;
 }
 
-// ============================================================================
-// 1. TOTP 2FA Authenticator (RFC 6238 HMAC-SHA1)
-// ============================================================================
+/*
+ * TOTP 2FA building blocks (RFC 6238, HMAC-SHA1).
+ * Defines the stored account record, a Base32 decoder for secrets, account
+ * load/save persistence, and the HMAC + time-based code derivation logic.
+ */
 struct TotpAccount {
     String name;
     String secret;
@@ -159,9 +161,11 @@ static uint64_t currentUtcEpoch() {
     return (utc > 0) ? (uint64_t)utc : 0ULL;
 }
 
-// ============================================================================
-// 2. Morse Code Table
-// ============================================================================
+/*
+ * ITU Morse code lookup table.
+ * morseForChar maps each alphanumeric character to its dot/dash sequence,
+ * returning nullptr for characters with no standard representation.
+ */
 static const char *morseForChar(char c) {
     static const char *const kAlpha[26] = {
         ".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
@@ -178,9 +182,11 @@ static const char *morseForChar(char c) {
 
 } // namespace
 
-// ============================================================================
-// App 1: Flipper-Style TOTP 2FA Authenticator
-// ============================================================================
+/*
+ * Flipper-style TOTP authenticator UI.
+ * Loads saved accounts, computes the rolling 6-digit code and its 30-second
+ * expiry, and redraws the card when the second ticks or selection moves.
+ */
 void flipper_totp_app() {
     TouchGuard tg;
     std::vector<TotpAccount> accounts = loadTotpAccounts();
@@ -302,9 +308,11 @@ void flipper_totp_app() {
     }
 }
 
-// ============================================================================
-// App 2: Flipper-Style GPIO Pin Controller & Live Voltage Monitor
-// ============================================================================
+/*
+ * GPIO pin controller with live voltage monitoring.
+ * Lets the user set pin modes/levels and read back the analog voltage on a
+ * selected input, refreshing the readout inside the run loop.
+ */
 void flipper_gpio_control() {
     TouchGuard tg;
     struct GpioPinInfo {
@@ -448,9 +456,11 @@ void flipper_gpio_control() {
     for (const auto &p : pins) pinMode(p.pin, INPUT);
 }
 
-// ============================================================================
-// App 3: Flipper-Style PWM Signal Generator
-// ============================================================================
+/*
+ * PWM signal generator.
+ * Configures LEDC to output a chosen frequency and duty cycle on a GPIO,
+ * with on-screen controls to adjust both and start/stop the signal.
+ */
 void flipper_signal_gen() {
     TouchGuard tg;
     static const uint32_t kFreqPresets[] = {10, 50, 100, 440, 1000, 2000, 4000, 10000, 38000, 40000};
@@ -595,9 +605,11 @@ void flipper_signal_gen() {
     pinMode(pin, INPUT);
 }
 
-// ============================================================================
-// App 4: ITU Morse Code Audio & Visual Transmitter
-// ============================================================================
+/*
+ * ITU Morse code transmitter (audio + visual).
+ * Encodes typed text with morseForChar and flashes/buzzes each dot and dash,
+ * timing each element from the configured words-per-minute rate.
+ */
 void flipper_morse_tx() {
     TouchGuard tg;
     String text = "SOS NEZHA";
@@ -687,9 +699,11 @@ void flipper_morse_tx() {
     }
 }
 
-// ============================================================================
-// App 5: Hardware TRNG Password Generator
-// ============================================================================
+/*
+ * Hardware TRNG-backed password generator.
+ * Sources entropy from the ESP32 hardware random generator to build
+ * passwords of a chosen length and character set, avoiding modulo bias.
+ */
 void flipper_passgen_app() {
     TouchGuard tg;
     static const char *kSets[4] = {
@@ -763,9 +777,11 @@ void flipper_passgen_app() {
     }
 }
 
-// ============================================================================
-// App 6: Flipper-Style Polyhedral Dice & Coin Roller
-// ============================================================================
+/*
+ * Polyhedral dice roller and coin toss.
+ * Rolls a selected die type (d4-d100) or flips a coin, drawing an animated
+ * result and re-rolling on demand.
+ */
 void flipper_dice_app() {
     TouchGuard tg;
     static const int kSides[] = {2, 4, 6, 8, 10, 12, 20, 100};
@@ -867,9 +883,11 @@ void flipper_dice_app() {
     }
 }
 
-// ============================================================================
-// 6. Live 2.4 GHz Wi-Fi Channel Thermal Waterfall & Best-Channel Finder
-// ============================================================================
+/*
+ * Live 2.4 GHz Wi-Fi channel thermal waterfall.
+ * Scans RSSI across channels 1-13/14, plots the history as a heatmap, and
+ * highlights the least congested channel for the user to pick.
+ */
 void flipper_wifi_waterfall() {
     TouchGuard tg;
     uint16_t bg = bruceConfig.bgColor;
@@ -1029,9 +1047,11 @@ void flipper_wifi_waterfall() {
     if (prevMode == WIFI_MODE_NULL) WiFi.mode(WIFI_OFF);
 }
 
-// ============================================================================
-// 7. Pocket GPIO Oscilloscope & Digital Logic Plotter
-// ============================================================================
+/*
+ * Pocket GPIO oscilloscope and logic plotter.
+ * Samples an analog pin on a selectable time base, renders the trace on
+ * screen, and overlays digital-logic state for the configured channel.
+ */
 void flipper_gpio_scope() {
     TouchGuard tg;
     static const int kPins[] = {1, 2, 3, 10, 11, 13, 14, 15, 16, 43, 44};
@@ -1196,9 +1216,11 @@ void flipper_gpio_scope() {
     }
 }
 
-// ============================================================================
-// 8. Nezha Pentatonic Cyber Synth & Tactical FX Pad (哪吒古风五声音阶合成器)
-// ============================================================================
+/*
+ * Nezha pentatonic synth and tactical FX pad.
+ * Plays the five pentatonic notes as a playable keyboard, layering sound
+ * effects through the audio engine when the pad is triggered.
+ */
 void flipper_nezha_synth() {
     TouchGuard tg;
     static const uint16_t kPentatonic[8] = {523, 587, 659, 784, 880, 1047, 1175, 1319};
@@ -1351,9 +1373,11 @@ void flipper_nezha_synth() {
     }
 }
 
-// ============================================================================
-// 9. Hardware Cyber Crypto & Hash Lab (SHA-256 / SHA-1 / MD5 / Base64 / Hex)
-// ============================================================================
+/*
+ * Hardware crypto and hash lab helpers and UI.
+ * Provides bytesToHex and mbedtls-backed hashString, then the
+ * flipper_crypto_lab screen that computes SHA-256/SHA-1/MD5 and Base64/Hex.
+ */
 static String bytesToHex(const uint8_t *buf, size_t len) {
     static const char kHex[] = "0123456789abcdef";
     String out;

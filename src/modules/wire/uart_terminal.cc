@@ -162,11 +162,11 @@ static File openUartLogFile(String &outPath) {
     return File();
 }
 
-/*********************************************************************
-**  Function: wire_uart_autobaud
-**  Measures shortest pulse width on RX pin and snaps to standard baud.
-**  Returns detected baudrate, or 0 if no signal transitions observed.
-**********************************************************************/
+/*
+ * Auto-baud detection: measures the shortest pulse width seen on the RX pin and
+ * snaps it to the closest standard preset. Returns the detected baudrate, or 0
+ * when too few transitions arrived before the timeout.
+ */
 uint32_t wire_uart_autobaud(int8_t rx, uint32_t timeoutMs) {
     if (rx < 0) rx = (int8_t)bruceConfigPins.uart_bus.rx;
     if (rx < 0) return 0;
@@ -241,10 +241,10 @@ static void uart_autobaud_ui() {
     displaySuccess("Detected: " + String(detected) + " bps", true);
 }
 
-/*********************************************************************
-**  Function: uart_select_baudrate
-**  Preset list + custom entry (numeric keyboard), 300..5000000 bps
-**********************************************************************/
+/*
+ * Baudrate selection: the preset list plus a custom numeric entry clamped to the
+ * range the ESP32 UART peripherals accept (300..5000000 bps).
+ */
 static void uart_select_baudrate() {
     bool isCustom = true;
     int selected = 0;
@@ -299,11 +299,11 @@ static void uart_select_line_ending() {
     loopOptions(localOpts, MENU_TYPE_SUBMENU, "Line Ending", (int)uartLineEnding);
 }
 
-/*********************************************************************
-**  Function: uart_usb_bridge
-**  USB-C <-> Serial1 passthrough bridge (acts as a field FTDI adapter).
-**  Suspends serialcmdsTaskHandle cleanly while active.
-**********************************************************************/
+/*
+ * USB-C <-> Serial1 passthrough bridge, so the device acts as a field USB-UART
+ * adapter. The serial CLI task is suspended while the bridge owns Serial1 and
+ * resumed on exit.
+ */
 void uart_usb_bridge() {
     if (wireUartActive) {
         displayError("UART busy (serial cmd)", true);
@@ -407,13 +407,12 @@ void uart_usb_bridge() {
     check(EscPress);
 }
 
-/*********************************************************************
-**  Function: uart_terminal_run
-**  Live interactive terminal on Serial1:
-**   - Live partial-line prompts (login:, =>, #) flushed after 40ms
-**   - ANSI escape stripping, ASCII/HEX view, HEX TX, SD logging
-**   - Quick Action/Macro menu via SelPress on ALL boards (incl. T-Deck)
-**********************************************************************/
+/*
+ * Live interactive terminal on Serial1:
+ *   - partial-line prompts (login:, =>, #) flushed after a short idle gap
+ *   - ANSI escape stripping, ASCII/HEX view, HEX TX, SD logging
+ *   - quick action / macro menu via SEL on every board, including T-Deck
+ */
 static void uart_terminal_run() {
     if (wireUartActive) {
         displayError("UART busy (serial cmd)", true);
@@ -454,14 +453,14 @@ static void uart_terminal_run() {
             uartHexView ? "HEX" : "ASC",
             logFile ? " LOG" : ""
         );
-        tft.drawString(hdr, BORDER_PAD_X, BORDER_PAD_Y + LH + 2);
+        tft.drawString(hdr, BORDER_PAD_X, uiContentTop());
     };
 
     drawHeader();
 
     // Last text row inside the border is reserved for the input/status line
-    const int16_t inputY = tftHeight - BORDER_PAD_X - LH;
-    const int16_t areaY = BORDER_PAD_Y + (LH * 2) + 6;
+    const int16_t inputY = uiFooterTop();
+    const int16_t areaY = uiContentTop() + LH + 4;
     const int16_t areaH = max((int16_t)LH, (int16_t)(inputY - 2 - areaY));
     ScrollableTextArea area(FP, BORDER_PAD_X, areaY, tftWidth - 2 * BORDER_PAD_X, areaH, false, false);
     const int16_t inputMaxChars = max((int16_t)8, (int16_t)((tftWidth - 2 * BORDER_PAD_X) / LW - 2));
@@ -762,9 +761,11 @@ static void uart_terminal_run() {
     check(SelPress);
 }
 
-/*********************************************************************
-**  Serial-command primitives (wire uart ...), see wire_tools.h
-**********************************************************************/
+/*
+ * Serial-command primitives for `wire uart ...` (see wire_tools.h): an exclusive
+ * Serial1 session that makes the UI terminal and bridge refuse to take the port
+ * while it is open.
+ */
 bool wire_uart_begin(uint32_t baud, int8_t rx, int8_t tx) {
     if (baud < UART_BAUD_MIN || baud > UART_BAUD_MAX) return false;
     if (rx < 0) rx = (int8_t)bruceConfigPins.uart_bus.rx;
@@ -809,10 +810,11 @@ String wire_uart_status() {
            (wireUartActive ? "1" : "0");
 }
 
-/*********************************************************************
-**  Function: uart_terminal_setup
-**  Full configuration menu for all boards (incl. T-Deck / T-Deck Plus)
-**********************************************************************/
+/*
+ * Terminal configuration menu available on every board (including T-Deck and
+ * T-Deck Plus): terminal and bridge actions, baudrate, pins, framing, line
+ * ending, view mode and logging.
+ */
 void uart_terminal_setup() {
     returnToMenu = false;
     while (!returnToMenu) {

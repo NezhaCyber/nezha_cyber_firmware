@@ -136,11 +136,20 @@ void drawNezhaCrest(int cx, int cy, int r, uint16_t pri, uint16_t sec, uint8_t s
 void drawNezhaRibbonRule(int x, int y, int w);
 // Crisp 哪吒魔童 corner seal brackets for active cards, dialogs, and input frames
 void drawNezhaCornerBrackets(int x, int y, int w, int h, uint16_t pri, uint16_t sec);
-// Shared Nezha Cyber elevated hardware card, status pill badge, and aligned key-value row helpers
+// Shared Nezha Cyber elevated hardware card, status pill badge, aligned layout & bar helpers
+int uiContentTop();
+int uiFooterTop();
+int uiContentBottom(bool withFooter = true);
 void uiDrawCard(int x, int y, int w, int h, bool accentRule = false);
 int16_t uiDrawBadge(int x, int y, const String &text, uint16_t fillCol, int h = 16);
 void uiDrawKeyValueRow(
     int x, int y, int w, const String &key, const String &val, uint16_t valCol, uint16_t bgCol
+);
+void uiDrawStatusStrip(
+    int x, int y, int w, const String &statusText, uint16_t statusCol, const String &rightText = ""
+);
+void uiDrawProgressBar(
+    int x, int y, int w, int h, int pct, uint16_t fillCol = 0, bool segmented = false
 );
 int16_t uiMeasureText16(const String &text);
 String uiTruncateText16(const String &text, int16_t maxPx);

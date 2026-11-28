@@ -268,14 +268,16 @@ public:
     MicPins mic_bus;
     int buzzer = -1;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Default constructor for the persisted pin-config object.
+     * Pin groups default to GPIO_NUM_NC until fromFile() or _setup_gpio() sets runtime values.
+     */
     BruceConfigPins() {};
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Pin-config persistence and validation.
+     * JSON load/save plus factoryReset()/validateConfig() and conflict checks for the pin groups.
+     */
     void createFile();
     void saveFile();
     void fromFile(bool checkFS = true);

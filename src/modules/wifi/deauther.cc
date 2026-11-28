@@ -79,9 +79,13 @@ bool isMACZero(const uint8_t *mac);
 bool macCompare(const uint8_t *mac1, const uint8_t *mac2);
 int getWiFiBand(int channel);
 
-// -----------------------------------------------------------------------------
-// Robust MAC helpers
-// -----------------------------------------------------------------------------
+/*
+ * Strict 802.11 MAC helpers used by the deauth client table and the serial CLI.
+ * parseMacChecked accepts colon- or hyphen-separated hex notation and rejects
+ * malformed strings, out-of-range octets, all-zero addresses, and multicast
+ * destinations (LSB of the first octet set), writing exactly six bytes into
+ * `out` only on success. isBroadcastMAC reports the all-0xFF address.
+ */
 
 bool parseMacChecked(const String &text, uint8_t out[6]) {
     memset(out, 0, 6);
@@ -126,9 +130,12 @@ bool isBroadcastMAC(const uint8_t *mac) {
     return true;
 }
 
-// =============================================================================
-// Vendor OUI Lookup (Flash-resident POD table, zero DRAM heap allocations)
-// =============================================================================
+/*
+ * Vendor lookup matches the first 24-bit OUI against a static, read-only POD
+ * table. Comparison is case-insensitive and spans only the 8-character prefix;
+ * the table itself lives in Flash and allocates no DRAM heap, and an unmatched
+ * MAC returns the literal "Unknown".
+ */
 
 struct OuiEntry {
     const char prefix[9];

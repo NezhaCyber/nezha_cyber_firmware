@@ -139,6 +139,13 @@ uint32_t helpCallback(cmd *c) {
     serialDevice->println("  arp - Starts Scan Hosts ARP Scanner");
     serialDevice->println("  listen   - Starts listening TCP default port");
     serialDevice->println("  sniffer - Starts Raw Sniffer");
+#if !defined(LITE_VERSION) && !defined(BRUCE_COMPACT_CJK_FONT)
+    serialDevice->println("  mdns [secs] - Browse mDNS + SSDP devices on the LAN (default 6 s)");
+    serialDevice->println("  dns <domain> [type] - Raw DNS lookup (a/aaaa/mx/txt/ns/ptr/soa/cname)");
+    serialDevice->println("  dns reverse <ip>    - Reverse PTR lookup");
+    serialDevice->println("  dns brute <domain> [count] - Subdomain brute from /wordlists/subdomains.txt");
+    serialDevice->println("  wordlist gen <name> <mode> <spec> - Generate a dictionary (charset/pattern/leet/number)");
+#endif
     serialDevice->println("\nWebUI Commands:");
     serialDevice->println("  webui      - WebUI Webserver start");
     serialDevice->println("\nIR Commands:");

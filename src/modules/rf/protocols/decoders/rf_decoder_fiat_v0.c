@@ -147,9 +147,13 @@ const RfStreamCodec fiat_protocol_v0 = {
 #endif
 };
 
-// ============================================================================
-// ENCODER IMPLEMENTATION
-// ============================================================================
+/*
+ * Encoder implementation.
+ * A burst is 150 preamble pairs closed by an 800 µs gap, then the 64-bit
+ * {hop, fix} word Manchester-coded with 200 µs short / 400 µs long elements.
+ * FIAT_V0_TOTAL_BURSTS bursts are emitted, separated by a 25 ms inter-burst gap,
+ * all fitted into the 1328-entry shared upload slab.
+ */
 #if RF_STREAM_WITH_ENCODER
 
 void* rf_stream_protocol_encoder_fiat_v0_alloc(RfStreamEnvironment* environment) {
@@ -313,9 +317,13 @@ RfStreamProtocolStatus
 }
 
 #endif
-// ============================================================================
-// DECODER IMPLEMENTATION
-// ============================================================================
+/*
+ * Decoder implementation.
+ * Reset / feed / serialize. feed() waits for the preamble, Manchester-decodes the
+ * payload into the data_low/data_high accumulator, and latches fix = data_low /
+ * hop = data_high at 64 bits (the 71-bit variant of the frame is accepted too)
+ * for the Fiat V0 key derivation.
+ */
 
 void* rf_stream_protocol_decoder_fiat_v0_alloc(RfStreamEnvironment* environment) {
     UNUSED(environment);

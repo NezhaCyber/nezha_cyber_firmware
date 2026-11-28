@@ -9,21 +9,21 @@
 #include <globals.h>
 #include <Arduino.h>
 
-/*********************************************************************
-**  SUMP/OLS compatible logic analyzer server (OpenBench Logic Sniffer
-**  protocol, as used by sigrok/PulseView and the EUA/ESP32_LogicAnalyzer
-**  project). Two transports:
-**    - UART pins: connect a USB-UART adapter and select the OLS device:
-**        pulseview -D -d ols:conn=/dev/ttyUSB0::serialcomm=921600/8n1
-**    - USB CDC: the device's own USB cable (CLI task suspended while
-**      active, resumed on exit):
-**        pulseview -D -d ols:conn=/dev/ttyACM0::serialcomm=921600/8n1
-**
-**  Supported: RESET/ID/ARM/METADATA, stage-0 trigger mask+values (channel A),
-**  divider (sample rate), read count, flags (ignored). Single-shot capture
-**  through the shared RMT logic analyzer core; RLE and delayed triggers are
-**  not implemented.
-**********************************************************************/
+/*
+ * SUMP/OLS compatible logic analyzer server (OpenBench Logic Sniffer protocol, as
+ * used by sigrok/PulseView and the EUA ESP32_LogicAnalyzer project). Two
+ * transports:
+ *   - UART pins: connect a USB-UART adapter and select the OLS device, e.g.
+ *     pulseview -D -d ols:conn=/dev/ttyUSB0::serialcomm=921600/8n1
+ *   - USB CDC: the device's own USB cable, with the CLI task suspended while
+ *     the server owns the port and resumed on exit, e.g.
+ *     pulseview -D -d ols:conn=/dev/ttyACM0::serialcomm=921600/8n1
+ *
+ * Supported: RESET/ID/ARM/METADATA, stage-0 trigger mask and values (channel A),
+ * divider (sample rate), read count, flags (ignored). Single-shot capture runs
+ * through the shared RMT logic analyzer core; RLE and delayed triggers are not
+ * implemented.
+ */
 
 #define SUMP_RESET 0x00
 #define SUMP_ARM 0x01
@@ -59,9 +59,11 @@ static uint32_t sumpBaud = 921600;
 static const uint32_t sumpBauds[] = {115200, 230400, 460800, 921600};
 static bool sumpUsb = false; // true: SUMP over the USB CDC port (serial CLI suspended)
 
-/*********************************************************************
-**  Helpers
-**********************************************************************/
+/*
+ * Port helpers: bounded 4-byte command reads (the first byte gets a longer
+ * timeout, the trailing parameter bytes arrive back-to-back) and big-endian
+ * metadata writes.
+ */
 static bool sump_read4(Stream &port, uint8_t out[4]) {
     uint32_t deadline = millis() + 100;
     for (int i = 0; i < 4; i++) {
@@ -235,10 +237,10 @@ void sump_server_run(uint32_t baud, bool usb) {
     }
 }
 
-/*********************************************************************
-**  Function: sump_menu
-**  Baudrate selection + server start, shown in the Logic Analyzer menu
-**********************************************************************/
+/*
+ * SUMP menu shown inside the Logic Analyzer entry: transport selection,
+ * baudrate (ignored on USB CDC, which is baudless) and the server start.
+ */
 void sump_menu() {
     returnToMenu = false;
     while (!returnToMenu) {

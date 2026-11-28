@@ -190,7 +190,11 @@ TwoWire *getSysI2CBus() {
 #endif
 }
 
-// ---------------- I2C pin helpers ----------------
+/*
+ * Static helpers for I2C pin selection.
+ * sysConfigured()/pinsAreSys()/pinsOverlapSys() guard against reusing the system
+ * bus pins; linesIdle() refuses to start a controller while a line is held low.
+ */
 
 static bool sysConfigured() { return bruceConfigPins.sys_i2c.sda >= 0 && bruceConfigPins.sys_i2c.scl >= 0; }
 
@@ -216,7 +220,11 @@ static bool linesIdle(int8_t sda, int8_t scl) {
     return digitalRead(sda) == HIGH && digitalRead(scl) == HIGH;
 }
 
-// ---------------- User bus (reference counted) ----------------
+/*
+ * Shared user-facing I2C bus with reference counting.
+ * userBusOpen() joins an existing bus on the same pins or opens a new one;
+ * userBusUnref() ends it only when the last lease is released.
+ */
 
 static TwoWire *userWire = nullptr;
 static int8_t userSda = -1;
@@ -280,7 +288,11 @@ static void userBusUnref() {
     userIsBoard = false;
 }
 
-// ---------------- I2C leases ----------------
+/*
+ * Move-only RAII I2C lease implementation.
+ * I2CLeaseAccess constructs leases; move semantics and release() own the
+ * TwoWire* lifetime so drivers never raw-end() a shared bus.
+ */
 
 struct I2CLeaseAccess {
     static I2CLease make(I2CBusId bus, TwoWire *wire, int8_t sda, int8_t scl) {
@@ -576,7 +588,12 @@ bool checkAndRecoverSysI2CBus() {
     return true;
 }
 
-// ---------------- SPI bus arbitration ----------------
+/*
+ * Routes SPI acquisition to the correct hardware controller.
+ * Display pins reuse the TFT SPI instance, SD pins reuse the always-mounted
+ * sdcardSPI, and everything else shares AUX_SPI with pin caching to skip
+ * redundant reconfiguration.
+ */
 
 // Pins currently configured on the shared auxiliary bus (AUX_SPI), so repeated acquisitions
 // with the same pins skip a redundant end()/begin() cycle that could disturb whoever else is

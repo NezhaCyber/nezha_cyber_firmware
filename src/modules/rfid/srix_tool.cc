@@ -855,7 +855,12 @@ void SRIXTool::delayWithReturn(uint32_t ms) {
     while (millis() - tm < ms && !returnToMenu) { vTaskDelay(pdMS_TO_TICKS(50)); }
 }
 
-// ========== JS INTERPRETER SUPPORT ==========
+/*
+ * Headless (no UI, no event loop) entry points exposed to the JS interpreter.
+ * The headless constructor opens the I2C bus and brings up the PN532 without
+ * launching the GUI loop; the *_headless methods read/write tags and save/load
+ * dumps so scripts get the same behavior as the menu-driven flow.
+ */
 SRIXTool::SRIXTool(bool headless_mode) {
     SRIX_LOG("[SRIX] Headless Constructor start");
 
@@ -1247,9 +1252,11 @@ int SRIXTool::write_single_block_headless(uint8_t block_num, const uint8_t *bloc
         delay(SRIX_EEPROM_WRITE_DELAY_MS);
         SRIX_LOG("[WriteBlock_Headless] ✅ WRITE SENT OK");
 
-        // ==============================
-        // 4. VERIFY (NEED BIGGER UPGRADE)
-        // ==============================
+        /*
+         * 4. Verify step: re-select the tag, read the block back into
+         *    readBuffer, and memcmp it against the data just written. This is
+         *    a best-effort read-back check; a fuller verify flow is pending.
+         */
         uint8_t readBuffer[4];
 
         // Re-select: NEED TO IMPLEMNTAT VERIFY WRITTEN BLOCK - NOT POSSIBLE NOW

@@ -1,20 +1,20 @@
 #ifndef __BLE_P4_COMPAT_H__
 #define __BLE_P4_COMPAT_H__
 
-// -----------------------------------------------------------------------------
-// ESP32-P4 BLE TX-power compatibility shim.
-//
-// The P4 has no native Bluetooth controller; its BLE stack runs host-only
-// (NimBLE) over the ESP-Hosted co-processor. The legacy controller TX-power API
-// from esp_bt.h / esp_gap_ble_api.h (esp_power_level_t, ESP_PWR_LVL_*,
-// esp_ble_tx_power_set, esp_ble_power_type_t) is therefore not available on P4,
-// and NimBLE 2.5.1 removes its esp_power_level_t overloads for this target.
-//
-// Bruce's BLE modules still speak that legacy API, so map it onto NimBLE's
-// modern dBm-based NimBLEDevice::setPower(int8_t). We define the ESP_PWR_LVL_*
-// constants as their real dBm values (they only exist here, so there is no
-// clash with the vendor enum), which makes setPower() receive correct dBm.
-// -----------------------------------------------------------------------------
+/*
+ * ESP32-P4 BLE TX-power compatibility shim.
+ *
+ * The P4 has no native Bluetooth controller; its BLE stack runs host-only
+ * (NimBLE) over the ESP-Hosted co-processor. The legacy controller TX-power API
+ * from esp_bt.h / esp_gap_ble_api.h (esp_power_level_t, ESP_PWR_LVL_*,
+ * esp_ble_tx_power_set, esp_ble_power_type_t) is therefore not available on P4,
+ * and NimBLE 2.5.1 removes its esp_power_level_t overloads for this target.
+ *
+ * Bruce's BLE modules still speak that legacy API, so map it onto NimBLE's
+ * modern dBm-based NimBLEDevice::setPower(int8_t). We define the ESP_PWR_LVL_*
+ * constants as their real dBm values (they only exist here, so there is no
+ * clash with the vendor enum), which makes setPower() receive correct dBm.
+ */
 #ifdef CONFIG_IDF_TARGET_ESP32P4
 #include <NimBLEDevice.h>
 #include <esp_err.h>

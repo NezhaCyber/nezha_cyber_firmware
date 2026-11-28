@@ -197,10 +197,7 @@ void systemLogViewer() {
     bool dirty = true;
 
     drawMainBorderWithTitle("System Log");
-    tft.setTextSize(FP);
-    tft.setTextColor(uiTextMutedColor(), bruceConfig.bgColor);
-    tft.setCursor(BORDER_PAD_X, tftHeight - 12);
-    tft.print("ESC exit  SEL follow  UP/DOWN scroll");
+    printCenterFootnote("UP/DN=Scroll  SEL=Follow  ESC=Back");
 
     while (true) {
         if (check(EscPress)) break;

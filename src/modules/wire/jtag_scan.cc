@@ -14,9 +14,11 @@ static int8_t jtagTck = -1, jtagTms = -1, jtagTdi = -1, jtagTdo = -1;
 // Bit-bang pacing (~250 kHz TCK): far below any target's tolerance, robust on jumper wires
 #define JTAG_TCK_HALF_US 2
 
-/*********************************************************************
-**  Low-level JTAG bit-bang (IEEE 1149.1 TAP)
-**********************************************************************/
+/*
+ * Low-level JTAG bit-bang for the IEEE 1149.1 TAP. TCK is toggled with a 2 us
+ * half period (~250 kHz), far below any target's tolerance so jumper wires stay
+ * reliable.
+ */
 static inline void jtagTckPulse(int8_t tck) {
     digitalWrite(tck, LOW);
     delayMicroseconds(JTAG_TCK_HALF_US);
@@ -56,9 +58,11 @@ static uint32_t jtagShiftDr32(int8_t tck, int8_t tms, int8_t tdi, int8_t tdo) {
     return idcode;
 }
 
-/*********************************************************************
-**  Serial-command primitive (wire jtag idcode), see wire_tools.h
-**********************************************************************/
+/*
+ * Serial-command primitive for `wire jtag idcode` (see wire_tools.h): validates
+ * that all four pins are assigned and distinct, resets the TAP, shifts the
+ * IDCODE register and decodes the version / part / manufacturer fields.
+ */
 String wire_jtag_read_idcode(int8_t tck, int8_t tms, int8_t tdi, int8_t tdo) {
     if (tck < 0 || tms < 0 || tdi < 0 || tdo < 0) return "ERR: assign TCK/TMS/TDI/TDO first";
     if (tck == tms || tck == tdi || tck == tdo || tms == tdi || tms == tdo || tdi == tdo)
@@ -99,10 +103,10 @@ String wire_jtag_read_idcode(int8_t tck, int8_t tms, int8_t tdi, int8_t tdo) {
     return String(out);
 }
 
-/*********************************************************************
-**  Function: jtag_pick_pin
-**  GPIO list picker, same interaction as Config > UART Pins
-**********************************************************************/
+/*
+ * JTAG pin picker with the same interaction as the UART pin menu; the list opens
+ * on the current assignment and -1 clears it.
+ */
 static int8_t jtag_pick_pin(const char *title, int8_t current) {
     std::vector<Option> localOpts;
     localOpts.reserve(GPIO_NUM_MAX + 2);
@@ -115,9 +119,10 @@ static int8_t jtag_pick_pin(const char *title, int8_t current) {
     return picked;
 }
 
-/*********************************************************************
-**  Function: jtag_scan_setup
-**********************************************************************/
+/*
+ * JTAG scanner menu: TCK/TMS/TDI/TDO assignment and an IDCODE scan that renders
+ * the TAP result card until SEL or ESC is pressed.
+ */
 void jtag_scan_setup() {
     returnToMenu = false;
     while (!returnToMenu) {

@@ -57,34 +57,31 @@ constexpr uint32_t RADAR_BLE_SCAN_MS = 2100;
 constexpr float RADAR_PI = 3.14159265f;
 constexpr float RADAR_TRIANGULATE_STEP_M = 2.0f;
 
-// 哪吒魔童 × Military EW Tactical Radar Palette (哪吒1 Wind-Fire Gold & 哪吒2 Abyssal Sea-Flame)
-constexpr uint16_t COL_SCOPE_BG = 0x0800;      // 哪吒1 stealth volcanic cockpit dish
-constexpr uint16_t COL_N2_SCOPE_BG = 0x0042;   // 哪吒2 deep abyssal sonar dish
-constexpr uint16_t COL_GRID_DIM = 0x3041;      // Deep volcanic crimson-ember grid
-constexpr uint16_t COL_GRID_MID = 0x60A2;      // Crimson-bronze range ring
-constexpr uint16_t COL_SPOKE_DIM = 0x2000;     // Faint Wind-Fire Wheel diagonal spoke
-constexpr uint16_t COL_QIANKUN_DIM = 0x6A60;   // Burnished Qiankun bronze outer bezel
-constexpr uint16_t COL_QIANKUN_GOLD = 0xFEA0;  // Radiant Qiankun tactical gold
-constexpr uint16_t COL_SWEEP_F0 = 0x1800;      // Filled sweep band 0 (far ember glow)
-constexpr uint16_t COL_SWEEP_F1 = 0x3000;      // Filled sweep band 1
-constexpr uint16_t COL_SWEEP_F2 = 0x5820;      // Filled sweep band 2 (Hun Tian Ling crimson)
-constexpr uint16_t COL_SWEEP_F3 = 0x90C0;      // Filled sweep band 3 (blazing flame)
-constexpr uint16_t COL_SWEEP_F4 = 0xD2A0;      // Filled sweep band 4 (solar amber)
-constexpr uint16_t COL_SWEEP_LEAD = 0xFEA0;    // Wind-Fire gold leading EW beam
-constexpr uint16_t COL_N2_GRID_DIM = 0x0984;   // 哪吒2 deep abyssal sonar grid
-constexpr uint16_t COL_N2_GRID_MID = 0x1327;   // 哪吒2 tactical steel-cyan ring
-constexpr uint16_t COL_N2_SWEEP_F0 = 0x00A3;   // 哪吒2 filled sonar band 0
-constexpr uint16_t COL_N2_SWEEP_F1 = 0x0165;   // 哪吒2 filled sonar band 1
-constexpr uint16_t COL_N2_SWEEP_F2 = 0x02A8;   // 哪吒2 filled sonar band 2
-constexpr uint16_t COL_N2_SWEEP_F3 = 0x0C4C;   // 哪吒2 filled sonar band 3
-constexpr uint16_t COL_N2_SWEEP_F4 = 0x1DF3;   // 哪吒2 filled sonar band 4
-constexpr uint16_t COL_N2_SWEEP_LEAD = 0x7FFF; // 哪吒2 blazing cyan-white EW beam
-constexpr uint16_t COL_TAC_GREEN = 0x2F49;     // Military HUD nominal green
-constexpr uint16_t COL_BLE_SAMSUNG = 0x4C5F;   // Sky blue
-constexpr uint16_t COL_BLE_MS = 0x5EBF;        // Teal
-constexpr uint16_t COL_ROW_SEL = 0x3861;       // Dark crimson-lacquer row highlight
-constexpr uint16_t COL_HEADER_BG = 0x2041;     // Crimson-obsidian armored header strip
-constexpr uint16_t COL_PANEL_BG = 0x1021;      // Stealth cockpit sub-panel fill
+// Clean tactical radar palette (4-role semantic hierarchy, calm dark dish)
+constexpr uint16_t COL_SCOPE_BG = 0x0821;      // Calm deep obsidian dish
+constexpr uint16_t COL_N2_SCOPE_BG = 0x0062;   // Calm deep abyssal dish
+constexpr uint16_t COL_GRID_DIM = 0x2104;      // Subtle neutral-warm range ring / crosshair
+constexpr uint16_t COL_GRID_MID = 0x4228;      // Subtle outer bezel & muted labels
+constexpr uint16_t COL_N2_GRID_DIM = 0x0944;   // Nezha2 subtle sonar ring
+constexpr uint16_t COL_N2_GRID_MID = 0x1A68;   // Nezha2 subtle bezel & muted labels
+constexpr uint16_t COL_QIANKUN_GOLD = 0xFEA0;  // Focused / locked reticle & highlight accent
+constexpr uint16_t COL_SWEEP_F0 = 0x1041;      // Faint trailing sweep glow 0
+constexpr uint16_t COL_SWEEP_F1 = 0x28A2;      // Faint trailing sweep glow 1
+constexpr uint16_t COL_SWEEP_LEAD = 0x9B86;    // Crisp restrained leading beam
+constexpr uint16_t COL_N2_SWEEP_F0 = 0x00E3;   // Nezha2 faint sonar trail 0
+constexpr uint16_t COL_N2_SWEEP_F1 = 0x0226;   // Nezha2 faint sonar trail 1
+constexpr uint16_t COL_N2_SWEEP_LEAD = 0x3D55; // Nezha2 crisp restrained beam
+constexpr uint16_t COL_TAC_GREEN = 0x2F49;     // Open Wi-Fi / clear status green
+constexpr uint16_t COL_BLE_NORM = 0x5DDF;      // Calm unified sky-blue for normal BLE devices
+constexpr uint16_t COL_WEAK_DOT = 0x39E7;      // Dim muted speck for weak unnamed noise
+
+// Theme-derived chrome colors so Radar HUD/tables/softkeys adapt to all 24 Nezha1/Nezha2 themes
+static inline uint16_t radarPanelBg() { return uiSurfaceColor(); }
+static inline uint16_t radarHeaderBg() { return uiSurfaceHiColor(); }
+static inline uint16_t radarRowSelBg() { return uiSurfaceHiColor(); }
+#define COL_PANEL_BG (radarPanelBg())
+#define COL_HEADER_BG (radarHeaderBg())
+#define COL_ROW_SEL (radarRowSelBg())
 
 // Pentest & Military EW threat/alert bitmask
 constexpr uint8_t RFLAG_TRACKER = 0x01;   // AirTag / SmartTag / Tile / iBeacon / Eddystone
@@ -193,10 +190,6 @@ struct RadarTarget {
     double lon = 0.0;
     uint32_t firstSeenMs = 0;
     uint32_t lastSeenMs = 0;
-    uint32_t lastPingMs = 0; // Timestamp when radar beam last swept across this target
-    int8_t trailX[4] = {0};  // Normalized (-100..+100) motion breadcrumb history
-    int8_t trailY[4] = {0};
-    uint8_t trailCount = 0;
 };
 
 struct RadarContext {
@@ -205,13 +198,20 @@ struct RadarContext {
     bool hasLocked = false;
     uint8_t lockedMac[6] = {0};
     RadarTargetType lockedType = RadarTargetType::WIFI;
+    bool hasFocused = false;
+    uint8_t focusedMac[6] = {0};
+    RadarTargetType focusedType = RadarTargetType::WIFI;
     bool showLabels = true;
+    bool noiseFilter = true; // Suppress unnamed weak (< -80 dBm) generic BLE background noise
     bool geigerAudio = false;
-    float rangeMaxM = 30.0f; // Dynamic zoom: 10.0f / 30.0f / 60.0f
-    float shockR = -1.0f;    // Expanding Qiankun / Sonar shockwave ring radius
+    float rangeMaxM = 30.0f; // Real scope distance filter & zoom: 10m / 30m / 60m
     uint32_t startMs = 0;
+    int scopeCursor = 0;
+    int scopeScroll = 0;
     int tableCursor = 0;
     int tableScroll = 0;
+    int alertCursor = 0;
+    int alertScroll = 0;
 
     // Rolling RSSI sparkline history for Fox-Hunt mode
     int8_t foxHist[RADAR_HIST_LEN] = {0};
@@ -219,7 +219,7 @@ struct RadarContext {
     int8_t foxPeakRssi = -100;
     uint32_t lastGeigerMs = 0;
 
-    // Bounded tactical event log ring buffer
+    // Bounded security alert event log ring buffer (threats only)
     RadarEvent events[RADAR_MAX_EVENTS];
     size_t eventHead = 0;
     size_t eventCount = 0;
@@ -298,24 +298,56 @@ static float vectorToBearingDeg(float dx, float dy) {
 constexpr uint8_t RFLAG_ANY_ALERT =
     RFLAG_TRACKER | RFLAG_EVIL_TWIN | RFLAG_HACK_DEV | RFLAG_DRONE | RFLAG_STALKER;
 
+static bool isWeakUnnamedBle(const RadarTarget &t) {
+    return t.type == RadarTargetType::BLE && t.category == RadarCategory::BLE_GENERIC &&
+           t.flags == 0 && t.name[0] == '\0' && t.subtype[0] == '\0' && t.rssi < -80;
+}
+
+static bool isSameTarget(const RadarTarget &t, RadarTargetType type, const uint8_t mac[6]) {
+    return t.type == type && memcmp(t.mac, mac, 6) == 0;
+}
+
 static uint16_t categoryColor(RadarCategory cat, uint8_t flags = 0) {
-    if (flags & RFLAG_EVIL_TWIN) return TFT_RED;
-    if (flags & RFLAG_STALKER) return TFT_MAGENTA;
-    if (flags & RFLAG_DRONE) return TFT_ORANGE;
+    if (flags & (RFLAG_EVIL_TWIN | RFLAG_TRACKER | RFLAG_STALKER)) return TFT_RED;
+    if (flags & (RFLAG_DRONE | RFLAG_HACK_DEV)) return TFT_ORANGE;
     switch (cat) {
-        case RadarCategory::WIFI_OPEN: return TFT_GREEN;
+        case RadarCategory::WIFI_OPEN: return COL_TAC_GREEN;
         case RadarCategory::WIFI_WEP: return TFT_RED;
         case RadarCategory::WIFI_SECURED: return TFT_CYAN;
         case RadarCategory::WIFI_HIDDEN: return TFT_YELLOW;
         case RadarCategory::BLE_TRACKER: return TFT_RED;
         case RadarCategory::BLE_HACK: return TFT_ORANGE;
-        case RadarCategory::BLE_APPLE: return TFT_WHITE;
-        case RadarCategory::BLE_SAMSUNG: return COL_BLE_SAMSUNG;
-        case RadarCategory::BLE_GOOGLE: return TFT_ORANGE;
-        case RadarCategory::BLE_MICROSOFT: return COL_BLE_MS;
-        case RadarCategory::BLE_AUDIO_HID: return TFT_YELLOW;
-        default: return TFT_MAGENTA;
+        default: return COL_BLE_NORM;
     }
+}
+
+static const char *alertBadgeShort(uint8_t flags) {
+    if (flags & RFLAG_EVIL_TWIN) return "TWIN";
+    if (flags & RFLAG_DRONE) return "UAV";
+    if (flags & RFLAG_HACK_DEV) return "TOOL";
+    if (flags & RFLAG_STALKER) return "STLK";
+    if (flags & RFLAG_TRACKER) return "TRK";
+    return nullptr;
+}
+
+static const char *alertReasonText(uint8_t flags) {
+    if (flags & RFLAG_EVIL_TWIN) return "Evil Twin: open+enc duplicate SSID";
+    if (flags & RFLAG_DRONE) return "Drone / UAV beacon detected";
+    if (flags & RFLAG_HACK_DEV) return "RF pentest tool nearby";
+    if (flags & RFLAG_STALKER) return "Close BLE device >45s";
+    if (flags & RFLAG_TRACKER) return "Tracker / AirTag beacon nearby";
+    if (flags & RFLAG_WEAK_SEC) return "Open or WEP wireless network";
+    return "";
+}
+
+static int targetPriorityScore(const RadarTarget &t) {
+    int sc = 0;
+    if (t.flags & RFLAG_EVIL_TWIN) sc += 500;
+    if (t.flags & RFLAG_DRONE) sc += 400;
+    if (t.flags & RFLAG_HACK_DEV) sc += 320;
+    if (t.flags & RFLAG_STALKER) sc += 260;
+    if (t.flags & RFLAG_TRACKER) sc += 220;
+    return sc;
 }
 
 static const char *categoryName(RadarCategory cat) {
@@ -374,27 +406,13 @@ static String targetShortTag(const RadarTarget &t) {
 
 template <typename Canvas>
 static void drawCategoryGlyphTo(Canvas &c, int x, int y, RadarCategory cat, uint16_t col, uint8_t flags = 0) {
-    if (flags & RFLAG_EVIL_TWIN) {
-        c.drawRect(x - 4, y - 4, 9, 9, TFT_RED);
-        c.fillRect(x - 2, y - 2, 5, 5, TFT_YELLOW);
-        return;
-    }
-    if (flags & RFLAG_DRONE) {
-        // Quadcopter X-frame silhouette
-        c.drawLine(x - 4, y - 4, x + 4, y + 4, TFT_ORANGE);
-        c.drawLine(x - 4, y + 4, x + 4, y - 4, TFT_ORANGE);
-        c.drawCircle(x - 3, y - 3, 1, COL_QIANKUN_GOLD);
-        c.drawCircle(x + 3, y - 3, 1, COL_QIANKUN_GOLD);
-        c.drawCircle(x - 3, y + 3, 1, COL_QIANKUN_GOLD);
-        c.drawCircle(x + 3, y + 3, 1, COL_QIANKUN_GOLD);
-        c.fillRect(x - 1, y - 1, 3, 3, TFT_RED);
-        return;
-    }
-    if (flags & RFLAG_STALKER) {
-        c.drawCircle(x, y, 4, TFT_RED);
-        c.fillTriangle(x, y - 3, x - 3, y, x + 3, y, TFT_MAGENTA);
-        c.fillTriangle(x, y + 3, x - 3, y, x + 3, y, TFT_MAGENTA);
-        c.drawPixel(x, y, TFT_WHITE);
+    // 3 clear, scannable shapes: Diamond = Alert/Threat, Square = Wi-Fi, Circle = BLE
+    if (flags & RFLAG_ANY_ALERT) {
+        c.fillTriangle(x, y - 3, x - 3, y, x + 3, y, col);
+        c.fillTriangle(x, y + 3, x - 3, y, x + 3, y, col);
+        if (flags & (RFLAG_EVIL_TWIN | RFLAG_DRONE | RFLAG_STALKER)) {
+            c.drawCircle(x, y, 4, col);
+        }
         return;
     }
     switch (cat) {
@@ -404,15 +422,11 @@ static void drawCategoryGlyphTo(Canvas &c, int x, int y, RadarCategory cat, uint
             c.fillRect(x - 2, y - 2, 5, 5, col);
             break;
         case RadarCategory::WIFI_HIDDEN:
-            c.fillTriangle(x, y - 3, x - 3, y + 2, x + 3, y + 2, col);
+            c.drawRect(x - 2, y - 2, 5, 5, col);
+            c.drawPixel(x, y, col);
             break;
         case RadarCategory::BLE_TRACKER:
         case RadarCategory::BLE_HACK:
-            c.drawCircle(x, y, 4, (cat == RadarCategory::BLE_HACK) ? TFT_YELLOW : TFT_ORANGE);
-            c.fillTriangle(x, y - 3, x - 3, y, x + 3, y, col);
-            c.fillTriangle(x, y + 3, x - 3, y, x + 3, y, col);
-            break;
-        case RadarCategory::BLE_APPLE:
             c.fillTriangle(x, y - 3, x - 3, y, x + 3, y, col);
             c.fillTriangle(x, y + 3, x - 3, y, x + 3, y, col);
             break;
@@ -424,34 +438,6 @@ static void drawCategoryGlyphTo(Canvas &c, int x, int y, RadarCategory cat, uint
 
 static void drawCategoryGlyph(int x, int y, RadarCategory cat, uint16_t col, uint8_t flags = 0) {
     drawCategoryGlyphTo(tft, x, y, cat, col, flags);
-}
-
-static uint8_t computeDefconLevel(const std::vector<RadarTarget> &list) {
-    int twins = 0, hacks = 0, drones = 0, stalkers = 0, trackers = 0, weaks = 0;
-    for (const auto &t : list) {
-        if (t.flags & RFLAG_EVIL_TWIN) ++twins;
-        if (t.flags & RFLAG_HACK_DEV) ++hacks;
-        if (t.flags & RFLAG_DRONE) ++drones;
-        if (t.flags & RFLAG_STALKER) ++stalkers;
-        if (t.flags & RFLAG_TRACKER) ++trackers;
-        if (t.flags & RFLAG_WEAK_SEC) ++weaks;
-    }
-    int highThreats = twins + hacks + drones + stalkers;
-    if (twins > 0 || highThreats >= 3) return 1;
-    if (hacks > 0 || drones > 0 || stalkers > 0) return 2;
-    if (trackers > 0 || weaks >= 2) return 3;
-    if (weaks > 0 || list.size() >= 18) return 4;
-    return 5;
-}
-
-static uint16_t defconColor(uint8_t lvl) {
-    switch (lvl) {
-        case 1: return TFT_RED;
-        case 2: return TFT_ORANGE;
-        case 3: return COL_QIANKUN_GOLD;
-        case 4: return TFT_CYAN;
-        default: return COL_TAC_GREEN;
-    }
 }
 
 static void classifyBleDevice(
@@ -724,29 +710,7 @@ static void radarUpsertTarget(
         slot.flags |= RFLAG_STALKER;
     }
 
-    // Record normalized motion breadcrumb trail (-100..+100 relative to 30m nominal span)
-    float normR = log10f(1.0f + constrain(slot.distM, 0.2f, 60.0f)) / log10f(61.0f);
-    float ang = slot.hasTriangulated ? atan2f(-slot.relY, slot.relX) : slot.angleRad;
-    int8_t tx = (int8_t)constrain((int)roundf(cosf(ang) * normR * 100.0f), -100, 100);
-    int8_t ty = (int8_t)constrain((int)roundf(sinf(ang) * normR * 100.0f), -100, 100);
-    if (slot.trailCount == 0 ||
-        abs((int)tx - (int)slot.trailX[slot.trailCount - 1]) >= 2 ||
-        abs((int)ty - (int)slot.trailY[slot.trailCount - 1]) >= 2) {
-        if (slot.trailCount < 4) {
-            slot.trailX[slot.trailCount] = tx;
-            slot.trailY[slot.trailCount] = ty;
-            slot.trailCount++;
-        } else {
-            for (int k = 0; k < 3; ++k) {
-                slot.trailX[k] = slot.trailX[k + 1];
-                slot.trailY[k] = slot.trailY[k + 1];
-            }
-            slot.trailX[3] = tx;
-            slot.trailY[3] = ty;
-        }
-    }
-
-    // Capture newly triggered high-priority threat flags for tactical event logging
+    // Capture newly triggered high-priority threat flags for security event logging
     uint8_t newlyLogged = (slot.flags & (RFLAG_DRONE | RFLAG_STALKER | RFLAG_HACK_DEV | RFLAG_TRACKER)) &
                           ~slot.loggedFlags;
     char logLabel[22] = {0};
@@ -879,11 +843,11 @@ static const char *modeLabel(RadarMode mode) {
 
 static const char *modeShort(RadarMode mode) {
     switch (mode) {
-        case RadarMode::WIFI_ONLY: return "WIFI";
+        case RadarMode::WIFI_ONLY: return "WiFi";
         case RadarMode::BLE_ONLY: return "BLE";
-        case RadarMode::ALERTS_ONLY: return "ALRT";
-        case RadarMode::OPEN_WIFI: return "OPEN";
-        default: return "W+B";
+        case RadarMode::ALERTS_ONLY: return "Alrt";
+        case RadarMode::OPEN_WIFI: return "Open";
+        default: return "All";
     }
 }
 
@@ -901,8 +865,7 @@ static void pruneStaleTargets(RadarContext &ctx) {
     portENTER_CRITICAL(&ctx.mux);
     for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
         if (ctx.targets[i].active && (now - ctx.targets[i].lastSeenMs) > RADAR_STALE_MS) {
-            bool isLocked = ctx.hasLocked && ctx.targets[i].type == ctx.lockedType &&
-                            memcmp(ctx.targets[i].mac, ctx.lockedMac, 6) == 0;
+            bool isLocked = ctx.hasLocked && isSameTarget(ctx.targets[i], ctx.lockedType, ctx.lockedMac);
             if (!isLocked || (now - ctx.targets[i].lastSeenMs) > RADAR_STALE_MS * 2) {
                 ctx.targets[i].active = false;
             }
@@ -917,6 +880,7 @@ static std::vector<RadarTarget> snapshotTargets(RadarContext &ctx, RadarMode mod
     for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
         const RadarTarget &t = ctx.targets[i];
         if (!t.active) continue;
+        bool isLocked = ctx.hasLocked && isSameTarget(t, ctx.lockedType, ctx.lockedMac);
         if (!ignoreFilter) {
             if (mode == RadarMode::WIFI_ONLY && t.type != RadarTargetType::WIFI) continue;
             if (mode == RadarMode::BLE_ONLY && t.type != RadarTargetType::BLE) continue;
@@ -925,546 +889,582 @@ static std::vector<RadarTarget> snapshotTargets(RadarContext &ctx, RadarMode mod
                 !(t.type == RadarTargetType::WIFI &&
                   (t.category == RadarCategory::WIFI_OPEN || t.category == RadarCategory::WIFI_WEP)))
                 continue;
+            if (ctx.noiseFilter && !isLocked && isWeakUnnamedBle(t)) continue;
         }
         list.push_back(t);
     }
     portEXIT_CRITICAL(&ctx.mux);
+    // Stable priority order: active alerts first, then closest/strongest (quantized to reduce row jitter)
     std::sort(list.begin(), list.end(), [](const RadarTarget &a, const RadarTarget &b) {
-        return a.distM < b.distM;
+        int pa = targetPriorityScore(a);
+        int pb = targetPriorityScore(b);
+        if (pa != pb) return pa > pb;
+        int qa = (int)roundf(a.distM * 2.0f);
+        int qb = (int)roundf(b.distM * 2.0f);
+        if (qa != qb) return qa < qb;
+        if (a.type != b.type) return a.type < b.type;
+        return memcmp(a.mac, b.mac, 6) < 0;
     });
     return list;
+}
+
+static void setFocusedTarget(RadarContext &ctx, const RadarTarget &t) {
+    ctx.hasFocused = true;
+    ctx.focusedType = t.type;
+    memcpy(ctx.focusedMac, t.mac, 6);
+}
+
+static void syncCursorToFocus(RadarContext &ctx, const std::vector<RadarTarget> &list, int &cursor) {
+    if (list.empty()) {
+        cursor = 0;
+        ctx.hasFocused = false;
+        return;
+    }
+    if (ctx.hasFocused) {
+        for (size_t i = 0; i < list.size(); ++i) {
+            if (isSameTarget(list[i], ctx.focusedType, ctx.focusedMac)) {
+                cursor = (int)i;
+                return;
+            }
+        }
+    }
+    cursor = constrain(cursor, 0, (int)list.size() - 1);
+    setFocusedTarget(ctx, list[cursor]);
 }
 
 static void lockOnTarget(RadarContext &ctx, const RadarTarget &t) {
     ctx.hasLocked = true;
     ctx.lockedType = t.type;
     memcpy(ctx.lockedMac, t.mac, 6);
+    setFocusedTarget(ctx, t);
     ctx.foxHistCount = 0;
     ctx.foxPeakRssi = t.rssi;
-    char evBuf[32];
-    snprintf(evBuf, sizeof(evBuf), "LOCK: %.21s", targetDisplayName(t).c_str());
-    radarLogEvent(ctx, COL_QIANKUN_GOLD, evBuf);
 }
 
-// =====================================================================
-// VIEW 0: ZERO-FLICKER MILITARY EW TACTICAL PPI RADAR SCOPE × 哪吒魔童
-// =====================================================================
+/*
+ * VIEW 0: clean low-noise PPI radar scope renderer.
+ * Draws a calm dish with 2 range rings, restrained sweep, real range-filtered
+ * blips (3 shapes, 4 semantic colors), and crisp focus/lock reticles.
+ */
 template <typename Canvas>
-static void drawScopeBrackets(Canvas &c, int x, int y, int w, int h, uint16_t pri, uint16_t gold) {
-    int len = max(6, min(11, min(w, h) / 6));
-    c.fillRect(x, y, len, 1, pri);
-    c.drawFastVLine(x, y, len, pri);
-    c.drawPixel(x + 1, y + 1, gold);
-
-    c.fillRect(x + w - len, y, len, 1, pri);
-    c.drawFastVLine(x + w - 1, y, len, pri);
-    c.drawPixel(x + w - 2, y + 1, gold);
-
-    c.fillRect(x, y + h - 1, len, 1, pri);
-    c.drawFastVLine(x, y + h - len, len, pri);
-    c.drawPixel(x + 1, y + h - 2, gold);
-
-    c.fillRect(x + w - len, y + h - 1, len, 1, pri);
-    c.drawFastVLine(x + w - 1, y + h - len, len, pri);
-    c.drawPixel(x + w - 2, y + h - 2, gold);
-}
-
-template <typename Canvas>
-static void drawScopeCenterCrest(Canvas &c, int cx, int cy, int r, uint16_t pri, uint16_t gold, int style) {
-    if (style >= 4) {
-        // 哪吒2 Abyssal Dragon-Pearl / Twin-Wave Crest
-        c.drawCircle(cx, cy, r, gold);
-        c.fillTriangle(cx, cy - r - 1, cx - r, cy + 1, cx + r, cy + 1, pri);
-        c.fillTriangle(cx, cy + r + 1, cx - r + 1, cy - 1, cx + r - 1, cy - 1, gold);
-        c.fillCircle(cx, cy, max(1, r / 2), TFT_WHITE);
-    } else {
-        // 哪吒1 Magic-Orb Flame Lotus Crest
-        c.fillTriangle(cx, cy - r - 1, cx - r, cy + 1, cx + r, cy + 1, pri);
-        c.fillTriangle(cx, cy + r, cx - r + 1, cy, cx + r - 1, cy, pri);
-        c.drawCircle(cx, cy, r, gold);
-        c.fillCircle(cx, cy, max(1, r / 2), gold);
-    }
+static void drawTargetReticle(Canvas &c, int bx, int by, int b, uint16_t col) {
+    c.fillRect(bx - b, by - b, 3, 1, col);
+    c.drawFastVLine(bx - b, by - b, 3, col);
+    c.fillRect(bx + b - 2, by - b, 3, 1, col);
+    c.drawFastVLine(bx + b, by - b, 3, col);
+    c.fillRect(bx - b, by + b, 3, 1, col);
+    c.drawFastVLine(bx - b, by + b - 2, 3, col);
+    c.fillRect(bx + b - 2, by + b, 3, 1, col);
+    c.drawFastVLine(bx + b, by + b - 2, 3, col);
 }
 
 template <typename Canvas>
 static void drawRadarScopeCanvas(
     Canvas &c, int cx, int cy, int r, float sweepRad, const std::vector<RadarTarget> &list,
-    const RadarContext &ctx, uint32_t nowMs
+    const RadarContext &ctx
 ) {
     const uint16_t bg = bruceConfig.bgColor;
     const bool isNezha2 = (bruceConfig.nezhaThemeStyle >= 4);
     const uint16_t scopeBg = isNezha2 ? COL_N2_SCOPE_BG : COL_SCOPE_BG;
     const uint16_t gridDim = isNezha2 ? COL_N2_GRID_DIM : COL_GRID_DIM;
     const uint16_t gridMid = isNezha2 ? COL_N2_GRID_MID : COL_GRID_MID;
-    const uint16_t bezelCol = isNezha2 ? COL_N2_SWEEP_F4 : COL_QIANKUN_DIM;
-    const uint16_t accentGold = isNezha2 ? COL_N2_SWEEP_LEAD : COL_QIANKUN_GOLD;
+    const uint16_t sweepF0 = isNezha2 ? COL_N2_SWEEP_F0 : COL_SWEEP_F0;
+    const uint16_t sweepF1 = isNezha2 ? COL_N2_SWEEP_F1 : COL_SWEEP_F1;
+    const uint16_t sweepLead = isNezha2 ? COL_N2_SWEEP_LEAD : COL_SWEEP_LEAD;
 
-    // 1) Stealth circular radar dish + military 4-corner acquisition brackets
-    c.fillRect(cx - r - 5, cy - r - 5, (r + 5) * 2 + 1, (r + 5) * 2 + 1, bg);
+    // 1) Calm circular radar dish
+    c.fillRect(cx - r - 3, cy - r - 3, (r + 3) * 2 + 1, (r + 3) * 2 + 1, bg);
     c.fillCircle(cx, cy, r, scopeBg);
-    drawScopeBrackets(c, cx - r - 4, cy - r - 4, (r + 4) * 2 + 1, (r + 4) * 2 + 1, bruceConfig.priColor, accentGold);
 
-    // 2) Filled 36-degree 5-band radial gradient EW phased-array sweep wedge
-    const uint16_t bandCols[5] = {
-        isNezha2 ? COL_N2_SWEEP_F0 : COL_SWEEP_F0,
-        isNezha2 ? COL_N2_SWEEP_F1 : COL_SWEEP_F1,
-        isNezha2 ? COL_N2_SWEEP_F2 : COL_SWEEP_F2,
-        isNezha2 ? COL_N2_SWEEP_F3 : COL_SWEEP_F3,
-        isNezha2 ? COL_N2_SWEEP_F4 : COL_SWEEP_F4,
-    };
-    const float bandStep = 0.125f; // 5 * 0.125 rad ~= 36 deg
-    const int sweepR = r - 3;
-    for (int b = 0; b < 5; ++b) {
-        float a0 = sweepRad - (float)(5 - b) * bandStep;
-        float a1 = sweepRad - (float)(4 - b) * bandStep;
+    // 2) Subtle narrow 2-step trailing sweep (~16 deg) so blips stay completely legible
+    const float bandStep = 0.14f;
+    const int sweepR = r - 2;
+    {
+        float a0 = sweepRad - 2.0f * bandStep;
+        float a1 = sweepRad - bandStep;
+        float a2 = sweepRad;
         int x0 = cx + (int)(cosf(a0) * sweepR);
         int y0 = cy + (int)(sinf(a0) * sweepR);
         int x1 = cx + (int)(cosf(a1) * sweepR);
         int y1 = cy + (int)(sinf(a1) * sweepR);
-        c.fillTriangle(cx, cy, x0, y0, x1, y1, bandCols[b]);
+        int x2 = cx + (int)(cosf(a2) * sweepR);
+        int y2 = cy + (int)(sinf(a2) * sweepR);
+        c.fillTriangle(cx, cy, x0, y0, x1, y1, sweepF0);
+        c.fillTriangle(cx, cy, x1, y1, x2, y2, sweepF1);
     }
 
-    // 3) Dynamic zoom range rings (10m: 2m/5m, 30m: 3m/10m, 60m: 5m/20m) + radials + gunsight crosshairs
-    float innerM = (ctx.rangeMaxM <= 12.0f) ? 2.0f : ((ctx.rangeMaxM <= 35.0f) ? 3.0f : 5.0f);
-    float midM = (ctx.rangeMaxM <= 12.0f) ? 5.0f : ((ctx.rangeMaxM <= 35.0f) ? 10.0f : 20.0f);
+    // 3) Minimal range rings (10m: 2m/5m, 30m: 5m/15m, 60m: 10m/30m) + thin crosshairs
+    float innerM = (ctx.rangeMaxM <= 12.0f) ? 2.0f : ((ctx.rangeMaxM <= 35.0f) ? 5.0f : 10.0f);
+    float midM = (ctx.rangeMaxM <= 12.0f) ? 5.0f : ((ctx.rangeMaxM <= 35.0f) ? 15.0f : 30.0f);
     int rIn = distToRadius(innerM, r, ctx.rangeMaxM);
     int rMid = distToRadius(midM, r, ctx.rangeMaxM);
-    int diag = (int)(r * 0.7071f);
 
-    c.drawLine(cx - diag, cy - diag, cx + diag, cy + diag, COL_SPOKE_DIM);
-    c.drawLine(cx - diag, cy + diag, cx + diag, cy - diag, COL_SPOKE_DIM);
-    c.fillRect(cx - r, cy, 2 * r + 1, 1, gridDim);
-    c.drawFastVLine(cx, cy - r, 2 * r + 1, gridDim);
-
-    for (int s = 1; s <= 3; ++s) {
-        int off = (r * s) / 4;
-        c.drawFastVLine(cx - off, cy - 2, 5, gridMid);
-        c.drawFastVLine(cx + off, cy - 2, 5, gridMid);
-        c.fillRect(cx - 2, cy - off, 5, 1, gridMid);
-        c.fillRect(cx - 2, cy + off, 5, 1, gridMid);
-    }
-
-    c.drawCircle(cx, cy, rMid, gridDim);
+    c.fillRect(cx - r + 2, cy, 2 * r - 3, 1, gridDim);
+    c.drawFastVLine(cx, cy - r + 2, 2 * r - 3, gridDim);
     c.drawCircle(cx, cy, rIn, gridDim);
+    c.drawCircle(cx, cy, rMid, gridDim);
 
-    // 4) Expanding Qiankun / Sonar Shockwave Pulse Ring
-    if (ctx.shockR > 6.0f && ctx.shockR < (float)(r - 2)) {
-        int sr = (int)ctx.shockR;
-        c.drawCircle(cx, cy, sr, accentGold);
-        if (sr > 8) c.drawCircle(cx, cy, sr - 1, bruceConfig.priColor);
-    }
+    // 4) Single clean outer bezel + 4 subtle cardinal ticks
+    c.drawCircle(cx, cy, r, gridMid);
+    c.drawFastVLine(cx, cy - r, 4, gridMid);
+    c.drawFastVLine(cx, cy + r - 3, 4, gridMid);
+    c.fillRect(cx - r, cy, 4, 1, gridMid);
+    c.fillRect(cx + r - 3, cy, 4, 1, gridMid);
 
-    // 5) Counter-rotating Wind-Fire Wheel (风火轮) inner bezel notches (8 kinetic nodes)
-    if (r >= 36) {
-        float wfBase = -sweepRad * 0.5f;
-        for (int k = 0; k < 8; ++k) {
-            float a = wfBase + (float)k * (RADAR_PI * 0.25f);
-            int nx1 = cx + (int)(cosf(a) * (r - 2));
-            int ny1 = cy + (int)(sinf(a) * (r - 2));
-            int nx2 = cx + (int)(cosf(a + 0.06f) * (r - 5));
-            int ny2 = cy + (int)(sinf(a + 0.06f) * (r - 5));
-            c.drawLine(nx1, ny1, nx2, ny2, (k & 1) ? bruceConfig.priColor : accentGold);
-        }
-    }
-
-    // 6) Armored Double Bezel + Fine 5/15/45/90-deg Mil-Spec Compass Ticks
-    c.drawCircle(cx, cy, r, bezelCol);
-    if (r >= 24) c.drawCircle(cx, cy, r - 2, gridMid);
-    int degStep = (r >= 52) ? 5 : 15;
-    for (int deg = 0; deg < 360; deg += degStep) {
-        bool card = (deg % 90 == 0);
-        bool major = (deg % 45 == 0);
-        bool med = (deg % 15 == 0);
-        int tickLen = card ? 7 : (major ? 5 : (med ? 3 : 2));
-        float a = (float)deg * (RADAR_PI / 180.0f);
-        int x1 = cx + (int)(cosf(a) * r);
-        int y1 = cy + (int)(sinf(a) * r);
-        int x2 = cx + (int)(cosf(a) * (r - tickLen));
-        int y2 = cy + (int)(sinf(a) * (r - tickLen));
-        uint16_t tCol = card ? accentGold : (major ? bruceConfig.priColor : (med ? gridMid : gridDim));
-        c.drawLine(x1, y1, x2, y2, tCol);
-    }
-
-    // 7) Blazing EW Leading Sweep Beam + Glowing Emitter Tip
+    // 5) Restrained leading sweep line
     int leadX = cx + (int)(cosf(sweepRad) * sweepR);
     int leadY = cy + (int)(sinf(sweepRad) * sweepR);
-    c.drawLine(cx, cy, leadX, leadY, isNezha2 ? COL_N2_SWEEP_LEAD : COL_SWEEP_LEAD);
-    c.fillCircle(leadX, leadY, 2, bruceConfig.priColor);
-    c.drawPixel(leadX, leadY, TFT_WHITE);
+    c.drawLine(cx, cy, leadX, leadY, sweepLead);
 
-    // 8) Military Bearings (000 / 090 / 180 / 270) + Dynamic Scale Labels + Live AZ/RNG Readouts
+    // 6) Subtle range scale labels (only when dish is large enough)
     if (r >= 46) {
-        c.setTextSize(1);
-        c.setTextColor(accentGold);
-        c.drawString("000", cx - (3 * LW) / 2, cy - r + 8, 1);
-        c.drawString("090", cx + r - 8 - 3 * LW, cy - 3, 1);
-        c.drawString("180", cx - (3 * LW) / 2, cy + r - 15, 1);
-        c.drawString("270", cx - r + 8, cy - 3, 1);
-
         char ringLbl[8];
+        c.setTextSize(1);
         c.setTextColor(gridMid);
         snprintf(ringLbl, sizeof(ringLbl), "%.0fm", innerM);
-        c.drawString(ringLbl, cx + 3, cy - rIn + 1, 1);
+        c.drawString(ringLbl, cx + 3, cy - rIn + 2, 1);
         snprintf(ringLbl, sizeof(ringLbl), "%.0fm", midM);
-        c.drawString(ringLbl, cx + 3, cy - rMid + 1, 1);
+        c.drawString(ringLbl, cx + 3, cy - rMid + 2, 1);
 
-        int azDeg = ((int)roundf(sweepRad * (180.0f / RADAR_PI)) + 90) % 360;
-        if (azDeg < 0) azDeg += 360;
-        char azBuf[10];
-        snprintf(azBuf, sizeof(azBuf), "AZ%03d", azDeg);
-        c.setTextColor(COL_QIANKUN_GOLD, bg);
-        c.drawString(azBuf, cx - r - 2, cy + r - 5, 1);
-
-        char rngBuf[10];
+        char rngBuf[8];
         snprintf(rngBuf, sizeof(rngBuf), "%.0fm", ctx.rangeMaxM);
-        c.setTextColor(isNezha2 ? COL_N2_SWEEP_LEAD : bruceConfig.priColor, bg);
-        c.drawString(rngBuf, cx + r + 2 - (int)strlen(rngBuf) * LW, cy + r - 5, 1);
+        c.setTextColor(uiTextMutedColor(), bg);
+        c.drawString(rngBuf, cx + r + 2 - (int)strlen(rngBuf) * LW, cy + r - 6, 1);
     }
 
-    // 9) Plot Targets: Motion Breadcrumb Trails + Sweep-Triggered Ping Rings + Glyphs + Callouts
-    struct LabelRect {
-        int x, y, w, h;
-    };
-    LabelRect placed[5];
-    int placedCount = 0;
+    // 7) Plot targets: real range filter (distM <= rangeMaxM; alerts & locked/focused always shown)
+    const int maxNormalBlips = (r >= 46) ? 24 : 14;
+    int normalPlotted = 0;
 
-    auto tryDrawCallout = [&](int bx, int by, const RadarTarget &t, uint16_t col, bool force) {
-        if (!ctx.showLabels || r < 44) return;
-        if (!force && placedCount >= 4) return;
-        String tag = targetDisplayName(t);
-        if ((int)tag.length() > 7) tag = tag.substring(0, 7);
-        tag += " " + formatDistShort(t.distM);
+    int lockedIdx = -1;
+    int focusedIdx = -1;
+    int topAlertIdx = -1;
 
-        int tw = (int)tag.length() * LW;
-        int th = LH;
-        int lx = (bx + 6 + tw <= cx + r) ? (bx + 6) : (bx - tw - 5);
-        int ly = constrain(by - 4, cy - r + 2, cy + r - th - 2);
-        lx = constrain(lx, cx - r + 2, cx + r - tw - 2);
-
-        for (int i = 0; i < placedCount; ++i) {
-            bool overlap = !(lx + tw < placed[i].x || lx > placed[i].x + placed[i].w ||
-                             ly + th < placed[i].y || ly > placed[i].y + placed[i].h);
-            if (overlap) return;
-        }
-        if (placedCount < 5) placed[placedCount++] = {lx, ly, tw, th};
-        c.setTextSize(1);
-        c.setTextColor(col);
-        c.drawString(tag, lx, ly, 1);
-    };
-
+    // Pass 1: normal blips (back-to-front so closer/higher-priority targets sit on top)
     for (int i = (int)list.size() - 1; i >= 0; --i) {
         const RadarTarget &t = list[i];
+        bool locked = ctx.hasLocked && isSameTarget(t, ctx.lockedType, ctx.lockedMac);
+        bool focused = ctx.hasFocused && isSameTarget(t, ctx.focusedType, ctx.focusedMac);
+        bool isAlert = (t.flags & RFLAG_ANY_ALERT) != 0;
+
+        if (locked) {
+            lockedIdx = i;
+            continue;
+        }
+        if (focused) {
+            focusedIdx = i;
+            continue;
+        }
+        if (isAlert) {
+            topAlertIdx = i; // loop runs high->low, so ends up at highest-priority alert
+            continue;
+        }
+
+        // Respect selected rangeMaxM so zooming to 10m actually removes distant clutter
+        if (t.distM > ctx.rangeMaxM) continue;
+        if (normalPlotted >= maxNormalBlips) continue;
+        ++normalPlotted;
+
         int distPx = distToRadius(t.distM, r, ctx.rangeMaxM);
         float drawAngle = t.hasTriangulated ? atan2f(-t.relY, t.relX) : t.angleRad;
         int bx = cx + (int)(cosf(drawAngle) * distPx);
         int by = cy + (int)(sinf(drawAngle) * distPx);
 
-        bool locked = ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0;
-        uint16_t col = categoryColor(t.category, t.flags);
-
-        // Motion breadcrumb trail (older positions fade toward gridMid)
-        if (t.trailCount > 1) {
-            for (int k = 0; k < (int)t.trailCount - 1; ++k) {
-                int px = cx + (t.trailX[k] * (r - 6)) / 100;
-                int py = cy + (t.trailY[k] * (r - 6)) / 100;
-                c.fillCircle(px, py, 1, (k == (int)t.trailCount - 2) ? gridMid : gridDim);
-            }
-        }
-
-        // Sweep-triggered ping flash ring (expands over 550ms after beam crosses target)
-        if (t.lastPingMs > 0 && nowMs >= t.lastPingMs && (nowMs - t.lastPingMs) < 550) {
-            uint32_t age = nowMs - t.lastPingMs;
-            int pingR = 3 + (int)(age / 75);
-            uint16_t pingCol = (age < 180) ? TFT_WHITE : ((t.flags & RFLAG_ANY_ALERT) ? TFT_RED : accentGold);
-            c.drawCircle(bx, by, pingR, pingCol);
-        }
-
-        if (locked) {
-            // Fighter-jet square target acquisition reticle + bearing vector line
-            c.drawLine(cx, cy, bx, by, COL_QIANKUN_GOLD);
-            const int b = 6;
-            c.fillRect(bx - b, by - b, 4, 1, TFT_RED);
-            c.drawFastVLine(bx - b, by - b, 4, TFT_RED);
-            c.fillRect(bx + b - 3, by - b, 4, 1, TFT_RED);
-            c.drawFastVLine(bx + b, by - b, 4, TFT_RED);
-            c.fillRect(bx - b, by + b, 4, 1, TFT_RED);
-            c.drawFastVLine(bx - b, by + b - 3, 4, TFT_RED);
-            c.fillRect(bx + b - 3, by + b, 4, 1, TFT_RED);
-            c.drawFastVLine(bx + b, by + b - 3, 4, TFT_RED);
-            c.drawRect(bx - 3, by - 3, 7, 7, COL_QIANKUN_GOLD);
-            c.fillCircle(bx, by, 1, TFT_WHITE);
-            tryDrawCallout(bx, by, t, COL_QIANKUN_GOLD, true);
+        if (isWeakUnnamedBle(t)) {
+            c.fillCircle(bx, by, 1, COL_WEAK_DOT);
         } else {
+            uint16_t col = categoryColor(t.category, t.flags);
             drawCategoryGlyphTo(c, bx, by, t.category, col, t.flags);
-            if (i < 4 || (t.flags & RFLAG_ANY_ALERT)) {
-                tryDrawCallout(bx, by, t, col, (t.flags & (RFLAG_EVIL_TWIN | RFLAG_HACK_DEV | RFLAG_DRONE)) != 0);
-            }
         }
     }
 
-    // 10) Center tactical bore-sight ring + 哪吒魔童 crest (auto-matches 哪吒1 / 哪吒2 style!)
-    c.drawCircle(cx, cy, (r >= 46) ? 7 : 5, gridMid);
-    drawScopeCenterCrest(
-        c, cx, cy, (r >= 46) ? 4 : 3, bruceConfig.priColor, accentGold, max(1, bruceConfig.nezhaThemeStyle)
-    );
+    // Pass 2: alert blips on top of normal devices
+    for (int i = (int)list.size() - 1; i >= 0; --i) {
+        const RadarTarget &t = list[i];
+        if ((t.flags & RFLAG_ANY_ALERT) == 0) continue;
+        if (i == lockedIdx || i == focusedIdx) continue;
+        int distPx = distToRadius(t.distM, r, ctx.rangeMaxM);
+        float drawAngle = t.hasTriangulated ? atan2f(-t.relY, t.relX) : t.angleRad;
+        int bx = cx + (int)(cosf(drawAngle) * distPx);
+        int by = cy + (int)(sinf(drawAngle) * distPx);
+        uint16_t col = categoryColor(t.category, t.flags);
+        drawCategoryGlyphTo(c, bx, by, t.category, col, t.flags);
+    }
+
+    auto drawPillLabel = [&](int bx, int by, const RadarTarget &t, uint16_t col) {
+        if (!ctx.showLabels || r < 46) return;
+        String tag = targetDisplayName(t);
+        if ((int)tag.length() > 9) tag = tag.substring(0, 9);
+        int tw = (int)tag.length() * LW + 4;
+        int th = LH + 2;
+        int lx = (bx + 8 + tw <= cx + r) ? (bx + 8) : (bx - tw - 7);
+        int ly = constrain(by - th / 2, cy - r + 4, cy + r - th - 4);
+        lx = constrain(lx, cx - r + 4, cx + r - tw - 4);
+        c.fillRect(lx, ly, tw, th, scopeBg);
+        c.drawRect(lx, ly, tw, th, col);
+        c.setTextSize(1);
+        c.setTextColor(col, scopeBg);
+        c.drawString(tag, lx + 2, ly + 1, 1);
+    };
+
+    // Pass 3: focused target (cursor highlight)
+    if (focusedIdx >= 0 && focusedIdx != lockedIdx) {
+        const RadarTarget &t = list[focusedIdx];
+        int distPx = distToRadius(t.distM, r, ctx.rangeMaxM);
+        float drawAngle = t.hasTriangulated ? atan2f(-t.relY, t.relX) : t.angleRad;
+        int bx = cx + (int)(cosf(drawAngle) * distPx);
+        int by = cy + (int)(sinf(drawAngle) * distPx);
+        uint16_t col = categoryColor(t.category, t.flags);
+        drawCategoryGlyphTo(c, bx, by, t.category, col, t.flags);
+        drawTargetReticle(c, bx, by, 5, TFT_WHITE);
+        if (lockedIdx < 0) drawPillLabel(bx, by, t, TFT_WHITE);
+    }
+
+    // Pass 4: locked target (highest visual prominence + bearing vector line)
+    if (lockedIdx >= 0) {
+        const RadarTarget &t = list[lockedIdx];
+        int distPx = distToRadius(t.distM, r, ctx.rangeMaxM);
+        float drawAngle = t.hasTriangulated ? atan2f(-t.relY, t.relX) : t.angleRad;
+        int bx = cx + (int)(cosf(drawAngle) * distPx);
+        int by = cy + (int)(sinf(drawAngle) * distPx);
+        c.drawLine(cx, cy, bx, by, blendColors(scopeBg, COL_QIANKUN_GOLD, 120));
+        drawTargetReticle(c, bx, by, 6, COL_QIANKUN_GOLD);
+        uint16_t col = categoryColor(t.category, t.flags);
+        drawCategoryGlyphTo(c, bx, by, t.category, col, t.flags);
+        c.drawPixel(bx, by, TFT_WHITE);
+        drawPillLabel(bx, by, t, COL_QIANKUN_GOLD);
+    } else if (topAlertIdx >= 0 && focusedIdx < 0) {
+        const RadarTarget &t = list[topAlertIdx];
+        int distPx = distToRadius(t.distM, r, ctx.rangeMaxM);
+        float drawAngle = t.hasTriangulated ? atan2f(-t.relY, t.relX) : t.angleRad;
+        int bx = cx + (int)(cosf(drawAngle) * distPx);
+        int by = cy + (int)(sinf(drawAngle) * distPx);
+        drawPillLabel(bx, by, t, categoryColor(t.category, t.flags));
+    }
+
+    // 8) Clean minimal center self-marker (2px dot so close targets are never obscured)
+    c.fillCircle(cx, cy, 2, bruceConfig.priColor);
+    c.drawPixel(cx, cy, TFT_WHITE);
 }
 
 #if !defined(BRUCE_COMPACT_CJK_FONT)
 static void drawRadarScope(
     tft_sprite *spr, int cx, int cy, int r, float sweepRad, const std::vector<RadarTarget> &list,
-    const RadarContext &ctx, uint32_t nowMs
+    const RadarContext &ctx
 ) {
     if (spr) {
-        int half = r + 5;
-        drawRadarScopeCanvas(*spr, half, half, r, sweepRad, list, ctx, nowMs);
+        int half = r + 3;
+        drawRadarScopeCanvas(*spr, half, half, r, sweepRad, list, ctx);
         spr->pushSprite(cx - half, cy - half);
         return;
     }
-    drawRadarScopeCanvas(tft, cx, cy, r, sweepRad, list, ctx, nowMs);
+    drawRadarScopeCanvas(tft, cx, cy, r, sweepRad, list, ctx);
 }
 #else
 static void drawRadarScope(
     void *, int cx, int cy, int r, float sweepRad, const std::vector<RadarTarget> &list,
-    const RadarContext &ctx, uint32_t nowMs
+    const RadarContext &ctx
 ) {
-    drawRadarScopeCanvas(tft, cx, cy, r, sweepRad, list, ctx, nowMs);
+    drawRadarScopeCanvas(tft, cx, cy, r, sweepRad, list, ctx);
 }
 #endif
 
-static void drawRadarHud(
-    int hudX, int hudY, int hudW, int hudH, RadarMode mode, bool timeSliced, bool scanningWifi,
-    bool scanningBle, const std::vector<RadarTarget> &list, const RadarContext &ctx
+// Layout metrics for HUD hit-testing (shared between drawRadarHud and touch handler)
+struct ScopeHudMetrics {
+    int cardY = 0;
+    int cardH = 0;
+    int listY = 0;
+    int rowH = 12;
+    int visRows = 0;
+};
+
+static ScopeHudMetrics drawRadarHud(
+    int hudX, int hudY, int hudW, int hudH, RadarMode mode, bool scanningWifi, bool scanningBle,
+    const std::vector<RadarTarget> &list, RadarContext &ctx
 ) {
+    ScopeHudMetrics m;
     const uint16_t bg = bruceConfig.bgColor;
+    const uint16_t muted = uiTextMutedColor();
+    const uint16_t bright = uiTextBrightColor();
     tft.fillRect(hudX, hudY, hudW, hudH, bg);
-    tft.setTextSize(FP);
+    tft.setTextSize(1);
 
-    const int lineStep = (FP == 1 && bruce_i18n::isChinese()) ? 13 : (LH + 2);
-    const int maxChars = max(6, hudW / LW);
-
-    int wifiCnt = 0, bleCnt = 0, alertCnt = 0, weakCnt = 0;
+    int wifiCnt = 0, bleCnt = 0, alertCnt = 0;
     const RadarTarget *lockedTarget = nullptr;
-    float anchorSumX = 0.0f, anchorSumY = 0.0f;
-    int anchorCnt = 0;
-
     for (const auto &t : list) {
         if (t.type == RadarTargetType::WIFI) ++wifiCnt;
-        else {
-            ++bleCnt;
-            if (anchorCnt < 6) {
-                float w = 1.0f / max(0.5f, t.distM);
-                anchorSumX += t.relX * w;
-                anchorSumY += t.relY * w;
-                ++anchorCnt;
-            }
-        }
+        else ++bleCnt;
         if (t.flags & RFLAG_ANY_ALERT) ++alertCnt;
-        if (t.flags & RFLAG_WEAK_SEC) ++weakCnt;
-        if (ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0) {
-            lockedTarget = &t;
-        }
+        if (ctx.hasLocked && isSameTarget(t, ctx.lockedType, ctx.lockedMac)) lockedTarget = &t;
     }
 
-    uint8_t defcon = computeDefconLevel(list);
-    uint16_t defCol = defconColor(defcon);
-    int y = hudY;
-    // Armored Military EW Callsign Strip + Live DEFCON Badge
-    tft.fillRect(hudX, y, hudW, LH + 4, COL_HEADER_BG);
-    drawNezhaCrest(hudX + 5, y + (LH + 4) / 2, 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
-    tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
-    String radioBadge = scanningWifi ? "W*" : (scanningBle ? "B*" : "..");
-    String hdr = String(modeShort(mode)) + ":" + radioBadge + " " + String((int)ctx.rangeMaxM) + "m";
-    tft.drawString(hdr, hudX + 11, y + 2, 1);
+    syncCursorToFocus(ctx, list, ctx.scopeCursor);
+    const RadarTarget *activeTarget =
+        lockedTarget ? lockedTarget : (!list.empty() ? &list[ctx.scopeCursor] : nullptr);
 
-    char defLbl[6];
-    snprintf(defLbl, sizeof(defLbl), "D%u", (unsigned)defcon);
-    tft.fillRect(hudX + hudW - 22, y + 1, 21, LH + 2, defCol);
-    tft.setTextColor(uiTextOnAccentColor(defCol), defCol);
-    tft.drawCentreString(defLbl, hudX + hudW - 11, y + 2, 1);
+    int y = hudY;
+
+    // 1) Clean compact status header: live scan dot + Filter/Range + W/B counts + Alert badge
+    tft.fillRect(hudX, y, hudW, LH + 4, COL_HEADER_BG);
+    uint16_t scanDotCol = scanningWifi ? TFT_CYAN : (scanningBle ? COL_BLE_NORM : muted);
+    tft.fillCircle(hudX + 4, y + (LH + 4) / 2, 2, scanDotCol);
+    char leftHdr[18];
+    snprintf(leftHdr, sizeof(leftHdr), "%s %.0fm", modeShort(mode), ctx.rangeMaxM);
+    tft.setTextColor(bright, COL_HEADER_BG);
+    tft.drawString(leftHdr, hudX + 9, y + 2, 1);
+
+    int rightEdge = hudX + hudW - 2;
+    if (alertCnt > 0) {
+        char alBuf[8];
+        snprintf(alBuf, sizeof(alBuf), "!%d", alertCnt);
+        int alW = (int)strlen(alBuf) * LW + 6;
+        tft.fillRoundRect(rightEdge - alW, y + 1, alW, LH + 2, 2, TFT_RED);
+        tft.setTextColor(TFT_WHITE, TFT_RED);
+        tft.drawCentreString(alBuf, rightEdge - alW / 2, y + 2, 1);
+        rightEdge -= alW + 3;
+    }
+    char cntBuf[16];
+    snprintf(cntBuf, sizeof(cntBuf), "%dW %dB", wifiCnt, bleCnt);
+    if (rightEdge - (int)strlen(cntBuf) * LW > hudX + 9 + (int)strlen(leftHdr) * LW + 3) {
+        tft.setTextColor(muted, COL_HEADER_BG);
+        tft.drawRightString(cntBuf, rightEdge, y + 2, 1);
+    }
     y += LH + 6;
 
-    // Live Military Grid / GPS / RF-Anchor Telemetry
-    char locLine[36];
-    if (bruceLocation.hasLocation()) {
-        uint16_t locCol = bruceLocation.hasLiveGps()
-                              ? COL_TAC_GREEN
-                              : ((bruceLocation.source() == "RF-FIX") ? TFT_CYAN : COL_QIANKUN_GOLD);
-        tft.setTextColor(locCol, bg);
-        snprintf(
-            locLine,
-            sizeof(locLine),
-            "%s %.3f,%.3f",
-            bruceLocation.source().substring(0, 3).c_str(),
-            bruceLocation.lat(),
-            bruceLocation.lon()
-        );
-    } else if (anchorCnt > 0) {
-        tft.setTextColor(TFT_LIGHTGREY, bg);
-        snprintf(
-            locLine,
-            sizeof(locLine),
-            "VEC:%d %+.1f,%+.1fm",
-            anchorCnt,
-            anchorSumX / anchorCnt,
-            anchorSumY / anchorCnt
-        );
-    } else {
-        tft.setTextColor(TFT_DARKGREY, bg);
-        snprintf(locLine, sizeof(locLine), "GRID: ACQUIRING...");
+    // 2) Compact inline legend (only on taller screens so the 3 shapes + 4 colors are self-explanatory)
+    if (hudH >= 124 && hudW >= 120) {
+        int lx = hudX + 1;
+        tft.fillRect(lx, y + 2, 4, 4, TFT_CYAN);
+        tft.setTextColor(muted, bg);
+        tft.drawString("W", lx + 6, y, 1);
+        lx += 16;
+
+        tft.fillRect(lx, y + 2, 4, 4, COL_TAC_GREEN);
+        tft.drawString("Opn", lx + 6, y, 1);
+        lx += 28;
+
+        tft.fillCircle(lx + 2, y + 4, 2, COL_BLE_NORM);
+        tft.drawString("BLE", lx + 6, y, 1);
+        lx += 28;
+
+        tft.fillTriangle(lx + 2, y + 1, lx, y + 4, lx + 4, y + 4, TFT_RED);
+        tft.fillTriangle(lx + 2, y + 7, lx, y + 4, lx + 4, y + 4, TFT_RED);
+        tft.drawString("Alrt", lx + 6, y, 1);
+        y += LH + 3;
     }
-    tft.drawString(String(locLine).substring(0, maxChars), hudX, y, 1);
-    y += LH + 2;
 
-    // Tabular EW Contact Counter Strip (AP / BT / AL)
-    tft.fillRect(hudX, y, hudW, LH + 3, COL_PANEL_BG);
-    tft.fillRect(hudX + 2, y + 3, 4, 4, TFT_CYAN);
-    tft.setTextColor(TFT_CYAN, COL_PANEL_BG);
-    tft.drawString("AP:" + String(wifiCnt), hudX + 8, y + 1, 1);
+    // 3) Focused / Locked Target Detail Card (actionable intelligence at a glance)
+    const bool compactCard = (hudH < 105);
+    m.cardY = y;
+    m.cardH = compactCard ? (LH * 2 + 11) : (LH * 3 + 17);
+    if (y + m.cardH <= hudY + hudH) {
+        tft.fillRect(hudX, y, hudW, m.cardH, COL_PANEL_BG);
+        tft.drawRect(hudX, y, hudW, m.cardH, uiBorderDimColor());
 
-    int col2 = hudX + hudW / 3 + 2;
-    tft.fillCircle(col2 + 2, y + 5, 2, TFT_MAGENTA);
-    tft.setTextColor(TFT_MAGENTA, COL_PANEL_BG);
-    tft.drawString("BT:" + String(bleCnt), col2 + 6, y + 1, 1);
+        if (activeTarget) {
+            bool isLockedCard = (lockedTarget != nullptr);
+            uint16_t accent =
+                isLockedCard ? COL_QIANKUN_GOLD : categoryColor(activeTarget->category, activeTarget->flags);
+            tft.fillRect(hudX, y, 2, m.cardH, accent);
 
-    if (hudW >= 116) {
-        int col3 = hudX + (hudW * 2) / 3 + 2;
-        tft.fillTriangle(col3 + 2, y + 1, col3, y + 4, col3 + 4, y + 4, alertCnt > 0 ? TFT_RED : TFT_DARKGREY);
-        tft.fillTriangle(col3 + 2, y + 8, col3, y + 4, col3 + 4, y + 4, alertCnt > 0 ? TFT_RED : TFT_DARKGREY);
-        tft.setTextColor(alertCnt > 0 ? TFT_RED : TFT_DARKGREY, COL_PANEL_BG);
-        tft.drawString("AL:" + String(alertCnt), col3 + 6, y + 1, 1);
-    }
-    y += LH + 5;
+            int cx = hudX + 5;
+            int cw = hudW - 8;
+            int cy = y + 3;
 
-    drawNezhaRibbonRule(hudX, y, hudW);
-    y += 4;
+            // Right pill: LOCK or alert tag or channel/radio
+            const char *alTag = alertBadgeShort(activeTarget->flags);
+            String pill;
+            uint16_t pillCol = accent;
+            if (isLockedCard) {
+                pill = "LOCK";
+                pillCol = COL_QIANKUN_GOLD;
+            } else if (alTag) {
+                pill = alTag;
+                pillCol = categoryColor(activeTarget->category, activeTarget->flags);
+            } else if (activeTarget->type == RadarTargetType::WIFI) {
+                pill = "C" + String(activeTarget->channel);
+                pillCol = (activeTarget->category == RadarCategory::WIFI_OPEN) ? COL_TAC_GREEN : TFT_CYAN;
+            } else {
+                pill = "BLE";
+                pillCol = COL_BLE_NORM;
+            }
 
-    if (ctx.hasLocked) {
-        int lockBoxH = max(40, hudY + hudH - y - 1);
-        tft.fillRect(hudX, y, hudW, lockBoxH, COL_PANEL_BG);
-        drawNezhaCornerBrackets(hudX, y, hudW, lockBoxH, TFT_RED, COL_QIANKUN_GOLD);
-        int ly = y + 4;
-        int lx = hudX + 5;
-        int lw = hudW - 10;
+            int pillW = (int)pill.length() * LW + 4;
+            tft.fillRect(hudX + hudW - pillW - 2, cy - 1, pillW, LH + 2, pillCol);
+            tft.setTextColor(uiTextOnAccentColor(pillCol), pillCol);
+            tft.drawCentreString(pill, hudX + hudW - pillW / 2 - 2, cy, 1);
 
-        tft.setTextColor(COL_QIANKUN_GOLD, COL_PANEL_BG);
-        tft.drawString("TGT LOCK", lx, ly, 1);
-        ly += LH + 2;
+            int nameMaxChars = max(4, (cw - pillW - 4) / LW);
+            String nm = targetDisplayName(*activeTarget);
+            if ((int)nm.length() > nameMaxChars) nm = nm.substring(0, nameMaxChars);
+            tft.setTextColor(bright, COL_PANEL_BG);
+            tft.drawString(nm, cx, cy, 1);
+            cy += LH + 3;
 
-        if (lockedTarget) {
-            uint16_t catCol = categoryColor(lockedTarget->category, lockedTarget->flags);
-            drawCategoryGlyph(lx + 3, ly + 3, lockedTarget->category, catCol, lockedTarget->flags);
-            tft.setTextColor(catCol, COL_PANEL_BG);
-            String catTag = bruce_i18n::tr(categoryName(lockedTarget->category));
-            catTag = bruce_i18n::utf8TruncateToWidth(catTag, lw - 10, FP);
-            tft.drawString(catTag, lx + 9, ly, 1);
-            ly += lineStep;
-
-            String label = targetDisplayName(*lockedTarget);
-            tft.setTextColor(TFT_WHITE, COL_PANEL_BG);
-            tft.drawString(label.substring(0, max(5, lw / LW)), lx, ly, 1);
-            ly += LH + 2;
-
-            int pct = constrain((lockedTarget->rssi + 95) * 100 / 60, 0, 100);
-            uint16_t barCol = (pct > 66) ? COL_TAC_GREEN : ((pct > 33) ? COL_QIANKUN_GOLD : TFT_RED);
-            char trend = (lockedTarget->rssi > lockedTarget->prevRssi + 1)
+            // Line 2: RSSI + Distance + Trend
+            int pct = constrain((activeTarget->rssi + 95) * 100 / 60, 0, 100);
+            uint16_t sigCol = (pct > 66) ? COL_TAC_GREEN : ((pct > 33) ? COL_QIANKUN_GOLD : TFT_RED);
+            char trend = (activeTarget->rssi > activeTarget->prevRssi + 1)
                              ? '+'
-                             : ((lockedTarget->rssi < lockedTarget->prevRssi - 1) ? '-' : '=');
-            tft.setTextColor(barCol, COL_PANEL_BG);
-            tft.drawString(
-                formatDistShort(lockedTarget->distM) + " " + String(lockedTarget->rssi) + "dB " + trend,
-                lx,
-                ly,
-                1
-            );
-            ly += LH + 2;
-
-            char coordBuf[32];
-            if (lockedTarget->hasTriangulated) {
-                float brg = vectorToBearingDeg(lockedTarget->relX, lockedTarget->relY);
+                             : ((activeTarget->rssi < activeTarget->prevRssi - 1) ? '-' : ' ');
+            char sigLine[26];
+            if (trend != ' ') {
                 snprintf(
-                    coordBuf,
-                    sizeof(coordBuf),
-                    "BRG:%03d %s %+.0f,%+.0f",
-                    (int)roundf(brg),
-                    bearingToCardinal(brg),
-                    lockedTarget->relX,
-                    lockedTarget->relY
+                    sigLine,
+                    sizeof(sigLine),
+                    "%ddBm %s %c",
+                    (int)activeTarget->rssi,
+                    formatDistShort(activeTarget->distM).c_str(),
+                    trend
                 );
             } else {
                 snprintf(
-                    coordBuf,
-                    sizeof(coordBuf),
-                    "PK:%d %s",
-                    (int)lockedTarget->peakRssi,
-                    formatDwell(lockedTarget->firstSeenMs, millis()).c_str()
+                    sigLine,
+                    sizeof(sigLine),
+                    "%ddBm  %s",
+                    (int)activeTarget->rssi,
+                    formatDistShort(activeTarget->distM).c_str()
                 );
             }
-            tft.setTextColor(TFT_LIGHTGREY, COL_PANEL_BG);
-            tft.drawString(String(coordBuf).substring(0, max(5, lw / LW)), lx, ly, 1);
-            ly += LH + 3;
+            tft.setTextColor(sigCol, COL_PANEL_BG);
+            tft.drawString(String(sigLine).substring(0, max(6, cw / LW)), cx, cy, 1);
+            cy += LH + 2;
 
-            // Segmented 10-cell military signal strength bar
-            if (ly + 10 <= y + lockBoxH - 3) {
-                const int segs = 10;
-                const int segGap = 2;
-                int segW = max(3, (lw - segGap * (segs - 1)) / segs);
-                int lit = (pct * segs + 50) / 100;
-                for (int s = 0; s < segs; ++s) {
-                    uint16_t sc = (s < lit) ? ((s >= 7) ? COL_TAC_GREEN : ((s >= 4) ? COL_QIANKUN_GOLD : TFT_RED))
-                                            : COL_GRID_DIM;
-                    tft.fillRect(lx + s * (segW + segGap), ly, segW, 7, sc);
+            // Line 3 (full card): Vendor / Auth / Subtype / Triangulated bearing
+            if (!compactCard) {
+                char infoBuf[32];
+                const char *oui = lookupOuiVendor(activeTarget->mac);
+                if (activeTarget->hasTriangulated) {
+                    float brg = vectorToBearingDeg(activeTarget->relX, activeTarget->relY);
+                    snprintf(
+                        infoBuf,
+                        sizeof(infoBuf),
+                        "Brg %03d %s (%+.0f,%+.0f)",
+                        (int)roundf(brg),
+                        bearingToCardinal(brg),
+                        activeTarget->relX,
+                        activeTarget->relY
+                    );
+                } else if (activeTarget->type == RadarTargetType::WIFI) {
+                    if (oui) {
+                        snprintf(
+                            infoBuf,
+                            sizeof(infoBuf),
+                            "%s | %s",
+                            wifiAuthShort(activeTarget->authMode),
+                            oui
+                        );
+                    } else {
+                        snprintf(
+                            infoBuf,
+                            sizeof(infoBuf),
+                            "%s | %02X:%02X:%02X",
+                            wifiAuthShort(activeTarget->authMode),
+                            activeTarget->mac[3],
+                            activeTarget->mac[4],
+                            activeTarget->mac[5]
+                        );
+                    }
+                } else {
+                    const char *sub =
+                        activeTarget->subtype[0] ? activeTarget->subtype : (oui ? oui : "BLE");
+                    snprintf(
+                        infoBuf,
+                        sizeof(infoBuf),
+                        "%s | %s",
+                        sub,
+                        formatDwell(activeTarget->firstSeenMs, millis()).c_str()
+                    );
                 }
+                tft.setTextColor(muted, COL_PANEL_BG);
+                tft.drawString(String(infoBuf).substring(0, max(6, cw / LW)), cx, cy, 1);
+                cy += LH + 3;
             }
-        } else {
+
+            // Sleek signal strength bar
+            int barH = compactCard ? 3 : 4;
+            if (cy + barH <= y + m.cardH - 2) {
+                tft.fillRect(cx, cy, cw, barH, bg);
+                int fillW = (cw * pct) / 100;
+                if (fillW > 0) tft.fillRect(cx, cy, fillW, barH, sigCol);
+            }
+        } else if (ctx.hasLocked) {
+            tft.fillRect(hudX, y, 2, m.cardH, TFT_RED);
             tft.setTextColor(TFT_RED, COL_PANEL_BG);
-            tft.drawString(bruce_i18n::tr("Lost signal..."), lx, ly, 1);
+            tft.drawString(bruce_i18n::tr("Lost signal..."), hudX + 6, y + 4, 1);
+            tft.setTextColor(muted, COL_PANEL_BG);
+            tft.drawString(formatMac(ctx.lockedMac).substring(9), hudX + 6, y + LH + 7, 1);
+        } else {
+            tft.setTextColor(muted, COL_PANEL_BG);
+            tft.drawCentreString(bruce_i18n::tr("Scanning..."), hudX + hudW / 2, y + m.cardH / 2 - 4, 1);
         }
-        return;
+        y += m.cardH + 3;
     }
 
-    // Closest tactical contacts feed (numbered IDs + MIL-STD glyph + range)
-    int rowH = LH + 2;
-    int maxRows = max(1, (hudY + hudH - y - 2) / rowH);
-    for (int i = 0; i < (int)list.size() && i < maxRows; ++i) {
-        const RadarTarget &t = list[i];
-        uint16_t col = categoryColor(t.category, t.flags);
-        drawCategoryGlyph(hudX + 3, y + 3, t.category, col, t.flags);
+    // 4) Interactive Scrollable Nearby List (UP/DOWN or tap to focus/lock)
+    m.listY = y;
+    m.rowH = (hudH >= 120) ? (LH + 4) : (LH + 2);
+    m.visRows = max(0, (hudY + hudH - y) / m.rowH);
+    if (m.visRows <= 0 || list.empty()) return m;
+
+    if (ctx.scopeCursor < ctx.scopeScroll) ctx.scopeScroll = ctx.scopeCursor;
+    if (ctx.scopeCursor >= ctx.scopeScroll + m.visRows) ctx.scopeScroll = ctx.scopeCursor - m.visRows + 1;
+    ctx.scopeScroll = constrain(ctx.scopeScroll, 0, max(0, (int)list.size() - m.visRows));
+
+    const int maxChars = max(6, (hudW - 10) / LW);
+    for (int r = 0; r < m.visRows && (ctx.scopeScroll + r) < (int)list.size(); ++r) {
+        int idx = ctx.scopeScroll + r;
+        const RadarTarget &t = list[idx];
+        bool isSel = (idx == ctx.scopeCursor);
+        bool isLocked = ctx.hasLocked && isSameTarget(t, ctx.lockedType, ctx.lockedMac);
+        bool outOfRange = (t.distM > ctx.rangeMaxM) && !(t.flags & RFLAG_ANY_ALERT) && !isLocked;
+
+        uint16_t rowBg = isSel ? COL_ROW_SEL : bg;
+        if (isSel) {
+            tft.fillRect(hudX, y, hudW, m.rowH - 1, rowBg);
+            tft.fillRect(hudX, y, 2, m.rowH - 1, isLocked ? COL_QIANKUN_GOLD : bruceConfig.priColor);
+        }
+
+        uint16_t col = outOfRange ? muted : categoryColor(t.category, t.flags);
+        drawCategoryGlyph(hudX + 5, y + (m.rowH - 1) / 2, t.category, col, t.flags);
 
         String distStr = formatDistShort(t.distM);
-        char trend = (t.rssi > t.prevRssi + 2) ? '+' : ((t.rssi < t.prevRssi - 2) ? '-' : ' ');
-        if (trend != ' ') distStr = String(trend) + distStr;
-        int nameBudget = max(3, maxChars - (int)distStr.length() - 3);
-        String nm = targetDisplayName(t);
+        int nameBudget = max(3, maxChars - (int)distStr.length() - 2);
+        String nm = (isLocked ? "*" : "") + targetDisplayName(t);
         if ((int)nm.length() > nameBudget) nm = nm.substring(0, nameBudget);
 
-        tft.setTextColor(col, bg);
-        tft.drawString(nm, hudX + 9, y, 1);
-        tft.setTextColor(COL_QIANKUN_GOLD, bg);
-        tft.drawRightString(distStr, hudX + hudW - 1, y, 1);
-        y += rowH;
+        tft.setTextColor(isLocked ? COL_QIANKUN_GOLD : (isSel ? bright : col), rowBg);
+        tft.drawString(nm, hudX + 11, y + 1, 1);
+        tft.setTextColor(outOfRange ? muted : (isSel ? bright : muted), rowBg);
+        tft.drawRightString(distStr, hudX + hudW - 2, y + 1, 1);
+        y += m.rowH;
     }
+    return m;
 }
 
-// =====================================================================
-// VIEW 1: LIVE TARGET INTELLIGENCE TABLE (AIRODUMP / KISMET STYLE)
-// =====================================================================
-static void drawIntelTable(
-    int x, int y, int w, int h, RadarMode mode, bool timeSliced, bool scanningWifi, bool scanningBle,
+/*
+ * VIEW 1: clean, scannable device list with bottom detail strip for the selected row.
+ */
+struct TableViewMetrics {
+    int rowsTop = 0;
+    int rowH = 13;
+    int visRows = 0;
+};
+
+static TableViewMetrics drawIntelTable(
+    int x, int y, int w, int h, RadarMode mode, bool scanningWifi, bool scanningBle,
     const std::vector<RadarTarget> &list, RadarContext &ctx
 ) {
+    TableViewMetrics tm;
     const uint16_t bg = bruceConfig.bgColor;
+    const uint16_t muted = uiTextMutedColor();
+    const uint16_t bright = uiTextBrightColor();
     tft.fillRect(x, y, w, h, bg);
     tft.setTextSize(1);
 
     int total = (int)list.size();
-    if (total == 0) {
-        ctx.tableCursor = 0;
-        ctx.tableScroll = 0;
-    } else {
-        ctx.tableCursor = constrain(ctx.tableCursor, 0, total - 1);
-    }
+    syncCursorToFocus(ctx, list, ctx.tableCursor);
 
-    // Top summary bar
     int wifiCnt = 0, bleCnt = 0, alertCnt = 0;
     for (const auto &t : list) {
         if (t.type == RadarTargetType::WIFI) ++wifiCnt;
@@ -1472,129 +1472,187 @@ static void drawIntelTable(
         if (t.flags & RFLAG_ANY_ALERT) ++alertCnt;
     }
 
-    // Armored SIGINT top summary bar + 哪吒 crest
-    tft.fillRect(x, y, w, LH + 4, COL_PANEL_BG);
-    drawNezhaCrest(x + 5, y + (LH + 4) / 2, 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
-    tft.setTextColor(COL_QIANKUN_GOLD, COL_PANEL_BG);
-    String topInfo = "SIGINT " + String(modeShort(mode)) + (scanningWifi ? " [W*]" : (scanningBle ? " [B*]" : " [..]")) +
-                     " AP:" + String(wifiCnt) + " BT:" + String(bleCnt);
-    tft.drawString(topInfo, x + 12, y + 2, 1);
+    // 1) Clean summary bar
+    tft.fillRect(x, y, w, LH + 4, COL_HEADER_BG);
+    uint16_t scanCol = scanningWifi ? TFT_CYAN : (scanningBle ? COL_BLE_NORM : muted);
+    tft.fillCircle(x + 5, y + (LH + 4) / 2, 2, scanCol);
+    char topInfo[42];
+    snprintf(topInfo, sizeof(topInfo), "%s  WiFi:%d  BLE:%d", modeShort(mode), wifiCnt, bleCnt);
+    tft.setTextColor(bright, COL_HEADER_BG);
+    tft.drawString(topInfo, x + 11, y + 2, 1);
+
     if (alertCnt > 0) {
-        tft.fillRect(x + w - 42, y + 1, 41, LH + 2, TFT_RED);
+        char alBuf[10];
+        snprintf(alBuf, sizeof(alBuf), "!%d ALRT", alertCnt);
+        int alW = (int)strlen(alBuf) * LW + 6;
+        tft.fillRoundRect(x + w - alW - 2, y + 1, alW, LH + 2, 2, TFT_RED);
         tft.setTextColor(TFT_WHITE, TFT_RED);
-        tft.drawCentreString("ALRT:" + String(alertCnt), x + w - 21, y + 2, 1);
+        tft.drawCentreString(alBuf, x + w - alW / 2 - 2, y + 2, 1);
+    } else if (ctx.noiseFilter) {
+        tft.setTextColor(muted, COL_HEADER_BG);
+        tft.drawRightString("Clean", x + w - 3, y + 2, 1);
     }
     int curY = y + LH + 5;
-    drawNezhaRibbonRule(x, curY, w);
-    curY += 2;
 
-    // Column headers (crimson-obsidian lacquer strip + Qiankun gold military labels)
-    tft.fillRect(x, curY, w, LH + 2, COL_HEADER_BG);
-    tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
-    int colName = x + 10;
-    int colTag = x + (w * 48) / 100;
-    int colRssi = x + (w * 73) / 100;
-    int colDist = x + w - 2;
-    tft.drawString("CALLSIGN", colName, curY + 1, 1);
-    if (w >= 210) tft.drawString("CH/SIG", colTag, curY + 1, 1);
-    tft.drawString("dBm", colRssi, curY + 1, 1);
-    tft.drawRightString("RNG", colDist, curY + 1, 1);
-    curY += LH + 3;
+    // 2) Clean non-overlapping column headers
+    tft.fillRect(x, curY, w, LH + 3, COL_PANEL_BG);
+    tft.setTextColor(muted, COL_PANEL_BG);
+    const int colName = x + 11;
+    const bool showTagCol = (w >= 210);
+    const int colDistR = x + w - 3;
+    const int colRssiR = colDistR - 36;
+    const int colTag = showTagCol ? (x + (w * 46) / 100) : colRssiR;
+
+    tft.drawString("Device", colName, curY + 1, 1);
+    if (showTagCol) tft.drawString("Info", colTag, curY + 1, 1);
+    tft.drawRightString("dBm", colRssiR, curY + 1, 1);
+    tft.drawRightString("Dist", colDistR, curY + 1, 1);
+    curY += LH + 4;
 
     if (total == 0) {
-        tft.setTextColor(TFT_DARKGREY, bg);
+        tft.setTextColor(muted, bg);
         tft.drawCentreString(bruce_i18n::tr("Scanning nearby BLE & WiFi..."), x + w / 2, curY + 20, 1);
-        return;
+        return tm;
     }
 
-    const int rowH = LH + 4;
-    const int visRows = max(1, (y + h - curY) / rowH);
+    // Reserve bottom detail strip on taller screens so selected row's full MAC/vendor/alert is visible
+    const bool showDetailBar = (h >= 105);
+    const int detailH = showDetailBar ? (LH * 2 + 7) : 0;
+    const int rowsBot = y + h - detailH - (showDetailBar ? 2 : 0);
+
+    tm.rowsTop = curY;
+    tm.rowH = (h >= 120) ? (LH + 5) : (LH + 3);
+    tm.visRows = max(1, (rowsBot - curY) / tm.rowH);
     if (ctx.tableCursor < ctx.tableScroll) ctx.tableScroll = ctx.tableCursor;
-    if (ctx.tableCursor >= ctx.tableScroll + visRows) ctx.tableScroll = ctx.tableCursor - visRows + 1;
+    if (ctx.tableCursor >= ctx.tableScroll + tm.visRows) ctx.tableScroll = ctx.tableCursor - tm.visRows + 1;
+    ctx.tableScroll = constrain(ctx.tableScroll, 0, max(0, total - tm.visRows));
 
-    uint32_t now = millis();
-    int nameChars = max(6, ((w >= 210 ? colTag : colRssi) - colName - 4) / LW);
-    int tagChars = max(4, (colRssi - colTag - 4) / LW);
+    int nameMaxPx = (showTagCol ? colTag : (colRssiR - 26)) - colName - 4;
+    int nameChars = max(5, nameMaxPx / LW);
+    int tagMaxPx = (colRssiR - 26) - colTag - 4;
+    int tagChars = max(4, tagMaxPx / LW);
 
-    for (int r = 0; r < visRows && (ctx.tableScroll + r) < total; ++r) {
+    for (int r = 0; r < tm.visRows && (ctx.tableScroll + r) < total; ++r) {
         int idx = ctx.tableScroll + r;
         const RadarTarget &t = list[idx];
         bool sel = (idx == ctx.tableCursor);
-        bool locked = ctx.hasLocked && t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0;
+        bool locked = ctx.hasLocked && isSameTarget(t, ctx.lockedType, ctx.lockedMac);
         uint16_t rowBg = sel ? COL_ROW_SEL : bg;
         if (sel) {
-            tft.fillRect(x, curY, w, rowH - 1, rowBg);
-            tft.fillRect(x, curY, 2, rowH - 1, COL_QIANKUN_GOLD);
+            tft.fillRect(x, curY, w, tm.rowH - 1, rowBg);
+            tft.fillRect(x, curY, 2, tm.rowH - 1, locked ? COL_QIANKUN_GOLD : bruceConfig.priColor);
         }
 
         uint16_t col = categoryColor(t.category, t.flags);
-        drawCategoryGlyph(x + 4, curY + 4, t.category, col, t.flags);
+        drawCategoryGlyph(x + 5, curY + (tm.rowH - 1) / 2, t.category, col, t.flags);
 
         String nm = (locked ? "*" : "") + targetDisplayName(t);
         if ((int)nm.length() > nameChars) nm = nm.substring(0, nameChars);
-        tft.setTextColor(locked ? TFT_YELLOW : col, rowBg);
-        tft.drawString(nm, colName, curY + 1, 1);
+        tft.setTextColor(locked ? COL_QIANKUN_GOLD : (sel ? bright : col), rowBg);
+        tft.drawString(nm, colName, curY + 2, 1);
 
-        if (w >= 210) {
+        if (showTagCol) {
             String tg = targetShortTag(t);
             if ((int)tg.length() > tagChars) tg = tg.substring(0, tagChars);
-            tft.setTextColor((t.flags & RFLAG_ANY_ALERT) ? TFT_RED : TFT_LIGHTGREY, rowBg);
-            tft.drawString(tg, colTag, curY + 1, 1);
+            tft.setTextColor((t.flags & RFLAG_ANY_ALERT) ? TFT_RED : muted, rowBg);
+            tft.drawString(tg, colTag, curY + 2, 1);
         }
 
         int pct = constrain((t.rssi + 95) * 100 / 60, 0, 100);
-        uint16_t rssiCol = (pct > 66) ? TFT_GREEN : ((pct > 33) ? TFT_YELLOW : TFT_RED);
+        uint16_t rssiCol = (pct > 66) ? COL_TAC_GREEN : ((pct > 33) ? COL_QIANKUN_GOLD : TFT_RED);
         tft.setTextColor(rssiCol, rowBg);
-        tft.drawString(String(t.rssi), colRssi, curY + 1, 1);
+        tft.drawRightString(String(t.rssi), colRssiR, curY + 2, 1);
 
-        tft.setTextColor(TFT_WHITE, rowBg);
-        String distCell = formatDistShort(t.distM);
-        if (w >= 280) distCell += " " + formatDwell(t.firstSeenMs, now);
-        tft.drawRightString(distCell, colDist, curY + 1, 1);
+        tft.setTextColor(sel ? bright : muted, rowBg);
+        tft.drawRightString(formatDistShort(t.distM), colDistR, curY + 2, 1);
 
-        curY += rowH;
+        curY += tm.rowH;
     }
+
+    // 3) Selected-row detail footer (full MAC, OUI vendor, dwell, and alert reason)
+    if (showDetailBar && ctx.tableCursor >= 0 && ctx.tableCursor < total) {
+        const RadarTarget &selT = list[ctx.tableCursor];
+        int dy = y + h - detailH;
+        tft.fillRect(x, dy, w, detailH, COL_PANEL_BG);
+        tft.drawFastHLine(x, dy, w, uiBorderDimColor());
+
+        const char *oui = lookupOuiVendor(selT.mac);
+        char line1[48];
+        if (oui) {
+            snprintf(line1, sizeof(line1), "%s  [%s]", formatMac(selT.mac).c_str(), oui);
+        } else {
+            snprintf(line1, sizeof(line1), "%s", formatMac(selT.mac).c_str());
+        }
+        tft.setTextColor(bright, COL_PANEL_BG);
+        tft.drawString(String(line1).substring(0, max(10, (w - 46) / LW)), x + 4, dy + 3, 1);
+        tft.setTextColor(muted, COL_PANEL_BG);
+        tft.drawRightString(formatDwell(selT.firstSeenMs, millis()), x + w - 4, dy + 3, 1);
+
+        const char *reason = alertReasonText(selT.flags);
+        if (reason && reason[0]) {
+            tft.setTextColor((selT.flags & RFLAG_ANY_ALERT) ? TFT_RED : COL_TAC_GREEN, COL_PANEL_BG);
+            tft.drawString(String(reason).substring(0, max(10, (w - 8) / LW)), x + 4, dy + LH + 5, 1);
+        } else {
+            char line2[48];
+            snprintf(
+                line2,
+                sizeof(line2),
+                "%s  Peak:%ddBm  Pkts:%u",
+                categoryName(selT.category),
+                (int)selT.peakRssi,
+                (unsigned)selT.seenCount
+            );
+            tft.setTextColor(muted, COL_PANEL_BG);
+            tft.drawString(String(line2).substring(0, max(10, (w - 8) / LW)), x + 4, dy + LH + 5, 1);
+        }
+    }
+    return tm;
 }
 
-// =====================================================================
-// VIEW 2: RF FOX-HUNT / GEIGER TRACKER (LOCKED) OR 2.4G SPECTRUM (UNLOCKED)
-// =====================================================================
+/*
+ * VIEW 2: fox-hunt or 2.4 GHz channel spectrum display, selected by lock state.
+ */
 static void drawFoxHuntOrSpectrum(
     int x, int y, int w, int h, const std::vector<RadarTarget> &allList, RadarContext &ctx
 ) {
     const uint16_t bg = bruceConfig.bgColor;
+    const uint16_t muted = uiTextMutedColor();
+    const uint16_t bright = uiTextBrightColor();
     tft.fillRect(x, y, w, h, bg);
 
     if (ctx.hasLocked) {
-        // ---- RF FOX-HUNT / GEIGER MODE ----
         const RadarTarget *lt = nullptr;
         for (const auto &t : allList) {
-            if (t.type == ctx.lockedType && memcmp(t.mac, ctx.lockedMac, 6) == 0) {
+            if (isSameTarget(t, ctx.lockedType, ctx.lockedMac)) {
                 lt = &t;
                 break;
             }
         }
 
+        // Clean header strip
+        tft.fillRect(x, y, w, LH + 4, COL_HEADER_BG);
         tft.setTextSize(1);
-        tft.setTextColor(TFT_YELLOW, bg);
         String title = lt ? (targetDisplayName(*lt) + " [" + targetShortTag(*lt) + "]")
                           : (formatMac(ctx.lockedMac) + " (LOST)");
-        tft.drawString(title.substring(0, max(10, w / LW)), x + 2, y, 1);
+        int beepW = 46;
+        tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
+        tft.drawString(title.substring(0, max(8, (w - beepW - 8) / LW)), x + 4, y + 2, 1);
 
-        tft.setTextColor(ctx.geigerAudio ? TFT_GREEN : TFT_DARKGREY, bg);
-        tft.drawRightString(ctx.geigerAudio ? "BEEP:ON" : "BEEP:OFF", x + w - 2, y, 1);
+        uint16_t beepBg = ctx.geigerAudio ? COL_TAC_GREEN : COL_PANEL_BG;
+        tft.fillRoundRect(x + w - beepW - 2, y + 1, beepW, LH + 2, 2, beepBg);
+        tft.setTextColor(ctx.geigerAudio ? uiTextOnAccentColor(beepBg) : muted, beepBg);
+        tft.drawCentreString(ctx.geigerAudio ? "BEEP" : "MUTE", x + w - beepW / 2 - 2, y + 2, 1);
 
-        int curY = y + LH + 3;
+        int curY = y + LH + 7;
         if (lt) {
             int pct = constrain((lt->rssi + 95) * 100 / 60, 0, 100);
-            uint16_t sigCol = (pct > 66) ? TFT_GREEN : ((pct > 33) ? TFT_YELLOW : TFT_RED);
+            uint16_t sigCol = (pct > 66) ? COL_TAC_GREEN : ((pct > 33) ? COL_QIANKUN_GOLD : TFT_RED);
 
-            // Big RSSI, Approach Vector Badge & Distance readout
+            // Big RSSI + clear Trend badge + Distance
             tft.setTextSize(FM);
             tft.setTextColor(sigCol, bg);
             tft.drawString(String(lt->rssi) + " dBm", x + 2, curY, 1);
 
-            // Compute live Fox-Hunt approach slope from recent RSSI window
             int slope = 0;
             if (ctx.foxHistCount >= 6) {
                 int recent = (ctx.foxHist[ctx.foxHistCount - 1] + ctx.foxHist[ctx.foxHistCount - 2] +
@@ -1605,38 +1663,38 @@ static void drawFoxHuntOrSpectrum(
                             3;
                 slope = recent - older;
             }
-            const char *trendLbl = (slope >= 2) ? "CLOSING +" : ((slope <= -2) ? "FADING -" : "HOLD =");
+            const char *trendLbl = (slope >= 2) ? "CLOSER" : ((slope <= -2) ? "FARTHER" : "STEADY");
             uint16_t trendCol = (slope >= 2) ? COL_TAC_GREEN : ((slope <= -2) ? TFT_RED : COL_QIANKUN_GOLD);
             if (w >= 220) {
                 tft.setTextSize(1);
-                tft.fillRoundRect(x + w / 2 - 28, curY + 2, 58, LH + 4, 2, trendCol);
+                tft.fillRoundRect(x + w / 2 - 26, curY + 2, 54, LH + 4, 3, trendCol);
                 tft.setTextColor(uiTextOnAccentColor(trendCol), trendCol);
                 tft.drawCentreString(trendLbl, x + w / 2 + 1, curY + 4, 1);
             }
 
             tft.setTextSize(FM);
-            tft.setTextColor(TFT_WHITE, bg);
+            tft.setTextColor(bright, bg);
             tft.drawRightString(formatDistShort(lt->distM), x + w - 2, curY, 1);
-            curY += FM * LH + 3;
+            curY += FM * LH + 4;
 
-            // Peak / Dwell / Packets telemetry line
+            // Clean metadata line
             tft.setTextSize(1);
             char meta[56];
             snprintf(
                 meta,
                 sizeof(meta),
-                "PEAK:%ddBm  PKTS:%u  DWELL:%s",
+                "Peak:%ddBm  Pkts:%u  %s",
                 (int)ctx.foxPeakRssi,
                 (unsigned)lt->seenCount,
                 formatDwell(lt->firstSeenMs, millis()).c_str()
             );
-            tft.setTextColor(TFT_CYAN, bg);
+            tft.setTextColor(muted, bg);
             tft.drawString(String(meta).substring(0, max(10, w / LW)), x + 2, curY, 1);
-            curY += LH + 3;
+            curY += LH + 4;
 
-            // Segmented 16-cell military proximity meter bar
-            int barH = 10;
-            tft.drawRect(x + 2, curY, w - 4, barH, COL_GRID_MID);
+            // Clean segmented proximity bar
+            int barH = 9;
+            tft.fillRect(x + 2, curY, w - 4, barH, COL_PANEL_BG);
             const int segs = 16;
             const int sGap = 2;
             int segW = max(3, (w - 8 - sGap * (segs - 1)) / segs);
@@ -1654,17 +1712,22 @@ static void drawFoxHuntOrSpectrum(
             curY += FM * LH + 18;
         }
 
-        // Rolling RSSI Sparkline Graph with dashed golden Peak-Hold line
-        int gx = x + 2;
+        // Rolling RSSI Sparkline with dedicated left axis margin (labels never overlap trace)
+        int axisW = 24;
+        int gx = x + axisW;
         int gy = curY;
-        int gw = w - 4;
+        int gw = w - axisW - 2;
         int gh = (y + h) - gy - 2;
-        if (gh >= 24) {
-            tft.drawRect(gx, gy, gw, gh, COL_GRID_MID);
-            tft.drawFastHLine(gx + 1, gy + gh / 3, gw - 2, COL_GRID_DIM);
-            tft.drawFastHLine(gx + 1, gy + (gh * 2) / 3, gw - 2, COL_GRID_DIM);
+        if (gh >= 24 && gw >= 40) {
+            tft.fillRect(gx, gy, gw, gh, COL_PANEL_BG);
+            tft.drawRect(gx, gy, gw, gh, uiBorderDimColor());
+            tft.drawFastHLine(gx + 1, gy + gh / 2, gw - 2, COL_GRID_DIM);
 
-            // Dashed golden peak-hold marker
+            tft.setTextSize(1);
+            tft.setTextColor(muted, bg);
+            tft.drawRightString("-35", gx - 2, gy, 1);
+            tft.drawRightString("-95", gx - 2, gy + gh - LH, 1);
+
             if (ctx.foxPeakRssi > -98) {
                 int pkClamp = constrain((int)ctx.foxPeakRssi, -98, -32);
                 int pkY = gy + gh - 2 - ((pkClamp + 98) * (gh - 4)) / 66;
@@ -1679,81 +1742,74 @@ static void drawFoxHuntOrSpectrum(
                     int px = gx + 2 + (int)((i * (gw - 4)) / (RADAR_HIST_LEN - 1));
                     int clamped = constrain((int)ctx.foxHist[i], -98, -32);
                     int py = gy + gh - 2 - ((clamped + 98) * (gh - 4)) / 66;
-                    uint16_t ptCol = (clamped > -58) ? TFT_GREEN : ((clamped > -75) ? TFT_YELLOW : TFT_RED);
+                    uint16_t ptCol = (clamped > -58) ? COL_TAC_GREEN
+                                                     : ((clamped > -75) ? COL_QIANKUN_GOLD : TFT_RED);
                     if (prevPx >= 0) tft.drawLine(prevPx, prevPy, px, py, ptCol);
                     prevPx = px;
                     prevPy = py;
                 }
             }
-            tft.setTextSize(1);
-            tft.setTextColor(TFT_DARKGREY, bg);
-            tft.drawString("-35", gx + 2, gy + 2, 1);
-            tft.drawString("-95", gx + 2, gy + gh - LH - 1, 1);
         }
         return;
     }
 
-    // ---- 2.4 GHz CHANNEL CONGESTION & THREAT MONITOR ----
+    /*
+     * Unlocked spectrum branch: clean 2.4 GHz channel congestion chart (ch 1..13)
+     */
     int chCount[14] = {0};
     int chPeak[14];
     for (int c = 0; c < 14; ++c) chPeak[c] = -100;
 
-    int openCnt = 0, wepCnt = 0, hiddenCnt = 0, twinCnt = 0, trackerCnt = 0, hackCnt = 0, droneCnt = 0;
+    int openCnt = 0, hiddenCnt = 0, alertCnt = 0;
     for (const auto &t : allList) {
         if (t.type == RadarTargetType::WIFI) {
             if (t.channel >= 1 && t.channel <= 13) {
                 chCount[t.channel]++;
                 if (t.rssi > chPeak[t.channel]) chPeak[t.channel] = t.rssi;
             }
-            if (t.category == RadarCategory::WIFI_OPEN) ++openCnt;
-            if (t.category == RadarCategory::WIFI_WEP) ++wepCnt;
+            if (t.category == RadarCategory::WIFI_OPEN || t.category == RadarCategory::WIFI_WEP) ++openCnt;
             if (t.category == RadarCategory::WIFI_HIDDEN) ++hiddenCnt;
-            if (t.flags & RFLAG_EVIL_TWIN) ++twinCnt;
-        } else {
-            if (t.flags & (RFLAG_TRACKER | RFLAG_STALKER)) ++trackerCnt;
-            if (t.flags & RFLAG_HACK_DEV) ++hackCnt;
         }
-        if (t.flags & RFLAG_DRONE) ++droneCnt;
+        if (t.flags & RFLAG_ANY_ALERT) ++alertCnt;
     }
 
+    // Recommend cleanest standard channel (prefer 1, 6, 11 on tie)
     int bestCh = 1, busyCh = 1;
+    for (int c : {1, 6, 11}) {
+        if (chCount[c] < chCount[bestCh]) bestCh = c;
+    }
     for (int c = 1; c <= 13; ++c) {
         if (chCount[c] < chCount[bestCh]) bestCh = c;
         if (chCount[c] > chCount[busyCh]) busyCh = c;
     }
 
+    // Clean top bar: Best Channel + Busiest Channel
     tft.fillRect(x, y, w, LH + 4, COL_HEADER_BG);
-    drawNezhaCrest(x + 5, y + (LH + 4) / 2, 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
     tft.setTextSize(1);
-    tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
     char hdr[48];
-    snprintf(hdr, sizeof(hdr), "EW 2.4G  CLR:C%d  BUSY:C%d(%d)", bestCh, busyCh, chCount[busyCh]);
-    tft.drawString(String(hdr).substring(0, max(10, (w - 14) / LW)), x + 12, y + 2, 1);
-    drawNezhaRibbonRule(x, y + LH + 4, w);
+    if (chCount[busyCh] > 0) {
+        snprintf(hdr, sizeof(hdr), "Best: Ch%d   Busy: Ch%d (%d)", bestCh, busyCh, chCount[busyCh]);
+    } else {
+        snprintf(hdr, sizeof(hdr), "2.4GHz Channels (scanning...)");
+    }
+    tft.setTextColor(bright, COL_HEADER_BG);
+    tft.drawString(String(hdr).substring(0, max(10, (w - 42) / LW)), x + 4, y + 2, 1);
 
-    // Threat summary strip
-    int curY = y + LH + 7;
-    char threat[64];
-    snprintf(
-        threat,
-        sizeof(threat),
-        "OPN:%d HID:%d TWIN:%d TRK:%d UAV:%d RF:%d",
-        openCnt + wepCnt,
-        hiddenCnt,
-        twinCnt,
-        trackerCnt,
-        droneCnt,
-        hackCnt
-    );
-    tft.setTextColor((twinCnt > 0 || wepCnt > 0 || hackCnt > 0 || trackerCnt > 0 || droneCnt > 0) ? TFT_ORANGE : TFT_CYAN, bg);
-    tft.drawString(String(threat).substring(0, max(10, w / LW)), x + 2, curY, 1);
-    curY += LH + 4;
+    if (alertCnt > 0) {
+        char alBuf[8];
+        snprintf(alBuf, sizeof(alBuf), "!%d", alertCnt);
+        int alW = (int)strlen(alBuf) * LW + 6;
+        tft.fillRoundRect(x + w - alW - 2, y + 1, alW, LH + 2, 2, TFT_RED);
+        tft.setTextColor(TFT_WHITE, TFT_RED);
+        tft.drawCentreString(alBuf, x + w - alW / 2 - 2, y + 2, 1);
+    }
 
-    // Channel bar chart (1..13) with military tactical brackets & golden peak caps
-    int chartTop = curY;
-    int chartBot = y + h - LH - 4;
+    // Channel bar chart (1..13)
+    const bool showFooterHint = (h >= 115);
+    int chartTop = y + LH + 12;
+    int chartBot = y + h - LH - (showFooterHint ? 16 : 4);
     int chartH = max(20, chartBot - chartTop);
-    tft.drawFastHLine(x + 2, chartBot, w - 4, COL_QIANKUN_DIM);
+    tft.drawFastHLine(x + 2, chartBot, w - 4, uiBorderDimColor());
     tft.drawFastHLine(x + 2, chartTop + chartH / 2, w - 4, COL_GRID_DIM);
 
     int maxCount = 1;
@@ -1771,37 +1827,69 @@ static void drawFoxHuntOrSpectrum(
                                 ? TFT_RED
                                 : ((chCount[c] >= 2) ? COL_QIANKUN_GOLD : COL_TAC_GREEN);
             tft.fillRect(bx, chartBot - bh, barW, bh, bCol);
-            tft.drawFastHLine(bx, chartBot - bh, barW, TFT_WHITE);
-            tft.setTextColor(TFT_WHITE, bg);
+            tft.setTextColor(bright, bg);
             tft.drawCentreString(String(chCount[c]), bx + barW / 2, chartBot - bh - LH - 1, 1);
         }
-        // Highlight non-overlapping standard channels 1, 6, 11
-        tft.setTextColor((c == 1 || c == 6 || c == 11) ? COL_QIANKUN_GOLD : TFT_LIGHTGREY, bg);
+        bool stdCh = (c == 1 || c == 6 || c == 11);
+        tft.setTextColor(stdCh ? COL_QIANKUN_GOLD : muted, bg);
         tft.drawCentreString(String(c), bx + barW / 2, chartBot + 2, 1);
+    }
+
+    if (showFooterHint) {
+        char foot[56];
+        snprintf(foot, sizeof(foot), "Open:%d  Hidden:%d  |  Lock target for Fox-Hunt", openCnt, hiddenCnt);
+        tft.setTextColor(muted, bg);
+        tft.drawString(String(foot).substring(0, max(10, (w - 6) / LW)), x + 3, y + h - LH - 2, 1);
     }
 }
 
-// =====================================================================
-// VIEW 3: EW THREAT & ANOMALY CONSOLE (哪吒天眼 · DEFCON & LIVE LOG)
-// =====================================================================
-static void drawThreatConsole(
-    int x, int y, int w, int h, const std::vector<RadarTarget> &allList, const RadarContext &ctx
+/*
+ * VIEW 3: actionable Alerts & Environment summary (no fake DEFCON / system-log noise).
+ */
+struct AlertViewMetrics {
+    int rowsTop = 0;
+    int rowH = 13;
+    int visRows = 0;
+};
+
+static std::vector<RadarTarget> extractAlertTargets(const std::vector<RadarTarget> &allList) {
+    std::vector<RadarTarget> alerts;
+    for (const auto &t : allList) {
+        if (t.flags & RFLAG_ANY_ALERT) alerts.push_back(t);
+    }
+    return alerts;
+}
+
+static AlertViewMetrics drawThreatConsole(
+    int x, int y, int w, int h, const std::vector<RadarTarget> &allList, RadarContext &ctx
 ) {
+    AlertViewMetrics am;
     const uint16_t bg = bruceConfig.bgColor;
+    const uint16_t muted = uiTextMutedColor();
+    const uint16_t bright = uiTextBrightColor();
     tft.fillRect(x, y, w, h, bg);
     tft.setTextSize(1);
 
-    int twins = 0, trackers = 0, stalkers = 0, drones = 0, hacks = 0, weaks = 0;
+    int wifiCnt = 0, bleCnt = 0, openCnt = 0, hiddenCnt = 0;
+    int twins = 0, trackers = 0, stalkers = 0, drones = 0, hacks = 0;
     const char *topVendor = nullptr;
     int topVendorCnt = 0;
+
     for (size_t i = 0; i < allList.size(); ++i) {
         const auto &t = allList[i];
+        if (t.type == RadarTargetType::WIFI) {
+            ++wifiCnt;
+            if (t.category == RadarCategory::WIFI_OPEN || t.category == RadarCategory::WIFI_WEP) ++openCnt;
+            if (t.category == RadarCategory::WIFI_HIDDEN) ++hiddenCnt;
+        } else {
+            ++bleCnt;
+        }
         if (t.flags & RFLAG_EVIL_TWIN) ++twins;
         if (t.flags & RFLAG_TRACKER) ++trackers;
         if (t.flags & RFLAG_STALKER) ++stalkers;
         if (t.flags & RFLAG_DRONE) ++drones;
         if (t.flags & RFLAG_HACK_DEV) ++hacks;
-        if (t.flags & RFLAG_WEAK_SEC) ++weaks;
+
         const char *v = lookupOuiVendor(t.mac);
         if (v) {
             int cnt = 0;
@@ -1816,104 +1904,178 @@ static void drawThreatConsole(
         }
     }
 
-    uint8_t defcon = computeDefconLevel(allList);
-    uint16_t defCol = defconColor(defcon);
-    uint32_t upSec = (millis() >= ctx.startMs) ? (millis() - ctx.startMs) / 1000u : 0;
+    std::vector<RadarTarget> alerts = extractAlertTargets(allList);
+    int curY = y;
 
-    // 1) Armored Header Strip: DEFCON Gauge + Uptime
-    tft.fillRect(x, y, w, LH + 6, COL_HEADER_BG);
-    drawNezhaCrest(x + 6, y + (LH + 6) / 2, 3, bruceConfig.priColor, COL_QIANKUN_GOLD, max(1, bruceConfig.nezhaThemeStyle));
-    tft.fillRoundRect(x + 13, y + 1, 56, LH + 4, 2, defCol);
-    tft.setTextColor(uiTextOnAccentColor(defCol), defCol);
-    char defBuf[12];
-    snprintf(defBuf, sizeof(defBuf), "DEFCON %u", (unsigned)defcon);
-    tft.drawCentreString(defBuf, x + 41, y + 3, 1);
+    // 1) Clean honest status header
+    tft.fillRect(x, curY, w, LH + 6, COL_HEADER_BG);
+    if (alerts.empty()) {
+        tft.fillRoundRect(x + 3, curY + 1, 64, LH + 4, 2, COL_TAC_GREEN);
+        tft.setTextColor(uiTextOnAccentColor(COL_TAC_GREEN), COL_TAC_GREEN);
+        tft.drawCentreString("ALL CLEAR", x + 35, curY + 3, 1);
 
-    char upBuf[28];
-    snprintf(
-        upBuf,
-        sizeof(upBuf),
-        "TGT:%u  T+%02lu:%02lu",
-        (unsigned)allList.size(),
-        (unsigned long)(upSec / 60),
-        (unsigned long)(upSec % 60)
-    );
-    tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
-    tft.drawRightString(upBuf, x + w - 3, y + 3, 1);
-    int curY = y + LH + 7;
-    drawNezhaRibbonRule(x, curY, w);
-    curY += 3;
+        char cntBuf[28];
+        snprintf(cntBuf, sizeof(cntBuf), "WiFi:%d  BLE:%d", wifiCnt, bleCnt);
+        tft.setTextColor(muted, COL_HEADER_BG);
+        tft.drawRightString(cntBuf, x + w - 4, curY + 3, 1);
+    } else {
+        char alHdr[16];
+        snprintf(alHdr, sizeof(alHdr), "!%u ALERTS", (unsigned)alerts.size());
+        int bw = (int)strlen(alHdr) * LW + 10;
+        tft.fillRoundRect(x + 3, curY + 1, bw, LH + 4, 2, TFT_RED);
+        tft.setTextColor(TFT_WHITE, TFT_RED);
+        tft.drawCentreString(alHdr, x + 3 + bw / 2, curY + 3, 1);
 
-    // 2) 4 Military Threat Stat Cards (TWIN / TRK+STK / UAV+RF / WEAK)
-    const int cardGap = 3;
-    const int cardW = (w - cardGap * 3) / 4;
-    const int cardH = LH * 2 + 7;
-    const char *cardTitles[4] = {"TWIN", "TRK/STK", "UAV/RF", "WEAK"};
-    const int cardVals[4] = {twins, trackers + stalkers, drones + hacks, weaks};
-    const uint16_t cardAlertCols[4] = {TFT_RED, TFT_MAGENTA, TFT_ORANGE, COL_QIANKUN_GOLD};
-
-    for (int i = 0; i < 4; ++i) {
-        int cx = x + i * (cardW + cardGap);
-        uint16_t rail = (cardVals[i] > 0) ? cardAlertCols[i] : COL_TAC_GREEN;
-        tft.fillRect(cx, curY, cardW, cardH, COL_PANEL_BG);
-        tft.fillRect(cx, curY, cardW, 2, rail);
-        tft.drawRect(cx, curY, cardW, cardH, COL_GRID_DIM);
-        tft.setTextColor(TFT_LIGHTGREY, COL_PANEL_BG);
-        tft.drawCentreString(cardTitles[i], cx + cardW / 2, curY + 4, 1);
-        tft.setTextColor(rail, COL_PANEL_BG);
-        tft.drawCentreString(String(cardVals[i]), cx + cardW / 2, curY + LH + 5, 1);
+        // Only print non-zero alert categories (zero clutter)
+        String breakdown;
+        if (twins > 0) breakdown += "Twin:" + String(twins) + " ";
+        if (drones > 0) breakdown += "UAV:" + String(drones) + " ";
+        if (hacks > 0) breakdown += "Tool:" + String(hacks) + " ";
+        if (trackers + stalkers > 0) breakdown += "Trk:" + String(trackers + stalkers);
+        breakdown.trim();
+        tft.setTextColor(COL_QIANKUN_GOLD, COL_HEADER_BG);
+        tft.drawRightString(breakdown, x + w - 4, curY + 3, 1);
     }
-    curY += cardH + 4;
+    curY += LH + 9;
 
-    // 3) RF Density & Top Vendor Intel Strip
-    char rfLine[56];
-    const char *dens = (allList.size() >= 20) ? "HIGH" : ((allList.size() >= 8) ? "MED" : "LOW");
-    snprintf(
-        rfLine,
-        sizeof(rfLine),
-        "RF:%s  TOP:%s(%d)  ZOOM:%.0fm",
-        dens,
-        topVendor ? topVendor : "NONE",
-        topVendorCnt,
-        ctx.rangeMaxM
-    );
-    tft.setTextColor(TFT_CYAN, bg);
-    tft.drawString(String(rfLine).substring(0, max(10, w / LW)), x + 2, curY, 1);
-    curY += LH + 4;
+    // 2) Active Flagged Devices List (interactive: UP/DOWN + tap/SEL to lock & track)
+    if (!alerts.empty()) {
+        ctx.alertCursor = constrain(ctx.alertCursor, 0, (int)alerts.size() - 1);
+        const bool showDetail = (h >= 105);
+        const int detailH = showDetail ? (LH * 2 + 6) : 0;
+        const int listBot = y + h - detailH - (showDetail ? 2 : 0);
 
-    // 4) Corner-Bracketed Live Timestamped Tactical Event Log
+        am.rowsTop = curY;
+        am.rowH = (h >= 120) ? (LH + 5) : (LH + 3);
+        am.visRows = max(1, (listBot - curY) / am.rowH);
+        if (ctx.alertCursor < ctx.alertScroll) ctx.alertScroll = ctx.alertCursor;
+        if (ctx.alertCursor >= ctx.alertScroll + am.visRows) ctx.alertScroll = ctx.alertCursor - am.visRows + 1;
+        ctx.alertScroll = constrain(ctx.alertScroll, 0, max(0, (int)alerts.size() - am.visRows));
+
+        for (int r = 0; r < am.visRows && (ctx.alertScroll + r) < (int)alerts.size(); ++r) {
+            int idx = ctx.alertScroll + r;
+            const RadarTarget &t = alerts[idx];
+            bool sel = (idx == ctx.alertCursor);
+            bool locked = ctx.hasLocked && isSameTarget(t, ctx.lockedType, ctx.lockedMac);
+            uint16_t rowBg = sel ? COL_ROW_SEL : bg;
+            if (sel) {
+                tft.fillRect(x, curY, w, am.rowH - 1, rowBg);
+                tft.fillRect(x, curY, 2, am.rowH - 1, TFT_RED);
+            }
+
+            uint16_t col = categoryColor(t.category, t.flags);
+            const char *badge = alertBadgeShort(t.flags);
+            if (!badge) badge = "ALRT";
+            int badgeW = 30;
+            tft.fillRoundRect(x + 4, curY + 1, badgeW, am.rowH - 3, 2, col);
+            tft.setTextColor(uiTextOnAccentColor(col), col);
+            tft.drawCentreString(badge, x + 4 + badgeW / 2, curY + 2, 1);
+
+            String rightVal = String(t.rssi) + " " + formatDistShort(t.distM);
+            int rightW = (int)rightVal.length() * LW + 4;
+            int nameX = x + badgeW + 8;
+            int nameChars = max(4, (w - (nameX - x) - rightW - 4) / LW);
+            String nm = (locked ? "*" : "") + targetDisplayName(t);
+            if ((int)nm.length() > nameChars) nm = nm.substring(0, nameChars);
+
+            tft.setTextColor(locked ? COL_QIANKUN_GOLD : bright, rowBg);
+            tft.drawString(nm, nameX, curY + 2, 1);
+            tft.setTextColor(sel ? bright : muted, rowBg);
+            tft.drawRightString(rightVal, x + w - 3, curY + 2, 1);
+            curY += am.rowH;
+        }
+
+        if (showDetail) {
+            const RadarTarget &st = alerts[ctx.alertCursor];
+            int dy = y + h - detailH;
+            tft.fillRect(x, dy, w, detailH, COL_PANEL_BG);
+            tft.drawFastHLine(x, dy, w, uiBorderDimColor());
+            tft.setTextColor(TFT_ORANGE, COL_PANEL_BG);
+            tft.drawString(
+                String(alertReasonText(st.flags)).substring(0, max(10, (w - 8) / LW)), x + 4, dy + 3, 1
+            );
+            char foot[44];
+            snprintf(
+                foot,
+                sizeof(foot),
+                "%s  |  Tap/SEL = Fox-Hunt",
+                formatMac(st.mac).c_str()
+            );
+            tft.setTextColor(muted, COL_PANEL_BG);
+            tft.drawString(String(foot).substring(0, max(10, (w - 8) / LW)), x + 4, dy + LH + 5, 1);
+        }
+        return am;
+    }
+
+    // 3) No active alerts: clean RF environment overview + recent security events (if any)
+    int cardH = (h >= 110) ? (LH * 3 + 16) : (LH * 2 + 10);
+    tft.fillRect(x, curY, w, cardH, COL_PANEL_BG);
+    tft.drawRect(x, curY, w, cardH, uiBorderDimColor());
+    int iy = curY + 4;
+
+    char l1[48];
+    snprintf(l1, sizeof(l1), "WiFi: %d  (Open:%d  Hidden:%d)", wifiCnt, openCnt, hiddenCnt);
+    tft.setTextColor(bright, COL_PANEL_BG);
+    tft.drawString(String(l1).substring(0, max(10, (w - 10) / LW)), x + 6, iy, 1);
+    iy += LH + 4;
+
+    char l2[48];
+    if (topVendor) {
+        snprintf(l2, sizeof(l2), "BLE: %d  |  Top: %s (%d)", bleCnt, topVendor, topVendorCnt);
+    } else {
+        snprintf(l2, sizeof(l2), "BLE: %d  |  Range: %.0fm", bleCnt, ctx.rangeMaxM);
+    }
+    tft.setTextColor(muted, COL_PANEL_BG);
+    tft.drawString(String(l2).substring(0, max(10, (w - 10) / LW)), x + 6, iy, 1);
+    iy += LH + 4;
+
+    if (h >= 110) {
+        char l3[48];
+        snprintf(
+            l3,
+            sizeof(l3),
+            "Noise Filter: %s  |  Range: %.0fm",
+            ctx.noiseFilter ? "ON" : "OFF",
+            ctx.rangeMaxM
+        );
+        tft.setTextColor(muted, COL_PANEL_BG);
+        tft.drawString(String(l3).substring(0, max(10, (w - 10) / LW)), x + 6, iy, 1);
+    }
+    curY += cardH + 6;
+
+    // Recent security-only events (if space remains)
     int logH = (y + h) - curY - 1;
-    if (logH < LH + 10) return;
-    tft.fillRect(x, curY, w, logH, COL_PANEL_BG);
-    drawNezhaCornerBrackets(x, curY, w, logH, bruceConfig.priColor, COL_QIANKUN_GOLD);
-    tft.setTextColor(COL_QIANKUN_GOLD, COL_PANEL_BG);
-    tft.drawString("TACTICAL EW LOG", x + 5, curY + 3, 1);
-    curY += LH + 5;
-
-    int rowH = LH + 2;
-    int maxLines = max(1, (y + h - curY - 3) / rowH);
-    int maxChars = max(10, (w - 10) / LW);
+    if (logH < LH + 8) return am;
     if (ctx.eventCount == 0) {
-        tft.setTextColor(TFT_DARKGREY, COL_PANEL_BG);
-        tft.drawString("No EW anomalies logged.", x + 5, curY + 2, 1);
-        return;
+        tft.setTextColor(muted, bg);
+        tft.drawCentreString(bruce_i18n::tr("No EW anomalies logged."), x + w / 2, curY + 8, 1);
+        return am;
     }
 
+    tft.setTextColor(muted, bg);
+    tft.drawString("Recent Alerts:", x + 2, curY, 1);
+    curY += LH + 3;
+    int rowH = LH + 3;
+    int maxLines = max(1, (y + h - curY) / rowH);
+    int maxChars = max(10, (w - 6) / LW);
     for (int i = 0; i < (int)ctx.eventCount && i < maxLines; ++i) {
         size_t idx = (ctx.eventHead + RADAR_MAX_EVENTS - 1 - (size_t)i) % RADAR_MAX_EVENTS;
         const RadarEvent &ev = ctx.events[idx];
         uint32_t dtSec = (ev.tsMs >= ctx.startMs) ? (ev.tsMs - ctx.startMs) / 1000u : 0;
         char row[48];
         snprintf(row, sizeof(row), "[%02lu:%02lu] %s", (unsigned long)(dtSec / 60), (unsigned long)(dtSec % 60), ev.text);
-        tft.setTextColor(ev.col, COL_PANEL_BG);
-        tft.drawString(String(row).substring(0, maxChars), x + 5, curY, 1);
+        tft.setTextColor(ev.col, bg);
+        tft.drawString(String(row).substring(0, maxChars), x + 2, curY, 1);
         curY += rowH;
     }
+    return am;
 }
 
-// =====================================================================
-// DEVICE INSPECTOR DETAIL CARD
-// =====================================================================
+/*
+ * Detail card for a single selected device.
+ * showDeviceInspector shows the chosen target's full info (BSSID, vendor,
+ * signal, channel, encryption) and actions, exited with a key press.
+ */
 static void showDeviceInspector(
     RadarContext &ctx, const RadarTarget &t, bool &wantTriangulate, bool &wantFoxHunt
 ) {
@@ -1995,13 +2157,7 @@ static void showDeviceInspector(
         drawKV("GPS", bruce_i18n::tr("No GPS fix"), TFT_DARKGREY);
     }
 
-    tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-    tft.drawCentreString(
-        bruce_i18n::tr("SEL=Fox-Hunt  UP=Triangulate  ESC=Back"),
-        tftWidth / 2,
-        tftHeight - BORDER_PAD_X - LH,
-        1
-    );
+    printCenterFootnote("SEL=Fox-Hunt  UP=Triangulate  ESC=Back");
 
     check(SelPress);
     check(EscPress);
@@ -2236,13 +2392,7 @@ static void runTriangulateWizard(
             y += LH + 3;
         }
 
-        tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-        tft.drawCentreString(
-            bruce_i18n::tr("SEL=Sample Point  ESC=Cancel"),
-            tftWidth / 2,
-            tftHeight - BORDER_PAD_X - LH,
-            1
-        );
+        printCenterFootnote("SEL=Sample Point  ESC=Cancel");
 
         check(SelPress);
         check(EscPress);
@@ -2340,10 +2490,7 @@ static void runTriangulateWizard(
         tft.drawString(buf, ix, iy, 1);
     }
 
-    tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-    tft.drawCentreString(
-        bruce_i18n::tr("Press any key to return"), tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1
-    );
+    printCenterFootnote("Press any key to return");
 
     check(SelPress);
     check(EscPress);
@@ -2395,7 +2542,6 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         return;
     }
     s_radarCtx = &ctx;
-    radarLogEvent(ctx, COL_TAC_GREEN, "EW RADAR ONLINE");
 
     RadarTouchZoneGuard touchGuard;
     bruceLocation.ensureLoaded();
@@ -2517,8 +2663,8 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
 #endif
     const int softkeyH = hasSoftkeyBar ? 18 : 0;
     const int softkeyY = tftHeight - BORDER_PAD_X - softkeyH;
-    const int contentTop = BORDER_PAD_Y + FM * LH + 4;
-    const int contentBot = hasSoftkeyBar ? (softkeyY - 3) : (tftHeight - BORDER_PAD_X - LH - 4);
+    const int contentTop = uiContentTop();
+    const int contentBot = hasSoftkeyBar ? (softkeyY - 3) : uiContentBottom(true);
     const int contentH = max(40, contentBot - contentTop);
     const int contentL = BORDER_PAD_X + 2;
     const int contentW = tftWidth - 2 * BORDER_PAD_X - 4;
@@ -2534,12 +2680,16 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
 #if !defined(BRUCE_COMPACT_CJK_FONT)
     tft_sprite scopeSpr(&tft);
     bool scopeSprReady = false;
-    const int sprSize = (scopeR + 5) * 2 + 1;
+    const int sprSize = (scopeR + 3) * 2 + 1;
     if (psramFound() && sprSize > 20 && sprSize <= 240) {
         scopeSpr.setColorDepth(16);
         scopeSprReady = (scopeSpr.createSprite(sprSize, sprSize) != nullptr);
     }
 #endif
+
+    ScopeHudMetrics hudMetrics;
+    TableViewMetrics tableMetrics;
+    AlertViewMetrics alertMetrics;
 
     auto drawSoftkeyBar = [&]() {
         if (!hasSoftkeyBar) return;
@@ -2548,32 +2698,36 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         const int btnW = (contentW - gap * (nBtns - 1)) / nBtns;
         char zoomLbl[8];
         snprintf(zoomLbl, sizeof(zoomLbl), "%.0fm", ctx.rangeMaxM);
-        const char *labels[6] = {
-            "VIEW",
-            zoomLbl,
-            modeShort(mode),
-            ctx.hasLocked ? "UNLK" : "LOCK",
-            "MENU",
-            "EXIT",
+        const String labels[6] = {
+            bruce_i18n::tr("View"),
+            String(zoomLbl),
+            String(modeShort(mode)),
+            bruce_i18n::tr(ctx.hasLocked ? "Unlock" : "Lock"),
+            bruce_i18n::tr("Menu"),
+            bruce_i18n::tr("Exit"),
         };
         const uint16_t accents[6] = {
             bruceConfig.priColor,
-            COL_QIANKUN_GOLD,
+            bruceConfig.secColor,
             TFT_CYAN,
             ctx.hasLocked ? TFT_ORANGE : COL_TAC_GREEN,
-            COL_QIANKUN_GOLD,
+            bruceConfig.secColor,
             TFT_RED,
         };
+        const uint16_t surf = uiSurfaceColor();
+        const uint16_t bright = uiTextBrightColor();
         tft.fillRect(contentL, softkeyY, contentW, softkeyH, bruceConfig.bgColor);
         tft.setTextSize(1);
         for (int i = 0; i < nBtns; ++i) {
             int bx = contentL + i * (btnW + gap);
             int bw = (i == nBtns - 1) ? (contentL + contentW - bx) : btnW;
-            tft.fillRoundRect(bx, softkeyY, bw, softkeyH, 3, COL_PANEL_BG);
-            tft.drawRoundRect(bx, softkeyY, bw, softkeyH, 3, accents[i]);
+            tft.fillRoundRect(bx, softkeyY, bw, softkeyH, 4, surf);
+            tft.drawRoundRect(bx, softkeyY, bw, softkeyH, 4, uiBorderDimColor());
             tft.fillRect(bx + 3, softkeyY + 1, bw - 6, 2, accents[i]);
-            tft.setTextColor(TFT_WHITE, COL_PANEL_BG);
-            tft.drawCentreString(labels[i], bx + bw / 2, softkeyY + 6, 1);
+            tft.setTextColor(bright, surf);
+            String fit = bruce_i18n::utf8TruncateToWidth(labels[i], bw - 4, 1);
+            int th = bruce_i18n::containsNonAscii(fit) ? 12 : LH;
+            tft.drawCentreString(fit, bx + bw / 2, softkeyY + (softkeyH - th) / 2 + 1, 1);
         }
     };
 
@@ -2582,11 +2736,14 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         if (hasSoftkeyBar) {
             drawSoftkeyBar();
         } else {
-            tft.setTextSize(FP);
-            tft.setTextColor(TFT_DARKGREY, bruceConfig.bgColor);
-            const char *hint = (view == RadarView::TABLE) ? "UP/DN=Select  LR=View  SEL=Act"
-                                                          : "LR=View  UP/DN=Filter  SEL=Menu";
-            tft.drawCentreString(bruce_i18n::tr(hint), tftWidth / 2, tftHeight - BORDER_PAD_X - LH, 1);
+#if defined(HAS_3_BUTTONS)
+            const char *hint = (view == RadarView::TABLE) ? "PREV/NEXT=Row  SEL=Menu"
+                                                          : "PREV/NEXT=View  SEL=Menu";
+#else
+            const char *hint = (view == RadarView::FOX_SPEC) ? "LR=View  UP/DN=Filter  SEL=Menu"
+                                                             : "UP/DN=Select  LR=View  SEL=Menu";
+#endif
+            printCenterFootnote(hint);
         }
     };
 
@@ -2597,8 +2754,6 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
     uint32_t lastFoxSampleMs = 0;
     uint32_t lastLocSyncMs = 0;
     uint32_t lastContactBeepMs = 0;
-    uint32_t lastSweepBeepMs = 0;
-    size_t prevTargetCount = 0;
     size_t prevAlertCount = 0;
     bool exitRadar = false;
     bool openMenuReq = false;
@@ -2617,7 +2772,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
 
     auto radarEmitLockChirp = [&]() {
         // Single seamless dual-chirp buffer (waveType=3) so the 2nd tone is never dropped by isAudioPlaying()
-        radarEmitBeep(1320, 175, 3);
+        radarEmitBeep(1320, 140, 3);
     };
 
     auto cycleView = [&](int dir) {
@@ -2631,10 +2786,8 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         if (ctx.rangeMaxM <= 12.0f) ctx.rangeMaxM = 30.0f;
         else if (ctx.rangeMaxM <= 35.0f) ctx.rangeMaxM = 60.0f;
         else ctx.rangeMaxM = 10.0f;
-        ctx.shockR = 7.0f;
         drawSoftkeyBar();
         lastHudMs = 0;
-        radarEmitBeep(1560, 105);
     };
 
     auto cycleFilter = [&](int dir) {
@@ -2645,46 +2798,70 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         int next = ((int)mode + dir + 5) % 5;
         mode = static_cast<RadarMode>(next);
         nextIsBle = (mode == RadarMode::BLE_ONLY);
+        ctx.scopeCursor = 0;
+        ctx.scopeScroll = 0;
         ctx.tableCursor = 0;
         ctx.tableScroll = 0;
+        ctx.hasFocused = false;
         lastSweepEndMs = 0;
         lastHudMs = 0;
         drawSoftkeyBar();
     };
 
-    auto autoLockPriorityThreat = [&]() {
+    auto lockFocusedOrPriority = [&]() {
         if (ctx.hasLocked) {
             ctx.hasLocked = false;
-            radarLogEvent(ctx, TFT_LIGHTGREY, "TARGET UNLOCKED");
             drawSoftkeyBar();
             lastHudMs = 0;
-            radarEmitBeep(960, 35);
+            radarEmitBeep(920, 45);
             return;
         }
         std::vector<RadarTarget> cand = snapshotTargets(ctx, mode);
         if (cand.empty()) return;
-        // Prefer highest-priority threat (Evil Twin > Drone > RF Tool > Stalker > Tracker), else closest target
-        const RadarTarget *best = &cand[0];
-        int bestScore = -1;
-        for (const auto &t : cand) {
-            int sc = 0;
-            if (t.flags & RFLAG_EVIL_TWIN) sc += 500;
-            if (t.flags & RFLAG_DRONE) sc += 400;
-            if (t.flags & RFLAG_HACK_DEV) sc += 300;
-            if (t.flags & RFLAG_STALKER) sc += 250;
-            if (t.flags & RFLAG_TRACKER) sc += 200;
-            if (t.flags & RFLAG_WEAK_SEC) sc += 40;
-            sc += max(0, 60 - (int)t.distM);
-            if (sc > bestScore) {
-                bestScore = sc;
-                best = &t;
+
+        const RadarTarget *chosen = nullptr;
+        if (view == RadarView::THREAT) {
+            std::vector<RadarTarget> alerts = extractAlertTargets(snapshotTargets(ctx, mode, true));
+            if (!alerts.empty()) {
+                int idx = constrain(ctx.alertCursor, 0, (int)alerts.size() - 1);
+                lockOnTarget(ctx, alerts[idx]);
+                drawSoftkeyBar();
+                lastHudMs = 0;
+                radarEmitLockChirp();
+                return;
             }
         }
-        lockOnTarget(ctx, *best);
-        ctx.shockR = 7.0f;
+        if (ctx.hasFocused) {
+            for (const auto &t : cand) {
+                if (isSameTarget(t, ctx.focusedType, ctx.focusedMac)) {
+                    chosen = &t;
+                    break;
+                }
+            }
+        }
+        if (!chosen) chosen = &cand[0]; // snapshotTargets already sorts alerts first, then closest
+        lockOnTarget(ctx, *chosen);
         drawSoftkeyBar();
         lastHudMs = 0;
         radarEmitLockChirp();
+    };
+
+    auto stepSelection = [&](int delta) {
+        if (view == RadarView::THREAT) {
+            std::vector<RadarTarget> alerts = extractAlertTargets(snapshotTargets(ctx, mode, true));
+            if (!alerts.empty()) {
+                ctx.alertCursor = constrain(ctx.alertCursor + delta, 0, (int)alerts.size() - 1);
+                lastHudMs = 0;
+            }
+            return;
+        }
+        std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
+        if (visible.empty()) return;
+        int &cur = (view == RadarView::TABLE) ? ctx.tableCursor : ctx.scopeCursor;
+        syncCursorToFocus(ctx, visible, cur);
+        cur = constrain(cur + delta, 0, (int)visible.size() - 1);
+        setFocusedTarget(ctx, visible[cur]);
+        lastHudMs = 0;
     };
 
     check(SelPress);
@@ -2698,9 +2875,6 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
     touchPoint.Clear();
     inputUnlock();
 #endif
-
-    // Audible military sonar-online boot ping so the user immediately hears radar audio active
-    radarEmitBeep(1240, 125, 2);
 
     while (!exitRadar && !returnToMenu) {
         wakeUpScreen();
@@ -2891,76 +3065,41 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
             }
         }
 
-        // 5) Render active view + sweep-triggered ping flashes + audible sonar/klaxon audio
-        auto checkContactBeep = [&](const std::vector<RadarTarget> &list, bool sweepWrapped) {
+        // 5) Render active view + alert-only audible notification (no idle sweep spam)
+        auto checkAlertBeep = [&](const std::vector<RadarTarget> &list) {
             size_t alerts = 0;
-            bool hasClose = false;
             for (const auto &t : list) {
                 if (t.flags & RFLAG_ANY_ALERT) ++alerts;
-                if (t.distM <= 3.0f) hasClose = true;
             }
-            if (alerts > prevAlertCount) {
-                ctx.shockR = 7.0f; // Trigger Qiankun shockwave pulse on new threat!
-                if (bruceConfig.radarBeep && bruceConfig.soundEnabled && (now - lastContactBeepMs >= 900)) {
-                    lastContactBeepMs = now;
-                    radarEmitBeep(1680, 190, 3); // Crisp dual-tone EW threat klaxon
-                }
-            } else if (list.size() > prevTargetCount && bruceConfig.radarBeep && bruceConfig.soundEnabled &&
-                       (now - lastContactBeepMs >= 1000)) {
+            if (alerts > prevAlertCount && bruceConfig.radarBeep && bruceConfig.soundEnabled &&
+                (now - lastContactBeepMs >= 3000)) {
                 lastContactBeepMs = now;
-                radarEmitBeep(hasClose ? 1820 : 1540, 115, 2);
-            } else if (sweepWrapped && bruceConfig.radarBeep && bruceConfig.soundEnabled &&
-                       (now - lastSweepBeepMs >= 1600)) {
-                lastSweepBeepMs = now;
-                // Always emit unmistakable military sonar ping on every 360-deg radar revolution!
-                unsigned int pingHz = list.empty() ? 1040 : (hasClose ? 1480 : 1220);
-                radarEmitBeep(pingHz, 125, 2);
+                radarEmitBeep(1680, 160, 3); // Dual-tone alert chirp on new threat
             }
-            prevTargetCount = list.size();
             prevAlertCount = alerts;
         };
 
         if (view == RadarView::SCOPE) {
-            if (now - lastFrameMs >= 55) {
+            if (now - lastFrameMs >= 65) {
                 pruneStaleTargets(ctx);
-                float prevSweep = sweepRad;
-                sweepRad += 0.145f;
-                bool wrapped = false;
-                if (sweepRad >= 2.0f * RADAR_PI) {
-                    sweepRad -= 2.0f * RADAR_PI;
-                    wrapped = true;
-                    ctx.shockR = 7.0f; // Periodic Qiankun sonar wave on 360-deg wrap
-                }
-                if (ctx.shockR > 0.0f) {
-                    ctx.shockR += 3.2f;
-                    if (ctx.shockR >= (float)(scopeR - 1)) ctx.shockR = -1.0f;
-                }
-
-                // Trigger blip ping flash rings when rotating beam crosses target azimuth
-                portENTER_CRITICAL(&ctx.mux);
-                for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) {
-                    RadarTarget &slot = ctx.targets[i];
-                    if (!slot.active) continue;
-                    float ang = slot.hasTriangulated ? atan2f(-slot.relY, slot.relX) : slot.angleRad;
-                    if (ang < 0.0f) ang += 2.0f * RADAR_PI;
-                    bool crossed = wrapped ? (ang >= prevSweep || ang <= sweepRad)
-                                           : (ang >= prevSweep && ang <= sweepRad);
-                    if (crossed) slot.lastPingMs = now;
-                }
-                portEXIT_CRITICAL(&ctx.mux);
+                sweepRad += 0.135f;
+                if (sweepRad >= 2.0f * RADAR_PI) sweepRad -= 2.0f * RADAR_PI;
 
                 std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
+                syncCursorToFocus(ctx, visible, ctx.scopeCursor);
 #if !defined(BRUCE_COMPACT_CJK_FONT)
-                drawRadarScope(scopeSprReady ? &scopeSpr : nullptr, scopeCx, scopeCy, scopeR, sweepRad, visible, ctx, now);
+                drawRadarScope(
+                    scopeSprReady ? &scopeSpr : nullptr, scopeCx, scopeCy, scopeR, sweepRad, visible, ctx
+                );
 #else
-                drawRadarScope(nullptr, scopeCx, scopeCy, scopeR, sweepRad, visible, ctx, now);
+                drawRadarScope(nullptr, scopeCx, scopeCy, scopeR, sweepRad, visible, ctx);
 #endif
-                checkContactBeep(visible, wrapped);
+                checkAlertBeep(visible);
                 lastFrameMs = now;
 
-                if (wideLayout && (now - lastHudMs >= 320 || lastHudMs == 0)) {
-                    drawRadarHud(
-                        hudX, contentTop, hudW, contentH, mode, timeSliced, wifiScanning, bleScanning, visible, ctx
+                if (wideLayout && (now - lastHudMs >= 300 || lastHudMs == 0)) {
+                    hudMetrics = drawRadarHud(
+                        hudX, contentTop, hudW, contentH, mode, wifiScanning, bleScanning, visible, ctx
                     );
                     lastHudMs = now;
                 }
@@ -2969,23 +3108,22 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
             pruneStaleTargets(ctx);
             if (view == RadarView::TABLE) {
                 std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
-                drawIntelTable(
-                    contentL, contentTop, contentW, contentH, mode, timeSliced, wifiScanning, bleScanning,
-                    visible, ctx
+                tableMetrics = drawIntelTable(
+                    contentL, contentTop, contentW, contentH, mode, wifiScanning, bleScanning, visible, ctx
                 );
-                checkContactBeep(visible, false);
+                checkAlertBeep(visible);
             } else if (view == RadarView::FOX_SPEC) {
                 std::vector<RadarTarget> allList = snapshotTargets(ctx, mode, true);
                 drawFoxHuntOrSpectrum(contentL, contentTop, contentW, contentH, allList, ctx);
             } else {
                 std::vector<RadarTarget> allList = snapshotTargets(ctx, mode, true);
-                drawThreatConsole(contentL, contentTop, contentW, contentH, allList, ctx);
-                checkContactBeep(allList, false);
+                alertMetrics = drawThreatConsole(contentL, contentTop, contentW, contentH, allList, ctx);
+                checkAlertBeep(allList);
             }
             lastHudMs = now;
         }
 
-        // 6) Direct Touch Interaction (6-Button Softkeys + Touch-to-Lock Scope Blips + Table Row Tap)
+        // 6) Direct Touch Interaction (6-Button Softkeys + Scope Blip/HUD Tap + Table/Alerts Tap)
 #if defined(HAS_TOUCH)
         bool gotTap = false;
         int tx = 0, ty = 0;
@@ -3005,7 +3143,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                     case 0: cycleView(1); break;
                     case 1: cycleZoom(); break;
                     case 2: cycleFilter(1); break;
-                    case 3: autoLockPriorityThreat(); break;
+                    case 3: lockFocusedOrPriority(); break;
                     case 4: openMenuReq = true; break;
                     case 5: exitRadar = true; break;
                 }
@@ -3015,9 +3153,11 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 if (dx * dx + dy * dy <= (scopeR + 10) * (scopeR + 10)) {
                     std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
                     int bestIdx = -1;
-                    int bestD2 = 20 * 20;
+                    int bestD2 = 22 * 22;
                     for (int i = 0; i < (int)visible.size(); ++i) {
                         const RadarTarget &t = visible[i];
+                        bool isLocked = ctx.hasLocked && isSameTarget(t, ctx.lockedType, ctx.lockedMac);
+                        if (t.distM > ctx.rangeMaxM && !(t.flags & RFLAG_ANY_ALERT) && !isLocked) continue;
                         int distPx = distToRadius(t.distM, scopeR, ctx.rangeMaxM);
                         float ang = t.hasTriangulated ? atan2f(-t.relY, t.relX) : t.angleRad;
                         int bx = scopeCx + (int)(cosf(ang) * distPx);
@@ -3029,18 +3169,42 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                         }
                     }
                     if (bestIdx >= 0) {
-                        lockOnTarget(ctx, visible[bestIdx]);
-                        ctx.shockR = 7.0f;
-                        drawSoftkeyBar();
+                        bool alreadyFocused =
+                            ctx.hasFocused && isSameTarget(visible[bestIdx], ctx.focusedType, ctx.focusedMac);
+                        ctx.scopeCursor = bestIdx;
+                        setFocusedTarget(ctx, visible[bestIdx]);
+                        if (alreadyFocused) {
+                            lockOnTarget(ctx, visible[bestIdx]);
+                            drawSoftkeyBar();
+                            radarEmitLockChirp();
+                        }
                         lastHudMs = 0;
-                        radarEmitLockChirp();
+                    }
+                } else if (wideLayout && tx >= hudX && tx < hudX + hudW) {
+                    std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
+                    if (ty >= hudMetrics.cardY && ty < hudMetrics.cardY + hudMetrics.cardH) {
+                        // Tapping focused/locked card toggles lock on it
+                        lockFocusedOrPriority();
+                    } else if (hudMetrics.visRows > 0 && ty >= hudMetrics.listY && ty < contentBot) {
+                        int tappedRow = (ty - hudMetrics.listY) / max(1, hudMetrics.rowH);
+                        int idx = ctx.scopeScroll + tappedRow;
+                        if (idx >= 0 && idx < (int)visible.size()) {
+                            if (ctx.scopeCursor == idx) {
+                                lockOnTarget(ctx, visible[idx]);
+                                drawSoftkeyBar();
+                                radarEmitLockChirp();
+                            } else {
+                                ctx.scopeCursor = idx;
+                                setFocusedTarget(ctx, visible[idx]);
+                            }
+                            lastHudMs = 0;
+                        }
                     }
                 }
             } else if (view == RadarView::TABLE) {
-                int rowsTop = contentTop + (LH + 5) + 2 + (LH + 3);
-                int rowH = LH + 4;
-                if (ty >= rowsTop && ty < contentBot) {
-                    int tappedRow = (ty - rowsTop) / rowH;
+                if (tableMetrics.visRows > 0 && ty >= tableMetrics.rowsTop &&
+                    ty < tableMetrics.rowsTop + tableMetrics.visRows * tableMetrics.rowH) {
+                    int tappedRow = (ty - tableMetrics.rowsTop) / max(1, tableMetrics.rowH);
                     std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
                     int idx = ctx.tableScroll + tappedRow;
                     if (idx >= 0 && idx < (int)visible.size()) {
@@ -3050,6 +3214,25 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                             radarEmitLockChirp();
                         } else {
                             ctx.tableCursor = idx;
+                            setFocusedTarget(ctx, visible[idx]);
+                        }
+                        lastHudMs = 0;
+                    }
+                }
+            } else if (view == RadarView::THREAT) {
+                if (alertMetrics.visRows > 0 && ty >= alertMetrics.rowsTop &&
+                    ty < alertMetrics.rowsTop + alertMetrics.visRows * alertMetrics.rowH) {
+                    int tappedRow = (ty - alertMetrics.rowsTop) / max(1, alertMetrics.rowH);
+                    std::vector<RadarTarget> alerts = extractAlertTargets(snapshotTargets(ctx, mode, true));
+                    int idx = ctx.alertScroll + tappedRow;
+                    if (idx >= 0 && idx < (int)alerts.size()) {
+                        if (ctx.alertCursor == idx) {
+                            lockOnTarget(ctx, alerts[idx]);
+                            view = RadarView::FOX_SPEC;
+                            drawLayout();
+                            radarEmitLockChirp();
+                        } else {
+                            ctx.alertCursor = idx;
                         }
                         lastHudMs = 0;
                     }
@@ -3058,7 +3241,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         }
 #endif
 
-        // 7) Physical QWERTY Keyboard Tactical Hotkeys (T-Deck / Cardputer)
+        // 7) Physical QWERTY Keyboard Hotkeys (T-Deck / Cardputer)
 #if defined(HAS_KEYBOARD)
         char hk = checkLetterShortcutPress();
         if (hk > 0) {
@@ -3067,7 +3250,11 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 case 'v': cycleView(1); break;
                 case 'z': cycleZoom(); break;
                 case 'f': cycleFilter(1); break;
-                case 'l': autoLockPriorityThreat(); break;
+                case 'l': lockFocusedOrPriority(); break;
+                case 'n':
+                    ctx.noiseFilter = !ctx.noiseFilter;
+                    lastHudMs = 0;
+                    break;
                 case 'g':
                     ctx.geigerAudio = !ctx.geigerAudio;
                     lastHudMs = 0;
@@ -3081,10 +3268,9 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                     for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) ctx.targets[i].active = false;
                     portEXIT_CRITICAL(&ctx.mux);
                     ctx.foxHistCount = 0;
-                    ctx.shockR = 7.0f;
+                    ctx.hasFocused = false;
                     lastSweepEndMs = 0;
                     lastHudMs = 0;
-                    radarLogEvent(ctx, COL_QIANKUN_GOLD, "MANUAL RESCAN");
                     break;
                 case 'q': exitRadar = true; break;
                 default: break;
@@ -3096,23 +3282,25 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
         if (check(EscPress)) {
             exitRadar = true;
         } else if (check(PrevPress)) {
+#if defined(HAS_3_BUTTONS)
+            if (view == RadarView::TABLE) stepSelection(-1);
+            else cycleView(-1);
+#else
             cycleView(-1);
+#endif
         } else if (check(NextPress)) {
+#if defined(HAS_3_BUTTONS)
+            if (view == RadarView::TABLE) stepSelection(1);
+            else cycleView(1);
+#else
             cycleView(1);
+#endif
         } else if (check(UpPress)) {
-            if (view == RadarView::TABLE) {
-                if (ctx.tableCursor > 0) --ctx.tableCursor;
-                lastHudMs = 0;
-            } else {
-                cycleFilter(-1);
-            }
+            if (view == RadarView::FOX_SPEC) cycleFilter(-1);
+            else stepSelection(-1);
         } else if (check(DownPress)) {
-            if (view == RadarView::TABLE) {
-                ++ctx.tableCursor;
-                lastHudMs = 0;
-            } else {
-                cycleFilter(1);
-            }
+            if (view == RadarView::FOX_SPEC) cycleFilter(1);
+            else stepSelection(1);
         } else if (openMenuReq || check(SelPress)) {
             openMenuReq = false;
             stopAllScans();
@@ -3123,10 +3311,23 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
             touchZoneOutsideFooterEnabled = true;
 #endif
             std::vector<RadarTarget> visible = snapshotTargets(ctx, mode);
-            bool hasTableSelection =
-                (view == RadarView::TABLE && !visible.empty() && ctx.tableCursor >= 0 &&
-                 ctx.tableCursor < (int)visible.size());
-            RadarTarget focused = hasTableSelection ? visible[ctx.tableCursor] : RadarTarget{};
+            bool hasSelection = false;
+            RadarTarget focused{};
+            if (view == RadarView::THREAT) {
+                std::vector<RadarTarget> alerts = extractAlertTargets(snapshotTargets(ctx, mode, true));
+                if (!alerts.empty()) {
+                    int idx = constrain(ctx.alertCursor, 0, (int)alerts.size() - 1);
+                    focused = alerts[idx];
+                    hasSelection = true;
+                }
+            } else if (!visible.empty()) {
+                int cur = (view == RadarView::TABLE) ? ctx.tableCursor : ctx.scopeCursor;
+                syncCursorToFocus(ctx, visible, cur);
+                if (cur >= 0 && cur < (int)visible.size()) {
+                    focused = visible[cur];
+                    hasSelection = true;
+                }
+            }
 
             enum RadarMenuAction : uint8_t {
                 ACT_NONE = 0,
@@ -3140,6 +3341,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 ACT_CYCLE_VIEW,
                 ACT_CYCLE_ZOOM,
                 ACT_CYCLE_FILTER,
+                ACT_NOISE_FILTER,
                 ACT_LABELS,
                 ACT_LOC_INFO,
                 ACT_SET_GPS_ANCHOR,
@@ -3163,15 +3365,17 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 menuOpts.push_back({ctx.geigerAudio ? "Geiger Beep: ON" : "Geiger Beep: OFF",
                                     [&]() { act = ACT_GEIGER; }});
             } else {
-                menuOpts.push_back({"Auto-Lock Threat", [&]() { act = ACT_AUTOLOCK; }});
+                menuOpts.push_back({"Lock", [&]() { act = ACT_AUTOLOCK; }});
             }
-            menuOpts.push_back({bruceConfig.radarBeep ? "Radar Beep: ON" : "Radar Beep: OFF",
-                                [&]() { act = ACT_RADAR_BEEP; }});
             menuOpts.push_back({String("View: ") + viewName(view, ctx.hasLocked),
                                 [&]() { act = ACT_CYCLE_VIEW; }});
             menuOpts.push_back({String(zoomMenuBuf), [&]() { act = ACT_CYCLE_ZOOM; }});
             menuOpts.push_back({modeLabel(mode), [&]() { act = ACT_CYCLE_FILTER; }});
+            menuOpts.push_back({ctx.noiseFilter ? "Noise Filter: ON" : "Noise Filter: OFF",
+                                [&]() { act = ACT_NOISE_FILTER; }});
             menuOpts.push_back({ctx.showLabels ? "Labels: ON" : "Labels: OFF", [&]() { act = ACT_LABELS; }});
+            menuOpts.push_back({bruceConfig.radarBeep ? "Radar Beep: ON" : "Radar Beep: OFF",
+                                [&]() { act = ACT_RADAR_BEEP; }});
             menuOpts.push_back({"Location State", [&]() { act = ACT_LOC_INFO; }});
             menuOpts.push_back({"Set GPS Anchor", [&]() { act = ACT_SET_GPS_ANCHOR; }});
             menuOpts.push_back({"Save Location State", [&]() { act = ACT_SAVE_LOC; }});
@@ -3184,7 +3388,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
             switch (act) {
                 case ACT_INSPECT: {
                     RadarTarget chosen = focused;
-                    bool have = hasTableSelection || pickTarget(ctx, visible, "Inspect Target", chosen);
+                    bool have = hasSelection || pickTarget(ctx, visible, "Inspect Target", chosen);
                     if (have) {
                         bool wantTri = false, wantFox = false;
                         showDeviceInspector(ctx, chosen, wantTri, wantFox);
@@ -3199,7 +3403,7 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 }
                 case ACT_FOXHUNT: {
                     RadarTarget chosen = focused;
-                    bool have = hasTableSelection || pickTarget(ctx, visible, "Fox-Hunt / Geiger", chosen);
+                    bool have = hasSelection || pickTarget(ctx, visible, "Fox-Hunt / Geiger", chosen);
                     if (have) {
                         lockOnTarget(ctx, chosen);
                         view = RadarView::FOX_SPEC;
@@ -3208,10 +3412,10 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 }
                 case ACT_TRIANGULATE: {
                     RadarTarget chosen = focused;
-                    bool have = hasTableSelection;
+                    bool have = hasSelection;
                     if (!have && ctx.hasLocked) {
                         for (const auto &v : visible) {
-                            if (v.type == ctx.lockedType && memcmp(v.mac, ctx.lockedMac, 6) == 0) {
+                            if (isSameTarget(v, ctx.lockedType, ctx.lockedMac)) {
                                 chosen = v;
                                 have = true;
                                 break;
@@ -3227,11 +3431,10 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                     break;
                 }
                 case ACT_AUTOLOCK:
-                    autoLockPriorityThreat();
+                    lockFocusedOrPriority();
                     break;
                 case ACT_UNLOCK:
                     ctx.hasLocked = false;
-                    radarLogEvent(ctx, TFT_LIGHTGREY, "TARGET UNLOCKED");
                     break;
                 case ACT_GEIGER:
                     ctx.geigerAudio = !ctx.geigerAudio;
@@ -3248,6 +3451,16 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                 case ACT_CYCLE_FILTER:
                     mode = static_cast<RadarMode>(((int)mode + 1) % 5);
                     nextIsBle = (mode == RadarMode::BLE_ONLY);
+                    ctx.scopeCursor = 0;
+                    ctx.scopeScroll = 0;
+                    ctx.tableCursor = 0;
+                    ctx.tableScroll = 0;
+                    ctx.hasFocused = false;
+                    break;
+                case ACT_NOISE_FILTER:
+                    ctx.noiseFilter = !ctx.noiseFilter;
+                    ctx.scopeCursor = 0;
+                    ctx.scopeScroll = 0;
                     ctx.tableCursor = 0;
                     ctx.tableScroll = 0;
                     break;
@@ -3277,9 +3490,8 @@ void radar_setup(RadarInitialMode initialMode, RadarInitialView initialView) {
                     for (size_t i = 0; i < RADAR_MAX_TARGETS; ++i) ctx.targets[i].active = false;
                     portEXIT_CRITICAL(&ctx.mux);
                     ctx.foxHistCount = 0;
-                    ctx.shockR = 7.0f;
+                    ctx.hasFocused = false;
                     lastSweepEndMs = 0;
-                    radarLogEvent(ctx, COL_QIANKUN_GOLD, "MANUAL RESCAN");
                     break;
                 case ACT_EXIT:
                     exitRadar = true;

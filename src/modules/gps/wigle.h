@@ -13,15 +13,18 @@
 
 class Wigle {
 public:
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Constructor
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Construction is trivial (empty ctor and dtor); the WiGLE credential and
+     * derived auth_header are filled in per operation from the saved config.
+     */
     Wigle();
     ~Wigle();
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Network operations against api.wigle.net over TLS: get_user() validates the
+     * stored token, and upload()/upload_all() push one file or a whole folder,
+     * optionally deleting the source once the server accepted it.
+     */
     bool get_user(void);
     bool upload(FS *fs, const String &filepath, bool auto_delete = true);
     bool upload_all(FS *fs, const String &filepath, bool auto_delete = true);

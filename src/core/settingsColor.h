@@ -49,9 +49,11 @@
 #define UI_COLOR_SHOCKING_PINK_SEC 0xFE39
 #define UI_COLOR_SHOCKING_PINK_BG 0xE015
 
-// ============================================================================
-// 哪吒魔童 (哪吒1·魔童降世 & 哪吒2·魔童闹海) Curated 24-Palette Collection
-// ============================================================================
+/*
+ * Curated 24-palette Nezha theme collection.
+ * Each entry defines the RGB565 primary/secondary/background triple consumed by
+ * NEZHA_THEME_PACKS and the UI_COLORS picker.
+ */
 #define UI_COLOR_NEZHA_MOTONG_PRI 0xF945       // Nezha 1 signature crimson
 #define UI_COLOR_NEZHA_MOTONG_SEC 0xFE60       // Wind-Fire radiant gold
 #define UI_COLOR_NEZHA_MOTONG_BG 0x0800        // Volcanic obsidian
@@ -284,7 +286,10 @@ struct NezhaThemePack {
 
 // 24 Built-in 哪吒魔童 Theme Packs (12 哪吒1·魔童降世 + 12 哪吒2·魔童闹海)
 static constexpr NezhaThemePack NEZHA_THEME_PACKS[] = {
-    // --- 哪吒1 · 魔童降世 (12 packs) ---
+    /*
+     * First chapter of the curated theme-pack table.
+     * The following 12 entries belong to 哪吒1·魔童降世 (chapter = 1).
+     */
     {"Nezha 1: Birth",       "My fate is mine!",         UI_COLOR_NEZHA_MOTONG_PRI,         UI_COLOR_NEZHA_MOTONG_SEC,         UI_COLOR_NEZHA_MOTONG_BG,         1, 1, 0xFF2820},
     {"Hun Tian Ling",        "Crimson silk unbound",     UI_COLOR_HUN_TIAN_LING_PRI,        UI_COLOR_HUN_TIAN_LING_SEC,        UI_COLOR_HUN_TIAN_LING_BG,        1, 1, 0xFF1430},
     {"Wind-Fire Wheels",     "Blazing twin wheels",      UI_COLOR_WIND_FIRE_WHEELS_PRI,     UI_COLOR_WIND_FIRE_WHEELS_SEC,     UI_COLOR_WIND_FIRE_WHEELS_BG,     1, 1, 0xFF7400},
@@ -297,7 +302,10 @@ static constexpr NezhaThemePack NEZHA_THEME_PACKS[] = {
     {"Heavenly Tribulation", "Defying sky lightning",    UI_COLOR_TRIBULATION_PRI,          UI_COLOR_TRIBULATION_SEC,          UI_COLOR_TRIBULATION_BG,          3, 1, 0xD8EAFF},
     {"Shanhe Scroll",        "Living painted mountains", UI_COLOR_SHANHE_SCROLL_PRI,        UI_COLOR_SHANHE_SCROLL_SEC,        UI_COLOR_SHANHE_SCROLL_BG,        2, 1, 0x20D890},
     {"Taiyi Immortal",       "Kunlun jade & wine",       UI_COLOR_TAIYI_IMMORTAL_PRI,       UI_COLOR_TAIYI_IMMORTAL_SEC,       UI_COLOR_TAIYI_IMMORTAL_BG,       2, 1, 0xEEFCE8},
-    // --- 哪吒2 · 魔童闹海 (12 packs) ---
+    /*
+     * Second chapter of the curated theme-pack table.
+     * The following 12 entries belong to 哪吒2·魔童闹海 (chapter = 2).
+     */
     {"Nezha 2: Sea Rage",    "Shatter heaven and sea!",  UI_COLOR_DEMON_SEA_RAGE_PRI,       UI_COLOR_DEMON_SEA_RAGE_SEC,       UI_COLOR_DEMON_SEA_RAGE_BG,       4, 2, 0xFF4420},
     {"Six-Arm Awakened",     "Inferno demon form",       UI_COLOR_SIX_ARM_AWAKENED_PRI,     UI_COLOR_SIX_ARM_AWAKENED_SEC,     UI_COLOR_SIX_ARM_AWAKENED_BG,     4, 2, 0xFF4810},
     {"Lotus Rebirth",        "Reborn in seven-lotus",    UI_COLOR_LOTUS_REBIRTH_PRI,        UI_COLOR_LOTUS_REBIRTH_SEC,        UI_COLOR_LOTUS_REBIRTH_BG,        2, 2, 0xFF4688},

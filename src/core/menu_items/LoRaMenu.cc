@@ -28,7 +28,10 @@ void LoRaMenu::drawIcon(float scale) {
     if (lineWidth < 2) lineWidth = 2;
     int ballRad = scale * 6;
 
-    // --- LEGS UPDATED (Y changed from 95 to 85) ---
+    /*
+     * Tower legs, in design space (0..100) mapped through CALC_X/CALC_Y: they
+     * splay from the 44..56 apex span at Y 35 outward to 26..74 at Y 85.
+     */
 
     // Left Leg
     tft.drawWideLine(
@@ -39,7 +42,10 @@ void LoRaMenu::drawIcon(float scale) {
         CALC_X(56), CALC_Y(35), CALC_X(74), CALC_Y(85), lineWidth, bruceConfig.priColor, bruceConfig.priColor
     );
 
-    // --- CROSS BARS (Unchanged) ---
+    /*
+     * Rails: the 44..56 bar at Y 35 closes the apex, the 35..65 bar at Y 65 is
+     * the waist that separates the upper and lower lattice sections.
+     */
 
     // Top Cross Bar
     tft.drawWideLine(
@@ -51,7 +57,10 @@ void LoRaMenu::drawIcon(float scale) {
         CALC_X(35), CALC_Y(65), CALC_X(65), CALC_Y(65), lineWidth, bruceConfig.priColor, bruceConfig.priColor
     );
 
-    // --- X-BRACING TOP (Unchanged) ---
+    /*
+     * Upper X-brace: both diagonals span Y 35..65, swapping X between the apex
+     * ends (44/56) and the waist rail ends (35/65).
+     */
 
     // X-Bracing (Top Section)
     tft.drawWideLine(
@@ -61,7 +70,10 @@ void LoRaMenu::drawIcon(float scale) {
         CALC_X(56), CALC_Y(35), CALC_X(35), CALC_Y(65), lineWidth, bruceConfig.priColor, bruceConfig.priColor
     );
 
-    // --- X-BRACING BOTTOM UPDATED (Y changed from 95 to 85) ---
+    /*
+     * Lower X-brace: diagonals run from the waist rail ends (35/65 at Y 65)
+     * down to the opposite leg base (74/26 at Y 85), closing the lattice.
+     */
 
     // X-Bracing (Bottom Section)
     tft.drawWideLine(
@@ -71,7 +83,10 @@ void LoRaMenu::drawIcon(float scale) {
         CALC_X(65), CALC_Y(65), CALC_X(26), CALC_Y(85), lineWidth, bruceConfig.priColor, bruceConfig.priColor
     );
 
-    // --- REST IS UNCHANGED ---
+    /*
+     * Emitter: the ball is the only filled shape and sits above the apex at
+     * Y 25; two concentric arcs per side (90 / 270 deg +/- 30) are the waves.
+     */
 
     // ball
     int ballY = CALC_Y(25);

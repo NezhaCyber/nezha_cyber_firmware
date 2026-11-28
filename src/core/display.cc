@@ -41,10 +41,10 @@ void panelSleep(bool on) {
 
 // Boards without their own isCharging() fall back to the HAL (gauge IC or analog divider heuristic)
 bool __attribute__((weak)) isCharging() { return hal_gauge_is_charging(); }
-/***************************************************************************************
-** Function name: displayScrollingText
-** Description:   Scroll large texts into screen
-***************************************************************************************/
+/*
+ * Function name: displayScrollingText
+ * Description:   Scroll large texts into screen
+ */
 void displayScrollingText(const String &text, Opt_Coord &coord, bool highlight) {
     String trText = bruce_i18n::tr(text);
     bool useFont2 = false;
@@ -94,10 +94,10 @@ void displayScrollingText(const String &text, Opt_Coord &coord, bool highlight) 
     (void)ts;
 }
 
-/***************************************************************************************
-** Function name: TouchFooter
-** Description:   Draw touch screen footer
-***************************************************************************************/
+/*
+ * Function name: TouchFooter
+ * Description:   Draw touch screen footer
+ */
 void TouchFooter(uint16_t color) {
 #if defined(HAS_TOUCH) && !defined(NO_TOUCH_FOOTER)
     int fx = BORDER_OFFSET_FROM_SCREEN_EDGE;
@@ -122,10 +122,10 @@ void TouchFooter(uint16_t color) {
     (void)color;
 #endif
 }
-/***************************************************************************************
-** Function name: MegaFooter
-** Description:   Draw touch screen footer
-***************************************************************************************/
+/*
+ * Function name: MegaFooter
+ * Description:   Draw touch screen footer
+ */
 void MegaFooter(uint16_t color) {
 #if defined(HAS_TOUCH) && !defined(NO_TOUCH_FOOTER)
     int fx = BORDER_OFFSET_FROM_SCREEN_EDGE;
@@ -151,10 +151,10 @@ void MegaFooter(uint16_t color) {
 #endif
 }
 
-/***************************************************************************************
-** Function name: resetTftDisplay
-** Description:   set cursor to 0,0, screen and text to default color
-***************************************************************************************/
+/*
+ * Function name: resetTftDisplay
+ * Description:   set cursor to 0,0, screen and text to default color
+ */
 void resetTftDisplay(int x, int y, uint16_t fc, int size, uint16_t bg, uint16_t screen) {
     invalidateStatusBarCache();
     tft.setCursor(x, y);
@@ -164,10 +164,10 @@ void resetTftDisplay(int x, int y, uint16_t fc, int size, uint16_t bg, uint16_t 
     tft.setTextDatum(0);
 }
 
-/***************************************************************************************
-** Function name: setTftDisplay
-** Description:   set cursor, font color, size and bg font color
-***************************************************************************************/
+/*
+ * Function name: setTftDisplay
+ * Description:   set cursor, font color, size and bg font color
+ */
 void setTftDisplay(int x, int y, uint16_t fc, int size, uint16_t bg) {
     if (x >= 0 && y < 0) tft.setCursor(x, tft.getCursorY());      // if -1 on x, sets only y
     else if (x < 0 && y >= 0) tft.setCursor(tft.getCursorX(), y); // if -1 on y, sets only x
@@ -195,10 +195,10 @@ bool wakeUpScreen() {
     return false;
 }
 
-/***************************************************************************************
-** Function name: wrapText
-** Description:   Wrap text to fit within a maximum width, returning vector of lines
-***************************************************************************************/
+/*
+ * Function name: wrapText
+ * Description:   Wrap text to fit within a maximum width, returning vector of lines
+ */
 std::vector<String> wrapText(const String &text, int maxCharsPerLine) {
     std::vector<String> lines;
     if (maxCharsPerLine <= 0) return lines;
@@ -230,10 +230,10 @@ std::vector<String> wrapText(const String &text, int maxCharsPerLine) {
     return lines;
 }
 
-/***************************************************************************************
-** Function name: displayRedStripe
-** Description:   Display Red Stripe with information (supports multi-line text wrapping)
-***************************************************************************************/
+/*
+ * Function name: displayRedStripe
+ * Description:   Display Red Stripe with information (supports multi-line text wrapping)
+ */
 void displayRedStripe(const String &text, uint16_t fgcolor, uint16_t bgcolor) {
     if (fgcolor == bgcolor && fgcolor == TFT_WHITE) fgcolor = TFT_BLACK;
 
@@ -638,10 +638,10 @@ void padprintln(double n, int digits, int16_t padx) {
     tft.println(n, digits);
 }
 
-/*********************************************************************
-**  Function: loopOptions
-**  Where you choose among the options in menu
-**********************************************************************/
+/*
+ *  Function: loopOptions
+ *  Where you choose among the options in menu
+ */
 static bool s_submenuForceFull = true;
 
 int loopOptions(
@@ -1028,11 +1028,11 @@ int loopOptions(
     return index;
 }
 
-/***************************************************************************************
-** Function name: progressHandler
-** Description:   Função para manipular o progresso da atualização
-** Dependencia: prog_handler =>>    0 - Flash, 1 - LittleFS
-***************************************************************************************/
+/*
+ * Function name: progressHandler
+ * Description:   Função para manipular o progresso da atualização
+ * Dependencia: prog_handler =>>    0 - Flash, 1 - LittleFS
+ */
 static void drawBackChevron(int cx, int cy, uint16_t color) {
     tft.drawLine(cx + 3, cy - 4, cx - 2, cy, color);
     tft.drawLine(cx + 2, cy - 4, cx - 3, cy, color);
@@ -1091,10 +1091,10 @@ void progressHandler(int progress, size_t total, const String &message) {
     s_lastPct = (pct >= 100) ? -1 : pct;
 }
 
-/***************************************************************************************
-** Function name: drawOptions
-** Description:   Clean hardware list/modal picker with Font 2, color swatches & partial redraws
-***************************************************************************************/
+/*
+ * Function name: drawOptions
+ * Description:   Clean hardware list/modal picker with Font 2, color swatches & partial redraws
+ */
 Opt_Coord drawOptions(
     int index, std::vector<Option> &options, uint16_t fgcolor, uint16_t selcolor, uint16_t bgcolor,
     bool firstRender, bool border, bool compact
@@ -1349,10 +1349,10 @@ Opt_Coord drawOptions(
     return coord;
 }
 
-/***************************************************************************************
-** Function name: drawSubmenu
-** Description:   Clean industrial hardware list with crisp Font 2 & partial-row redraws
-***************************************************************************************/
+/*
+ * Function name: drawSubmenu
+ * Description:   Clean industrial hardware list with crisp Font 2 & partial-row redraws
+ */
 void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
     drawStatusBar();
     int menuSize = static_cast<int>(options.size());
@@ -1638,6 +1638,17 @@ void drawNezhaCornerBrackets(int x, int y, int w, int h, uint16_t pri, uint16_t 
     tft.fillRect(x + w - 4, y + h - 4, 2, 2, sec);
 }
 
+int uiContentTop() { return BORDER_PAD_Y + 22; }
+
+int uiFooterTop() {
+    int fh = (FP == 1 && bruce_i18n::isChinese()) ? 12 : (LH * FP);
+    return tftHeight - BORDER_PAD_X - fh;
+}
+
+int uiContentBottom(bool withFooter) {
+    return withFooter ? (uiFooterTop() - 4) : (tftHeight - BORDER_PAD_X - 2);
+}
+
 void uiDrawCard(int x, int y, int w, int h, bool accentRule) {
     if (w <= 4 || h <= 4) return;
     uint16_t surf = uiSurfaceColor();
@@ -1682,6 +1693,69 @@ void uiDrawKeyValueRow(
     tft.drawString(fittedKey, x, y, 1);
     tft.setTextColor(valCol, bgCol);
     tft.drawRightString(fittedVal, x + w, y, 1);
+}
+
+void uiDrawStatusStrip(
+    int x, int y, int w, const String &statusText, uint16_t statusCol, const String &rightText
+) {
+    if (w <= 16) return;
+    const uint16_t surf = uiSurfaceColor();
+    const String trStatus = bruce_i18n::tr(statusText);
+    const String trRight = rightText.isEmpty() ? String("") : bruce_i18n::tr(rightText);
+    const int th = (FP == 1 && (bruce_i18n::containsNonAscii(trStatus) || bruce_i18n::containsNonAscii(trRight)))
+                       ? 12
+                       : (LH * FP);
+    const int h = th + 6;
+
+    tft.fillRoundRect(x, y, w, h, 4, surf);
+    tft.drawRoundRect(x, y, w, h, 4, uiBorderDimColor());
+    tft.fillRoundRect(x + 1, y + 2, 3, h - 4, 1, statusCol);
+
+    tft.setTextDatum(TL_DATUM);
+    tft.setTextSize(FP);
+    const int textY = y + (h - th) / 2;
+    const int rightPx = trRight.isEmpty() ? 0 : (bruce_i18n::utf8PixelWidth(trRight, FP) + 8);
+    const int leftMax = max(24, w - 12 - rightPx);
+    tft.setTextColor(statusCol, surf);
+    tft.drawString(bruce_i18n::utf8TruncateToWidth(trStatus, leftMax, FP), x + 8, textY, 1);
+    if (!trRight.isEmpty()) {
+        tft.setTextColor(uiTextBrightColor(), surf);
+        tft.drawRightString(
+            bruce_i18n::utf8TruncateToWidth(trRight, w - 16, FP), x + w - 5, textY, 1
+        );
+    }
+}
+
+void uiDrawProgressBar(int x, int y, int w, int h, int pct, uint16_t fillCol, bool segmented) {
+    if (w <= 6 || h <= 3) return;
+    pct = constrain(pct, 0, 100);
+    if (fillCol == 0) fillCol = bruceConfig.priColor;
+    const uint16_t track = uiSurfaceHiColor();
+    const uint16_t border = uiBorderDimColor();
+
+    if (segmented && w >= 48) {
+        tft.fillRect(x, y, w, h, uiSurfaceColor());
+        tft.drawRect(x, y, w, h, border);
+        const int segs = (w >= 140) ? 16 : 10;
+        const int gap = 2;
+        const int innerW = w - 4;
+        const int segW = max(2, (innerW - gap * (segs - 1)) / segs);
+        const int lit = (pct * segs + 50) / 100;
+        for (int s = 0; s < segs; ++s) {
+            uint16_t sc = (s < lit) ? fillCol : track;
+            tft.fillRect(x + 2 + s * (segW + gap), y + 2, segW, max(1, h - 4), sc);
+        }
+        return;
+    }
+
+    const int rad = min(6, h / 2);
+    tft.fillRoundRect(x, y, w, h, rad, track);
+    tft.drawRoundRect(x, y, w, h, rad, border);
+    const int innerW = w - 2;
+    const int fillW = (innerW * pct) / 100;
+    if (fillW > 1) {
+        tft.fillRoundRect(x + 1, y + 1, fillW, max(1, h - 2), max(1, rad - 1), fillCol);
+    }
 }
 
 void invalidateStatusBarCache() { s_statusBarCache.valid = false; }
@@ -2082,13 +2156,13 @@ void drawMfkey64Icon(int x, int y) {
     tft.drawCircle(x + 48, y + 12, 4, getColorVariation(bruceConfig.priColor, 3, -1));
 }
 
-// ####################################################################################################
-//  Draw a JPEG on the TFT, images will be cropped on the right/bottom sides if they do not fit
-// ####################################################################################################
-//  from:
-//  https://github.com/Bodmer/TFT_eSPI/blob/master/examples/Generic/ESP32_SDcard_jpeg/ESP32_SDcard_jpeg.ino
-//  This function assumes xpos,ypos is a valid screen coordinate. For convenience images that do not
-//  fit totally on the screen are cropped to the nearest MCU size and may leave right/bottom borders.
+/*
+ * Draw a JPEG on the TFT, images will be cropped on the right/bottom sides if they do not fit
+ * from:
+ * https://github.com/Bodmer/TFT_eSPI/blob/master/examples/Generic/ESP32_SDcard_jpeg/ESP32_SDcard_jpeg.ino
+ * This function assumes xpos,ypos is a valid screen coordinate. For convenience images that do not
+ * fit totally on the screen are cropped to the nearest MCU size and may leave right/bottom borders.
+ */
 void jpegRender(int xpos, int ypos) {
 
     // jpegInfo(); // Print information from the JPEG file (could comment this line out)
@@ -2235,12 +2309,13 @@ bool showJpeg(const uint8_t *data_array, size_t data_size, int x, int y, bool ce
 }
 
 #if !defined(LITE_VERSION)
-// ####################################################################################################
-//  Draw a GIF on the TFT
-//  derived from
-//  https://github.com/bitbank2/AnimatedGIF/blob/master/examples/TFT_eSPI_memory/TFT_eSPI_memory.ino and
-//  https://github.com/bitbank2/AnimatedGIF/blob/master/examples/best_practices_example/best_practices_example.ino
-// ####################################################################################################
+/*
+ * Draw a GIF on the TFT.
+ * Derived from bitbank2's AnimatedGIF TFT_eSPI examples:
+ * examples/TFT_eSPI_memory/TFT_eSPI_memory.ino
+ * examples/best_practices_example/best_practices_example.ino
+ * https://github.com/bitbank2/AnimatedGIF
+ */
 
 Gif::Gif() : gif(nullptr), gifPosition(0, 0) {}
 
@@ -2449,20 +2524,20 @@ bool showGif(
     return true;
 }
 #endif
-/***************************************************************************************
-** Function name: getComplementaryColor2
-** Description:   Get simple complementary color in RGB565 format
-***************************************************************************************/
+/*
+ * Function name: getComplementaryColor2
+ * Description:   Get simple complementary color in RGB565 format
+ */
 uint16_t getComplementaryColor2(uint16_t color) {
     int r = 31 - ((color >> 11) & 0x1F);
     int g = 63 - ((color >> 5) & 0x3F);
     int b = 31 - (color & 0x1F);
     return (r << 11) | (g << 5) | b;
 }
-/***************************************************************************************
-** Function name: getComplementaryColor
-** Description:   Get complementary color in RGB565 format
-***************************************************************************************/
+/*
+ * Function name: getComplementaryColor
+ * Description:   Get complementary color in RGB565 format
+ */
 uint16_t getComplementaryColor(uint16_t color) {
     double r = ((color >> 11) & 0x1F) / 31.0;
     double g = ((color >> 5) & 0x3F) / 63.0;
@@ -2518,10 +2593,10 @@ uint16_t getComplementaryColor(uint16_t color) {
     return compl_color;
 }
 
-/***************************************************************************************
-** Function name: getColorVariation
-** Description:   Get a variation of color in RGB565 format
-***************************************************************************************/
+/*
+ * Function name: getColorVariation
+ * Description:   Get a variation of color in RGB565 format
+ */
 uint16_t getColorVariation(uint16_t color, int delta, int direction) {
     uint8_t r = ((color >> 11) & 0x1F);
     uint8_t g = ((color >> 5) & 0x3F);

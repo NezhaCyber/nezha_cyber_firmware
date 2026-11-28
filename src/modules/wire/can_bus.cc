@@ -138,9 +138,9 @@ static void can_sniffer_run() {
     uint32_t lastFlushMs = millis();
 
     drawMainBorderWithTitle("CAN Sniffer");
-    const int contentY = BORDER_PAD_Y + LH + 4;
+    const int contentY = uiContentTop();
     const int rowH = LH + 3;
-    const int maxRows = max(1, (int)((tftHeight - BORDER_PAD_X - LH - contentY) / rowH));
+    const int maxRows = max(1, (int)((uiContentBottom(true) - contentY) / rowH));
 
     while (!check(EscPress) && !returnToMenu) {
         wakeUpScreen();
@@ -291,7 +291,7 @@ static void can_obd2_live() {
     if (!can_driver_start(TWAI_MODE_NORMAL)) return;
 
     drawMainBorderWithTitle("OBD-II Live PIDs");
-    const int contentY = BORDER_PAD_Y + LH + 6;
+    const int contentY = uiContentTop();
 
     while (!check(EscPress) && !returnToMenu) {
         wakeUpScreen();

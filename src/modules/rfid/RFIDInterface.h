@@ -84,14 +84,22 @@ public:
 
     virtual ~RFIDInterface() {} // Virtual destructor
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Life Cycle
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Driver bring-up contract: begin() initializes the underlying chip
+     * (PN532, MFRC522, or ST25R3916) over its leased bus and returns false if
+     * the module cannot be reached, so callers fail fast before entering the
+     * operation loop.
+     */
     virtual bool begin() = 0;
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // Operations
-    /////////////////////////////////////////////////////////////////////////////////////
+    /*
+     * Polymorphic RFID operation contract shared by every driver and consumed
+     * identically by the GUI and serial CLI: read, clone, erase, write, and
+     * write_ndef act on a present tag; emulate() performs card emulation
+     * (defaulting to NOT_IMPLEMENTED); load and save round-trip dumps; and
+     * loadFromFile() provides a generic Bruce .rfid parser that drivers may
+     * override for richer handling (e.g. MIFARE keys, NTAG counters).
+     */
     virtual int read(int cardBaudRate = 0) = 0; // cardBaudRate = 0 means MIFARE, 1 means FeliCa
     virtual int clone() = 0;
     virtual int erase() = 0;

@@ -115,9 +115,11 @@ static void getLocalTimeNow(struct tm &t) {
 
 } // namespace
 
-// ============================================================================
-// 1. MUSIC PLAYER (Phone-style Now Playing UI using Bruce async audio engine)
-// ============================================================================
+/*
+ * Phone-style now-playing UI backed by the Bruce async audio engine.
+ * Browses the media filesystem, plays selected tracks via playAudioFile,
+ * and renders progress/transport controls until Esc is pressed.
+ */
 void media_music_player() {
 #if !defined(HAS_SPEAKER)
     displayWarning("No I2S speaker on this board", true);
@@ -347,9 +349,11 @@ void media_music_player() {
 #endif
 }
 
-// ============================================================================
-// 2. PHOTO VIEWER / GALLERY (Fullscreen image browser + Slideshow)
-// ============================================================================
+/*
+ * Fullscreen image browser with a slideshow mode.
+ * Lists images on the media filesystem, decodes and centers each on the
+ * display, and supports prev/next navigation plus an auto-advance slideshow.
+ */
 void media_photo_viewer() {
     bool isSd = false;
     FS *fs = getPreferredMediaFs(isSd);
@@ -460,9 +464,11 @@ void media_photo_viewer() {
     check(EscPress);
 }
 
-// ============================================================================
-// 3. PHONE NOTES / QUICK MEMO
-// ============================================================================
+/*
+ * Quick-memo notes app persisted to the media filesystem.
+ * Lets the user create, view, and delete short text notes stored as files,
+ * editing each through the on-screen keyboard.
+ */
 void phone_notes_app() {
     bool isSd = false;
     FS *fs = getPreferredMediaFs(isSd);
@@ -530,9 +536,11 @@ void phone_notes_app() {
     }
 }
 
-// ============================================================================
-// 4. POCKET CALCULATOR
-// ============================================================================
+/*
+ * On-screen 4x4 calculator.
+ * Builds the expression from the keypad grid, evaluates it, and renders
+ * the running expression and result; handles divide-by-zero and overflow.
+ */
 void phone_calculator_app() {
     static const char *kKeys[4][4] = {
         {"7", "8", "9", "/"},
@@ -671,9 +679,11 @@ void phone_calculator_app() {
     check(EscPress);
 }
 
-// ============================================================================
-// 5. STOPWATCH & LAP TIMER
-// ============================================================================
+/*
+ * Stopwatch with up to four lap timings.
+ * Tracks elapsed milliseconds from a start point, captures lap splits on
+ * demand, and redraws the large time readout on each input tick.
+ */
 void phone_stopwatch_app() {
     bool running = false;
     uint32_t startMs = 0;
@@ -772,9 +782,11 @@ void phone_stopwatch_app() {
     check(EscPress);
 }
 
-// ============================================================================
-// 6. FLASHLIGHT / TORCH & SOS STROBE
-// ============================================================================
+/*
+ * Screen flashlight/torch with an SOS strobe mode.
+ * Fills the display with white, warm, or red light or blinks an SOS pattern,
+ * cycling modes with NEXT and exiting on Esc.
+ */
 void phone_flashlight_app() {
     int mode = 0; // 0=White, 1=Warm, 2=Red Night, 3=SOS Strobe
     static const uint16_t kCols[3] = {TFT_WHITE, 0xFFE8, TFT_RED};
@@ -788,7 +800,9 @@ void phone_flashlight_app() {
         uint16_t txt = (col == TFT_BLACK || col == TFT_RED) ? TFT_WHITE : TFT_BLACK;
         tft.setTextSize(1);
         tft.setTextColor(txt, col);
-        tft.drawCentreString(String(kNames[mode]) + "  (LR=Mode  ESC=Exit)", tftWidth / 2, tftHeight - 12, 1);
+        String hint = String(bruce_i18n::tr(kNames[mode])) + "  " + bruce_i18n::tr("(LR=Mode  ESC=Exit)");
+        int fh = (FP == 1 && bruce_i18n::containsNonAscii(hint)) ? 12 : LH;
+        tft.drawCentreString(hint, tftWidth / 2, tftHeight - fh - 3, 1);
     };
 
     paint();
@@ -820,9 +834,11 @@ void phone_flashlight_app() {
     check(EscPress);
 }
 
-// ============================================================================
-// 7. PHONE HOME DASHBOARD (Lock-screen clock + 2x3 interactive app tiles)
-// ============================================================================
+/*
+ * Lock-screen home dashboard for the phone suite.
+ * Draws a clock and a 2x3 grid of interactive app tiles, launching the
+ * selected utility when its tile is chosen.
+ */
 void phone_home_setup() {
     struct AppTile {
         const char *label;

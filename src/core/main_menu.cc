@@ -146,10 +146,10 @@ void MainMenu::drawActiveStyle(int index) {
     }
 }
 
-/*********************************************************************
-**  Function: gridIndexOf
-**  Position of a menu item inside the currently built options list.
-**********************************************************************/
+/*
+ *  Function: gridIndexOf
+ *  Position of a menu item inside the currently built options list.
+ */
 int MainMenu::gridIndexOf(MenuItemInterface *item) {
     for (size_t i = 0; i < options.size(); i++) {
         if (options[i].hoverPointer == item) return (int)i;
@@ -157,11 +157,11 @@ int MainMenu::gridIndexOf(MenuItemInterface *item) {
     return 0;
 }
 
-/*********************************************************************
-**  Function: buildGridLayout
-**  Computes cell geometry for both standard Grid (4x3 / 3x2) and
-**  high-density Compact Grid (5x3 / 4x2 + bottom title bar).
-**********************************************************************/
+/*
+ *  Function: buildGridLayout
+ *  Computes cell geometry for both standard Grid (4x3 / 3x2) and
+ *  high-density Compact Grid (5x3 / 4x2 + bottom title bar).
+ */
 void MainMenu::buildGridLayout(int itemCount, bool compactTiles) {
     const bool compactScreen = (tftHeight < 160);
     const int PAGE_TAP_W = 10;
@@ -223,9 +223,9 @@ void MainMenu::buildGridLayout(int itemCount, bool compactTiles) {
     _gridRotation = bruceConfigPins.rotation;
 }
 
-/*********************************************************************
-**  Shared Grid Engine (Style 1: Grid + Style 6: Compact Grid)
-**********************************************************************/
+/*
+ *  Shared Grid Engine (Style 1: Grid + Style 6: Compact Grid)
+ */
 void MainMenu::drawGrid(int index) { drawGridCommon(index, false); }
 void MainMenu::drawCompactGrid(int index) { drawGridCommon(index, true); }
 
@@ -349,10 +349,10 @@ void MainMenu::drawCompactFooterBar(int index, int itemCount) {
     tft.drawRightString(cnt, barX + barW - 8, barY + (barH - LH * FP) / 2, 1);
 }
 
-/*********************************************************************
-**  Function: drawGridCell
-**  Paints a single module cell for Grid or Compact Grid
-**********************************************************************/
+/*
+ *  Function: drawGridCell
+ *  Paints a single module cell for Grid or Compact Grid
+ */
 void MainMenu::drawGridCell(int index, bool selected, bool compactTiles) {
     int row = index / _grid.cols - _gridScroll;
     int col = index % _grid.cols;
@@ -422,9 +422,9 @@ void MainMenu::drawGridCell(int index, bool selected, bool compactTiles) {
     tft.drawCentreString(fitted, cardX + cardW / 2, cardY + cardH - labelH - 4, 1);
 }
 
-/*********************************************************************
-**  Style 2: Icon + Title Vertical Hardware List (Partial Redraw)
-**********************************************************************/
+/*
+ *  Style 2: Icon + Title Vertical Hardware List (Partial Redraw)
+ */
 void MainMenu::drawList(int index) {
     int itemCount = (int)options.size();
     if (itemCount < 1) return;
@@ -534,9 +534,9 @@ void MainMenu::drawListRow(int index, int visibleSlot, int rowY, int rowH, bool 
     }
 }
 
-/*********************************************************************
-**  Style 3: 3-Card CoverFlow / Peek Deck
-**********************************************************************/
+/*
+ *  Style 3: 3-Card CoverFlow / Peek Deck
+ */
 void MainMenu::drawCards(int index) {
     int itemCount = (int)options.size();
     if (itemCount < 1) return;
@@ -655,9 +655,9 @@ void MainMenu::drawCards(int index) {
 #endif
 }
 
-/*********************************************************************
-**  Style 4: Hero Showcase + 5-Slot Floating Bottom Dock
-**********************************************************************/
+/*
+ *  Style 4: Hero Showcase + 5-Slot Floating Bottom Dock
+ */
 void MainMenu::drawDock(int index) {
     int itemCount = (int)options.size();
     if (itemCount < 1) return;
@@ -772,9 +772,9 @@ void MainMenu::drawDock(int index) {
 #endif
 }
 
-/*********************************************************************
-**  Style 5: Dual-Pane Cyberdeck Split (Left Rail + Right Preview)
-**********************************************************************/
+/*
+ *  Style 5: Dual-Pane Cyberdeck Split (Left Rail + Right Preview)
+ */
 void MainMenu::drawSplit(int index) {
     int itemCount = (int)options.size();
     if (itemCount < 1) return;
@@ -919,10 +919,10 @@ void MainMenu::drawSplitPreview(int index, int itemCount, int paneX, int paneY, 
     }
 }
 
-/*********************************************************************
-**  Function: drawGridScrollBar
-**  Minimal 2px scrollbar on the right indicating off-screen rows
-**********************************************************************/
+/*
+ *  Function: drawGridScrollBar
+ *  Minimal 2px scrollbar on the right indicating off-screen rows
+ */
 void MainMenu::drawGridScrollBar() {
     int barX = tftWidth - 5;
     int trackY = _grid.y + 4;
@@ -937,11 +937,11 @@ void MainMenu::drawGridScrollBar() {
     tft.fillRect(barX, thumbY, 2, thumbH, uiTextBrightColor());
 }
 
-/*********************************************************************
-**  Function: handleGridPageTap
-**  Handles hero/preview launch taps (Dock/Split) and right-edge page
-**  strip taps (Grid/Compact/List/Split).
-**********************************************************************/
+/*
+ *  Function: handleGridPageTap
+ *  Handles hero/preview launch taps (Dock/Split) and right-edge page
+ *  strip taps (Grid/Compact/List/Split).
+ */
 bool MainMenu::handleGridPageTap(int x, int y, int currentIndex, int &newIndex) {
     if (_launchRectW > 0 && x >= _launchRectX && x < _launchRectX + _launchRectW && y >= _launchRectY &&
         y < _launchRectY + _launchRectH) {
@@ -964,10 +964,10 @@ bool MainMenu::handleGridPageTap(int x, int y, int currentIndex, int &newIndex) 
     return true;
 }
 
-/*********************************************************************
-**  Function: hideAppsMenu
-**  Menu to Hide or show menus
-**********************************************************************/
+/*
+ *  Function: hideAppsMenu
+ *  Menu to Hide or show menus
+ */
 
 void MainMenu::hideAppsMenu() {
     auto items = this->getItems();
