@@ -9,6 +9,10 @@ on:
         default: "lilygo-t-deck"
         type: string
 
+concurrency:
+  group: manual-build-${{ inputs.env }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -16,37 +20,65 @@ jobs:
   build:
     name: Build ${{ inputs.env }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
+      - name: Validate target board environment before installing toolchain
+        env:
+          TARGET_ENV: ${{ inputs.env }}
+        run: |
+          if ! printf '%s' "$TARGET_ENV" | grep -Eq '^[A-Za-z0-9_.-]+$'; then
+            echo "::error::Invalid environment name: $TARGET_ENV"
+            exit 1
+          fi
+          if ! grep -rnF "[env:${TARGET_ENV}]" boards/ platformio.ini >/dev/null; then
+            echo "::error::PlatformIO environment '[env:${TARGET_ENV}]' not found in boards/ or platformio.ini."
+            exit 1
+          fi
+
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
-      - name: Cache PlatformIO
-        uses: actions/cache@v4
+      - name: Cache PlatformIO toolchain (shared across boards & workflows)
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
             ~/.platformio/packages
             ~/.platformio/platforms
-          key: pio-manual-${{ runner.os }}-${{ inputs.env }}-${{ hashFiles('platformio.ini') }}
-          restore-keys: pio-manual-${{ runner.os }}-
+          key: pio-toolchain-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            pio-toolchain-${{ runner.os }}-
+
+      - name: Cache board libdeps & object buildcache
+        uses: actions/cache@v6
+        with:
+          path: |
+            .pio/libdeps/${{ inputs.env }}
+            .pio/buildcache
+          key: pio-deps-${{ runner.os }}-${{ inputs.env }}-${{ hashFiles('platformio.ini', 'boards/**/*.ini') }}
+          restore-keys: |
+            pio-deps-${{ runner.os }}-${{ inputs.env }}-
 
       - name: Install PlatformIO
-        run: pip install --upgrade platformio
+        run: pip install --disable-pip-version-check --no-warn-script-location "platformio>=6.1,<7"
 
       - name: Build ${{ inputs.env }}
-        run: pio run -e ${{ inputs.env }}
+        env:
+          TARGET_ENV: ${{ inputs.env }}
+        run: pio run -e "$TARGET_ENV"
 
       - name: Upload merged binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NezhaCyber-${{ inputs.env }}
           path: NezhaCyber-${{ inputs.env }}.bin
-          retention-days: 14
+          if-no-files-found: error
+          retention-days: 5

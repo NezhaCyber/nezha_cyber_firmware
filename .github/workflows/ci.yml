@@ -2,17 +2,71 @@ name: CI — Nezha Cyber Firmware
 
 on:
   push:
-    branches: [main, development]
+    branches: [main]
     paths-ignore:
       - "**.md"
       - "docs/**"
       - "media/**"
+      - "portal/**"
+      - "sd_files/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".clang-format"
+      - ".editorconfig"
+      - ".kiro/**"
+      - ".cursor/**"
+      - ".trae/**"
+      - ".windsurf/**"
+      - ".roo/**"
+      - ".continue/**"
+      - ".clinerules"
+      - ".aider.conf.yml"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+      - ".github/copilot-instructions.md"
+      - ".github/dependabot.yml"
+      - ".github/workflows/manual-board-build.yml"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/stale.yml"
   pull_request:
-    branches: [main, development]
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "media/**"
+      - "portal/**"
+      - "sd_files/**"
+      - "LICENSE"
+      - ".gitignore"
+      - ".clang-format"
+      - ".editorconfig"
+      - ".kiro/**"
+      - ".cursor/**"
+      - ".trae/**"
+      - ".windsurf/**"
+      - ".roo/**"
+      - ".continue/**"
+      - ".clinerules"
+      - ".aider.conf.yml"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
+      - ".github/copilot-instructions.md"
+      - ".github/dependabot.yml"
+      - ".github/workflows/manual-board-build.yml"
+      - ".github/workflows/pages.yml"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/stale.yml"
   workflow_dispatch:
+    inputs:
+      full_matrix:
+        description: "Build all 4 CI boards instead of the 2-tier default (16MB S3 + 4MB ESP32)"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -20,14 +74,20 @@ permissions:
 
 jobs:
   verify:
-    name: Verify i18n, Fonts & Repo Structure
+    name: Verify i18n, Scripts & Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      build_firmware: ${{ steps.changes.outputs.build_firmware }}
+      matrix: ${{ steps.changes.outputs.matrix }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -46,56 +106,93 @@ jobs:
       - name: Run host-native C++ & Python unit test suite
         run: bash test/run_tests.sh
 
+      - name: Detect firmware changes & build matrix
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FULL_MATRIX: ${{ inputs.full_matrix == true }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          BUILD_FW="true"
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$PR_BASE" ]; then
+            git fetch --no-tags --depth=1 origin "$PR_BASE" 2>/dev/null || true
+            if CHANGED=$(git diff --name-only "$PR_BASE" HEAD 2>/dev/null); then
+              if ! printf '%s\n' "$CHANGED" | grep -Eq '^(src/|include/|boards/|lib/|partitions/|embedded_resources/|scripts/build/|platformio\.ini|\.gitmodules|\.github/workflows/ci\.yml)'; then
+                BUILD_FW="false"
+              fi
+            fi
+          elif [ "$EVENT_NAME" = "push" ] && [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            git fetch --no-tags --depth=1 origin "$PUSH_BEFORE" 2>/dev/null || true
+            if CHANGED=$(git diff --name-only "$PUSH_BEFORE" "$GITHUB_SHA" 2>/dev/null); then
+              if ! printf '%s\n' "$CHANGED" | grep -Eq '^(src/|include/|boards/|lib/|partitions/|embedded_resources/|scripts/build/|platformio\.ini|\.gitmodules|\.github/workflows/ci\.yml)'; then
+                BUILD_FW="false"
+              fi
+            fi
+          fi
+
+          if [ "$FULL_MATRIX" = "true" ]; then
+            MATRIX='{"include":[{"env":"lilygo-t-deck","name":"LilyGO T-Deck (ESP32-S3, 16MB)"},{"env":"m5stack-cplus1_1","name":"M5StickC Plus 1.1 (ESP32, 4MB)"},{"env":"m5stack-cardputer","name":"M5Stack Cardputer (ESP32-S3, 8MB)"},{"env":"lilygo-t-embed-cc1101","name":"LilyGO T-Embed CC1101 (ESP32-S3, 16MB)"}]}'
+          else
+            MATRIX='{"include":[{"env":"lilygo-t-deck","name":"LilyGO T-Deck (ESP32-S3, 16MB)"},{"env":"m5stack-cplus1_1","name":"M5StickC Plus 1.1 (ESP32, 4MB)"}]}'
+          fi
+
+          echo "build_firmware=$BUILD_FW" >> "$GITHUB_OUTPUT"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+          echo "Firmware build required: $BUILD_FW"
+
   build:
     name: Build (${{ matrix.env }})
     needs: verify
+    if: needs.verify.outputs.build_firmware == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - env: lilygo-t-deck
-            name: LilyGO T-Deck (ESP32-S3, 16MB)
-          - env: m5stack-cplus1_1
-            name: M5StickC Plus 1.1 (ESP32, 4MB)
-          - env: m5stack-cardputer
-            name: M5Stack Cardputer (ESP32-S3, 8MB)
-          - env: lilygo-t-embed-cc1101
-            name: LilyGO T-Embed CC1101 (ESP32-S3, 16MB)
+      matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
-      - name: Cache PlatformIO
-        uses: actions/cache@v4
+      - name: Cache PlatformIO toolchain (shared across boards & workflows)
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/pip
             ~/.platformio/.cache
             ~/.platformio/packages
             ~/.platformio/platforms
-          key: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'boards/**/*.ini') }}
+          key: pio-toolchain-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
           restore-keys: |
-            pio-${{ runner.os }}-${{ matrix.env }}-
-            pio-${{ runner.os }}-
+            pio-toolchain-${{ runner.os }}-
+
+      - name: Cache board libdeps & object buildcache
+        uses: actions/cache@v6
+        with:
+          path: |
+            .pio/libdeps/${{ matrix.env }}
+            .pio/buildcache
+          key: pio-deps-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'boards/**/*.ini') }}
+          restore-keys: |
+            pio-deps-${{ runner.os }}-${{ matrix.env }}-
 
       - name: Install PlatformIO
-        run: pip install --upgrade platformio
+        run: pip install --disable-pip-version-check --no-warn-script-location "platformio>=6.1,<7"
 
       - name: Build ${{ matrix.name }}
-        run: pio run -e ${{ matrix.env }}
+        run: pio run -e "${{ matrix.env }}"
 
       - name: Upload merged firmware artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NezhaCyber-${{ matrix.env }}
           path: NezhaCyber-${{ matrix.env }}.bin
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 5
